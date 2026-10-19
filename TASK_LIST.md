@@ -1,0 +1,60 @@
+# TASK LIST — TRACKER PENGEMBANGAN TARBIYAH
+
+Task list ini digunakan untuk memantau pengerjaan fitur secara detail dan bertahap.
+
+## 🟢 FASE 0: Inisialisasi & Fondasi (SELESAI)
+- [x] **Setup Framework**: Laravel 13, PHP 8.4, Port 8002, MySQL `db_education`
+- [x] **Setup Backend Packages**: JWT Auth, Spatie Permission v8, Activitylog v5, DomPDF, Excel, Scramble
+- [x] **Setup Frontend SPA**: React 19, React Router v7, Redux Toolkit, Tailwind CSS v4, Lucide React di `resources/js/`
+- [x] **Setup SSO Handover & Web Route**: Integrasi login langsung + token handover dari pesantren di `resources/views/app.blade.php`
+- [x] **Verifikasi Build**: `npm run build` sukses (1.7s)
+
+---
+
+## 🟡 FASE 1: Master Data Lembaga, Jenjang, & Pengguna (NEXT UP)
+- [ ] **Task 1.1**: Migrasi skema database Master Lembaga (`educational_institutions`, `education_types`, `educations`, `education_classes`)
+- [ ] **Task 1.2**: Migrasi skema database Kalender Akademik (`academic_years`, `academic_quarters`, `classrooms`)
+- [ ] **Task 1.3**: Migrasi skema tabel Siswa (`students`) dengan atribut `is_mukim` (90% santri, 10% murid reguler)
+- [ ] **Task 1.4**: Model Eloquent & Relasi untuk Lembaga, Jenjang, dan Siswa
+- [ ] **Task 1.5**: Controller API Master Lembaga & Jenjang (CRUD + Form Request Validation)
+- [ ] **Task 1.6**: Endpoint Sinkronisasi Santri Mukim (`POST /api/internal/students/sync`) dari `smpt`
+- [ ] **Task 1.7**: Antarmuka React: Halaman Manajemen Lembaga & Jenjang (`/master/institusi`)
+- [ ] **Task 1.8**: Antarmuka React: Halaman Pendaftaran & Daftar Siswa (`/siswa`)
+
+---
+
+## ⚪ FASE 2: Kurikulum, Mapel, & Rombel (Dual-Model Kenaikan)
+- [ ] **Task 2.1**: Migrasi Mata Pelajaran (`studies`), Jam Pelajaran (`lesson_hours`), Sesi (`lesson_sessions`)
+- [ ] **Task 2.2**: Migrasi Rombongan Belajar (`class_groups`) & Penempatan Siswa (`student_classes`)
+- [ ] **Task 2.3**: Implementasi Logika Rombel Formal (Model Semesteran)
+- [ ] **Task 2.4**: Implementasi Modul Khusus Tahfidz / Halaqah (Model Leveling Mingguan & Target Juz)
+- [ ] **Task 2.5**: Controller API Kurikulum, Mapel, dan Rombel
+- [ ] **Task 2.6**: Antarmuka React: Halaman Kurikulum & Mapel (`/master/mapel`)
+- [ ] **Task 2.7**: Antarmuka React: Halaman Rombel & Tahfidz Leveling (`/rombel` & `/tahfidz`)
+
+---
+
+## ⚪ FASE 3: Jadwal Pelajaran & Presensi KBM
+- [ ] **Task 3.1**: Migrasi Jadwal Pelajaran (`class_schedules`, `class_schedule_details`, `meeting_schedules`)
+- [ ] **Task 3.2**: Migrasi Presensi Siswa (`presences`) per Pertemuan KBM
+- [ ] **Task 3.3**: Controller API Jadwal & Input Presensi Guru
+- [ ] **Task 3.4**: Antarmuka React: Kalender / Jadwal Pelajaran Mingguan
+- [ ] **Task 3.5**: Antarmuka React: Form Presensi KBM Cepat (Mobile-Friendly untuk Guru Kelas)
+
+---
+
+## ⚪ FASE 4: Penilaian, Asesmen Dinamis, & Cetak Rapor
+- [ ] **Task 4.1**: Migrasi Rumus Penilaian (`assessment_formulas`) & Komponen Nilai (Harian, UTS, UAS, Praktik)
+- [ ] **Task 4.2**: Migrasi Asesmen Siswa (`student_assessments`, `assessment_scores`)
+- [ ] **Task 4.3**: Migrasi Buku Rapor (`report_cards`) & Logika Kalkulasi Nilai Akhir
+- [ ] **Task 4.4**: Template Cetak Rapor PDF Resmi menggunakan `barryvdh/laravel-dompdf`
+- [ ] **Task 4.5**: Antarmuka React: Lembar Input Nilai Guru Mapel & Rekap Nilai Wali Kelas
+- [ ] **Task 4.6**: Antarmuka React: Cetak Rapor Massal Siswa
+
+---
+
+## ⚪ FASE 5: Pengujian, Integrasi Ekosistem, & Cutover
+- [ ] **Task 5.1**: Integrasi Pengecekan Tunggakan Ujian ke `bank-santri` via Internal API
+- [ ] **Task 5.2**: Pembersihan (Deprecate) Controller/Model Kurikulum di repo `smpt`
+- [ ] **Task 5.3**: Pengujian Load & Performance saat Cetak Rapor
+- [ ] **Task 5.4**: Dokumentasi Penggunaan Sistem untuk Guru Luar & Staf Pesantren

@@ -2,6 +2,12 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Master\EducationalInstitutionController;
+use App\Http\Controllers\Api\Master\EducationController;
+use App\Http\Controllers\Api\Master\AcademicYearController;
+use App\Http\Controllers\Api\Master\TeacherController;
+use App\Http\Controllers\Api\Master\StudentController;
+use App\Http\Controllers\Api\Internal\InternalStudentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,11 +45,29 @@ Route::prefix('internal')->middleware('internal.key')->group(function () {
             'message' => 'Internal communication channel established.',
         ]);
     });
+
+    // Endpoint sinkronisasi santri dari SMPT backend
+    Route::post('students/sync', [InternalStudentController::class, 'sync']);
 });
 
 // Master Data Routes (Protected by JWT & AutoProvision)
 Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(function () {
-    // Endpoints for Educational Institutions, Academic Years, Subjects, etc.
+    // Institusi Pendidikan
+    Route::apiResource('institutions', EducationalInstitutionController::class);
+
+    // Jenjang Pendidikan per Institusi
+    Route::apiResource('educations', EducationController::class);
+
+    // Tahun Ajaran & Kalender Akademik
+    Route::get('academic-years/active', [AcademicYearController::class, 'active']);
+    Route::patch('academic-years/{id}/set-active', [AcademicYearController::class, 'setActive']);
+    Route::apiResource('academic-years', AcademicYearController::class);
+
+    // Data Guru (Guru Pesantren & Guru Luar)
+    Route::apiResource('teachers', TeacherController::class);
+
+    // Data Siswa (Santri Mukim & Murid Reguler Luar)
+    Route::apiResource('students', StudentController::class);
 });
 
 // Main Academic & KBM Routes (Protected by JWT & AutoProvision)

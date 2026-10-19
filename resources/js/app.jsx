@@ -9,6 +9,9 @@ import MainLayout from './layouts/MainLayout';
 import AuthMonitor from './components/AuthMonitor';
 import Dashboard from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';
+import InstitutionPage from './pages/master/InstitutionPage';
+import TeacherPage from './pages/master/TeacherPage';
+import StudentPage from './pages/StudentPage';
 
 import '../css/app.css';
 
@@ -17,11 +20,14 @@ const App = () => {
         <Provider store={store}>
             <Router>
                 <AuthMonitor>
-                    <ToastContainer />
+                    <ToastContainer position="top-right" autoClose={3000} />
                     <Routes>
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/" element={<MainLayout />}>
                             <Route index element={<Dashboard />} />
+                            <Route path="master/institusi" element={<InstitutionPage />} />
+                            <Route path="master/guru" element={<TeacherPage />} />
+                            <Route path="siswa" element={<StudentPage />} />
                         </Route>
                     </Routes>
                 </AuthMonitor>

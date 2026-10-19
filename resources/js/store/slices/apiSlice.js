@@ -13,6 +13,18 @@ export const apiSlice = createApi({
             return headers;
         },
     }),
-    tagTypes: ['Institution', 'EducationLevel', 'ClassGroup', 'Schedule', 'Assessment', 'Student'],
+    tagTypes: [
+        'Institution',
+        'EducationLevel',
+        'Teacher',
+        'Student',
+        'AcademicYear',
+        'ClassGroup',
+        'Study',
+        'Schedule',
+        'Presence',
+        'Assessment',
+        'ReportCard',
+    ],
     endpoints: () => ({}),
 });

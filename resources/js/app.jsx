@@ -12,6 +12,9 @@ import LoginPage from './pages/LoginPage';
 import InstitutionPage from './pages/master/InstitutionPage';
 import TeacherPage from './pages/master/TeacherPage';
 import StudentPage from './pages/StudentPage';
+import StudyPage from './pages/master/StudyPage';
+import ClassGroupPage from './pages/ClassGroupPage';
+import TahfidzHalaqahPage from './pages/TahfidzHalaqahPage';
 
 import '../css/app.css';
 
@@ -28,6 +31,9 @@ const App = () => {
                             <Route path="master/institusi" element={<InstitutionPage />} />
                             <Route path="master/guru" element={<TeacherPage />} />
                             <Route path="siswa" element={<StudentPage />} />
+                            <Route path="master/mapel" element={<StudyPage />} />
+                            <Route path="rombel" element={<ClassGroupPage />} />
+                            <Route path="tahfidz" element={<TahfidzHalaqahPage />} />
                         </Route>
                     </Routes>
                 </AuthMonitor>

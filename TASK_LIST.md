@@ -34,12 +34,13 @@ Task list ini digunakan untuk memantau pengerjaan fitur secara detail dan bertah
 
 ---
 
-## 🟡 FASE 3: Jadwal Pelajaran & Presensi KBM (NEXT UP)
-- [ ] **Task 3.1**: Migrasi Jadwal Pelajaran (`lesson_schedules`) & Presensi Siswa (`presences`)
-- [ ] **Task 3.2**: Migrasi Logika Presensi Kehadiran per Pertemuan KBM
-- [ ] **Task 3.3**: Controller API Jadwal & Input Presensi Guru
-- [ ] **Task 3.4**: Antarmuka React: Kalender / Jadwal Pelajaran Mingguan
-- [ ] **Task 3.5**: Antarmuka React: Form Presensi KBM Cepat (Mobile-Friendly untuk Guru Kelas)
+## 🟢 FASE 3: Jadwal Pelajaran & Presensi KBM (SELESAI)
+- [x] **Task 3.1**: Migrasi Jurnal Pertemuan (`teaching_journals`) & Presensi Siswa (`student_presences`)
+- [x] **Task 3.2**: Model Eloquent `TeachingJournal` & `StudentPresence` dengan logika auto-populate presensi
+- [x] **Task 3.3**: Controller API Jurnal KBM (`/api/main/journals`) — termasuk batch update presensi & rekap kehadiran
+- [x] **Task 3.4**: Antarmuka React: Kalender / Jadwal Pelajaran Mingguan (`/kbm` — matriks 7 hari)
+- [x] **Task 3.5**: Antarmuka React: Jurnal Mengajar & Form Presensi KBM (tombol Hadir/Izin/Sakit/Alpa per siswa)
+- [x] **Task 3.6**: Antarmuka React: Rekapitulasi Kehadiran per Rombel (persentase per santri)
 
 ---
 

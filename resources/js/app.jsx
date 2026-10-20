@@ -15,6 +15,7 @@ import StudentPage from './pages/StudentPage';
 import StudyPage from './pages/master/StudyPage';
 import ClassGroupPage from './pages/ClassGroupPage';
 import TahfidzHalaqahPage from './pages/TahfidzHalaqahPage';
+import ScheduleKbmPage from './pages/ScheduleKbmPage';
 
 import '../css/app.css';
 
@@ -34,6 +35,7 @@ const App = () => {
                             <Route path="master/mapel" element={<StudyPage />} />
                             <Route path="rombel" element={<ClassGroupPage />} />
                             <Route path="tahfidz" element={<TahfidzHalaqahPage />} />
+                            <Route path="kbm" element={<ScheduleKbmPage />} />
                         </Route>
                     </Routes>
                 </AuthMonitor>

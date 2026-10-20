@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Master\StudyController;
 use App\Http\Controllers\Api\Master\LessonHourController;
 use App\Http\Controllers\Api\Master\ClassGroupController;
 use App\Http\Controllers\Api\Master\LessonScheduleController;
+use App\Http\Controllers\Api\Main\TeachingJournalController;
 use App\Http\Controllers\Api\Internal\InternalStudentController;
 
 /*
@@ -92,5 +93,8 @@ Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function
     // Jadwal Pelajaran (Lesson Schedules)
     Route::apiResource('schedules', LessonScheduleController::class);
 
-    // Fase 3 & 4 (Presensi, Penilaian, Rapor) will be placed here
+    // Jurnal Pembelajaran & Presensi KBM Guru
+    Route::post('journals/{id}/presences', [TeachingJournalController::class, 'updatePresences']);
+    Route::get('journals/recap', [TeachingJournalController::class, 'recap']);
+    Route::apiResource('journals', TeachingJournalController::class);
 });

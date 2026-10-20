@@ -10,6 +10,7 @@ import './slices/studyApi';
 import './slices/classGroupApi';
 import './slices/lessonHourApi';
 import './slices/scheduleApi';
+import './slices/journalApi';
 
 export const store = configureStore({
     reducer: {

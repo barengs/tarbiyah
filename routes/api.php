@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\Master\LessonHourController;
 use App\Http\Controllers\Api\Master\ClassGroupController;
 use App\Http\Controllers\Api\Master\LessonScheduleController;
 use App\Http\Controllers\Api\Main\TeachingJournalController;
+use App\Http\Controllers\Api\Main\AssessmentController;
+use App\Http\Controllers\Api\Main\ReportCardController;
 use App\Http\Controllers\Api\Internal\InternalStudentController;
 
 /*
@@ -88,7 +90,7 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
     Route::apiResource('class-groups', ClassGroupController::class);
 });
 
-// Main Academic & KBM Routes (Protected by JWT & AutoProvision)
+// Main Academic, KBM & Penilaian Routes (Protected by JWT & AutoProvision)
 Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function () {
     // Jadwal Pelajaran (Lesson Schedules)
     Route::apiResource('schedules', LessonScheduleController::class);
@@ -97,4 +99,16 @@ Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function
     Route::post('journals/{id}/presences', [TeachingJournalController::class, 'updatePresences']);
     Route::get('journals/recap', [TeachingJournalController::class, 'recap']);
     Route::apiResource('journals', TeachingJournalController::class);
+
+    // Penilaian & Asesmen Siswa
+    Route::get('assessments/categories', [AssessmentController::class, 'categories']);
+    Route::get('assessments/gradebook', [AssessmentController::class, 'classGradebook']);
+    Route::post('assessments/{id}/scores', [AssessmentController::class, 'saveScores']);
+    Route::apiResource('assessments', AssessmentController::class);
+
+    // Buku Rapor Digital Siswa & Export PDF
+    Route::post('reports/generate', [ReportCardController::class, 'generate']);
+    Route::get('reports/{id}/pdf', [ReportCardController::class, 'exportPdf']);
+    Route::patch('reports/{id}/notes', [ReportCardController::class, 'updateNotes']);
+    Route::apiResource('reports', ReportCardController::class);
 });

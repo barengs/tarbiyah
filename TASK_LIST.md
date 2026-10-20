@@ -44,18 +44,18 @@ Task list ini digunakan untuk memantau pengerjaan fitur secara detail dan bertah
 
 ---
 
-## ⚪ FASE 4: Penilaian, Asesmen Dinamis, & Cetak Rapor
-- [ ] **Task 4.1**: Migrasi Rumus Penilaian (`assessment_formulas`) & Komponen Nilai (Harian, UTS, UAS, Praktik)
-- [ ] **Task 4.2**: Migrasi Asesmen Siswa (`student_assessments`, `assessment_scores`)
-- [ ] **Task 4.3**: Migrasi Buku Rapor (`report_cards`) & Logika Kalkulasi Nilai Akhir
-- [ ] **Task 4.4**: Template Cetak Rapor PDF Resmi menggunakan `barryvdh/laravel-dompdf`
-- [ ] **Task 4.5**: Antarmuka React: Lembar Input Nilai Guru Mapel & Rekap Nilai Wali Kelas
-- [ ] **Task 4.6**: Antarmuka React: Cetak Rapor Massal Siswa
+## 🟢 FASE 4: Penilaian, Asesmen Dinamis, & Cetak Rapor (SELESAI)
+- [x] **Task 4.1**: Migrasi Rumus Penilaian (`assessment_categories`) & Komponen Nilai (Tugas Harian, UTS, UAS, Praktik, Tahfidz)
+- [x] **Task 4.2**: Migrasi Asesmen Siswa (`assessments`, `assessment_scores`)
+- [x] **Task 4.3**: Migrasi Buku Rapor (`report_cards`) & Logika Kalkulasi Nilai Akhir & Ranking
+- [x] **Task 4.4**: Template Cetak Rapor PDF Resmi menggunakan `barryvdh/laravel-dompdf` (`resources/views/pdf/report_card.blade.php`)
+- [x] **Task 4.5**: Antarmuka React: Lembar Input Nilai Guru Mapel & Leger Nilai Kelas (`/nilai` — `AssessmentPage.jsx`)
+- [x] **Task 4.6**: Antarmuka React: Kalkulasi & Cetak Buku Rapor Digital (`/rapor` — `ReportCardPage.jsx`)
 
 ---
 
-## ⚪ FASE 5: Pengujian, Integrasi Ekosistem, & Cutover
-- [ ] **Task 5.1**: Integrasi Pengecekan Tunggakan Ujian ke `bank-santri` via Internal API
-- [ ] **Task 5.2**: Pembersihan (Deprecate) Controller/Model Kurikulum di repo `smpt`
-- [ ] **Task 5.3**: Pengujian Load & Performance saat Cetak Rapor
-- [ ] **Task 5.4**: Dokumentasi Penggunaan Sistem untuk Guru Luar & Staf Pesantren
+## 🟡 FASE 5: Pengujian, Integrasi Ekosistem, & Cutover (NEXT UP)
+- [ ] **Task 5.1**: Integrasi Pengecekan Tunggakan Ujian ke `bank-santri` via Internal API (`X-Internal-Key`)
+- [ ] **Task 5.2**: Webhook / Sinkronisasi Santri Otomatis dari `smpt` ke `tarbiyah` saat ada mutasi/pendaftaran santri
+- [ ] **Task 5.3**: Database Seeder & Data Demo Awal (Lembaga, Jenjang, Guru, Siswa, Mapel, Rombel)
+- [ ] **Task 5.4**: Pengujian Integrasi Alur Penuh (End-to-End) & Verifikasi Dokumentasi API

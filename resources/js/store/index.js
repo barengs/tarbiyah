@@ -11,6 +11,8 @@ import './slices/classGroupApi';
 import './slices/lessonHourApi';
 import './slices/scheduleApi';
 import './slices/journalApi';
+import './slices/assessmentApi';
+import './slices/reportApi';
 
 export const store = configureStore({
     reducer: {

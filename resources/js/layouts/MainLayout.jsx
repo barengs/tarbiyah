@@ -11,8 +11,9 @@ import {
     Home, 
     Layers, 
     UserCheck,
+    CheckSquare,
     LogOut,
-    ExternalLink
+    Printer
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -34,7 +35,8 @@ export default function MainLayout() {
         { name: 'Kurikulum & Mapel', href: '/master/mapel', icon: BookOpen },
         { name: 'Tahfidz (Leveling)', href: '/tahfidz', icon: Award },
         { name: 'Jadwal & Presensi', href: '/kbm', icon: Calendar },
-        { name: 'Penilaian & Rapor', href: '/rapor', icon: GraduationCap },
+        { name: 'Penilaian & Ujian', href: '/nilai', icon: CheckSquare },
+        { name: 'Cetak Buku Rapor', href: '/rapor', icon: GraduationCap },
     ];
 
     return (

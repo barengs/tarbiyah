@@ -11,32 +11,32 @@ Task list ini digunakan untuk memantau pengerjaan fitur secara detail dan bertah
 
 ---
 
-## 🟡 FASE 1: Master Data Lembaga, Jenjang, & Pengguna (NEXT UP)
-- [ ] **Task 1.1**: Migrasi skema database Master Lembaga (`educational_institutions`, `education_types`, `educations`, `education_classes`)
-- [ ] **Task 1.2**: Migrasi skema database Kalender Akademik (`academic_years`, `academic_quarters`, `classrooms`)
-- [ ] **Task 1.3**: Migrasi skema tabel Siswa (`students`) dengan atribut `is_mukim` (90% santri, 10% murid reguler)
-- [ ] **Task 1.4**: Model Eloquent & Relasi untuk Lembaga, Jenjang, dan Siswa
-- [ ] **Task 1.5**: Controller API Master Lembaga & Jenjang (CRUD + Form Request Validation)
-- [ ] **Task 1.6**: Endpoint Sinkronisasi Santri Mukim (`POST /api/internal/students/sync`) dari `smpt`
-- [ ] **Task 1.7**: Antarmuka React: Halaman Manajemen Lembaga & Jenjang (`/master/institusi`)
-- [ ] **Task 1.8**: Antarmuka React: Halaman Pendaftaran & Daftar Siswa (`/siswa`)
+## 🟢 FASE 1: Master Data Lembaga, Jenjang, & Pengguna (SELESAI)
+- [x] **Task 1.1**: Migrasi skema database Master Lembaga (`educational_institutions`, `education_types`, `educations`, `education_classes`)
+- [x] **Task 1.2**: Migrasi skema database Kalender Akademik (`academic_years`, `academic_quarters`, `classrooms`)
+- [x] **Task 1.3**: Migrasi skema tabel Siswa (`students`) dengan atribut `is_mukim` (90% santri, 10% murid reguler)
+- [x] **Task 1.4**: Model Eloquent & Relasi untuk Lembaga, Jenjang, dan Siswa
+- [x] **Task 1.5**: Controller API Master Lembaga & Jenjang (CRUD + Form Request Validation)
+- [x] **Task 1.6**: Endpoint Sinkronisasi Santri Mukim (`POST /api/internal/students/sync`) dari `smpt`
+- [x] **Task 1.7**: Antarmuka React: Halaman Manajemen Lembaga & Jenjang (`/master/institusi`)
+- [x] **Task 1.8**: Antarmuka React: Halaman Pendaftaran & Daftar Siswa (`/siswa`)
 
 ---
 
-## ⚪ FASE 2: Kurikulum, Mapel, & Rombel (Dual-Model Kenaikan)
-- [ ] **Task 2.1**: Migrasi Mata Pelajaran (`studies`), Jam Pelajaran (`lesson_hours`), Sesi (`lesson_sessions`)
-- [ ] **Task 2.2**: Migrasi Rombongan Belajar (`class_groups`) & Penempatan Siswa (`student_classes`)
-- [ ] **Task 2.3**: Implementasi Logika Rombel Formal (Model Semesteran)
-- [ ] **Task 2.4**: Implementasi Modul Khusus Tahfidz / Halaqah (Model Leveling Mingguan & Target Juz)
-- [ ] **Task 2.5**: Controller API Kurikulum, Mapel, dan Rombel
-- [ ] **Task 2.6**: Antarmuka React: Halaman Kurikulum & Mapel (`/master/mapel`)
-- [ ] **Task 2.7**: Antarmuka React: Halaman Rombel & Tahfidz Leveling (`/rombel` & `/tahfidz`)
+## 🟢 FASE 2: Kurikulum, Mapel, & Rombel (Dual-Model Kenaikan) (SELESAI)
+- [x] **Task 2.1**: Migrasi Mata Pelajaran (`studies`), Jam Pelajaran (`lesson_hours`)
+- [x] **Task 2.2**: Migrasi Rombongan Belajar (`class_groups`) & Penempatan Siswa (`student_classes`)
+- [x] **Task 2.3**: Implementasi Logika Rombel Formal (Model Semesteran)
+- [x] **Task 2.4**: Implementasi Modul Khusus Tahfidz / Halaqah (Model Leveling Mingguan & Target Juz)
+- [x] **Task 2.5**: Controller API Kurikulum, Mapel, dan Rombel
+- [x] **Task 2.6**: Antarmuka React: Halaman Kurikulum & Mapel (`/master/mapel`)
+- [x] **Task 2.7**: Antarmuka React: Halaman Rombel & Tahfidz Leveling (`/rombel` & `/tahfidz`)
 
 ---
 
-## ⚪ FASE 3: Jadwal Pelajaran & Presensi KBM
-- [ ] **Task 3.1**: Migrasi Jadwal Pelajaran (`class_schedules`, `class_schedule_details`, `meeting_schedules`)
-- [ ] **Task 3.2**: Migrasi Presensi Siswa (`presences`) per Pertemuan KBM
+## 🟡 FASE 3: Jadwal Pelajaran & Presensi KBM (NEXT UP)
+- [ ] **Task 3.1**: Migrasi Jadwal Pelajaran (`lesson_schedules`) & Presensi Siswa (`presences`)
+- [ ] **Task 3.2**: Migrasi Logika Presensi Kehadiran per Pertemuan KBM
 - [ ] **Task 3.3**: Controller API Jadwal & Input Presensi Guru
 - [ ] **Task 3.4**: Antarmuka React: Kalender / Jadwal Pelajaran Mingguan
 - [ ] **Task 3.5**: Antarmuka React: Form Presensi KBM Cepat (Mobile-Friendly untuk Guru Kelas)

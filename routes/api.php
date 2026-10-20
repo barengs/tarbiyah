@@ -7,6 +7,10 @@ use App\Http\Controllers\Api\Master\EducationController;
 use App\Http\Controllers\Api\Master\AcademicYearController;
 use App\Http\Controllers\Api\Master\TeacherController;
 use App\Http\Controllers\Api\Master\StudentController;
+use App\Http\Controllers\Api\Master\StudyController;
+use App\Http\Controllers\Api\Master\LessonHourController;
+use App\Http\Controllers\Api\Master\ClassGroupController;
+use App\Http\Controllers\Api\Master\LessonScheduleController;
 use App\Http\Controllers\Api\Internal\InternalStudentController;
 
 /*
@@ -68,9 +72,25 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
 
     // Data Siswa (Santri Mukim & Murid Reguler Luar)
     Route::apiResource('students', StudentController::class);
+
+    // Mata Pelajaran (Studies)
+    Route::apiResource('studies', StudyController::class);
+
+    // Jam Pelajaran (Lesson Hours)
+    Route::apiResource('lesson-hours', LessonHourController::class);
+
+    // Rombongan Belajar (Class Groups) & Halaqah Tahfidz
+    Route::post('class-groups/{id}/students', [ClassGroupController::class, 'addStudent']);
+    Route::delete('class-groups/{id}/students/{student_id}', [ClassGroupController::class, 'removeStudent']);
+    Route::post('class-groups/{id}/promote-tahfidz', [ClassGroupController::class, 'promoteTahfidzLevel']);
+    Route::post('class-groups/{id}/assign-subject', [ClassGroupController::class, 'assignSubject']);
+    Route::apiResource('class-groups', ClassGroupController::class);
 });
 
 // Main Academic & KBM Routes (Protected by JWT & AutoProvision)
 Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function () {
-    // Endpoints for Schedules, Presence, Assessment, ReportCards, etc.
+    // Jadwal Pelajaran (Lesson Schedules)
+    Route::apiResource('schedules', LessonScheduleController::class);
+
+    // Fase 3 & 4 (Presensi, Penilaian, Rapor) will be placed here
 });

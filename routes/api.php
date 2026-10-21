@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Master\StudyController;
 use App\Http\Controllers\Api\Master\LessonHourController;
 use App\Http\Controllers\Api\Master\ClassGroupController;
 use App\Http\Controllers\Api\Master\LessonScheduleController;
+use App\Http\Controllers\Api\Main\DashboardController;
 use App\Http\Controllers\Api\Main\TeachingJournalController;
 use App\Http\Controllers\Api\Main\AssessmentController;
 use App\Http\Controllers\Api\Main\ReportCardController;
@@ -94,6 +95,7 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
 
 // Main Academic, KBM & Penilaian Routes (Protected by JWT & AutoProvision)
 Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function () {
+    Route::get('dashboard/stats', [DashboardController::class, 'stats']);
     // Jadwal Pelajaran (Lesson Schedules)
     Route::apiResource('schedules', LessonScheduleController::class);
 

@@ -1,119 +1,112 @@
-import React from 'react';
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { logOut } from '../store/slices/authSlice';
-import { 
-    GraduationCap, 
-    BookOpen, 
-    Calendar, 
-    Users, 
-    Award, 
-    Home, 
-    Layers, 
-    UserCheck,
-    CheckSquare,
-    LogOut,
-    Printer
-} from 'lucide-react';
+import Sidebar from '../components/organisms/Sidebar';
+import Navbar from '../components/organisms/Navbar';
+import Footer from '../components/organisms/Footer';
+import { useGetDashboardStatsQuery } from '../store/slices/dashboardApi';
+import { useNavigate } from 'react-router-dom';
 
+/**
+ * LAYOUT UTAMA DYNAMIK: SIM Akademik (e-Panyeppen Pro)
+ *
+ * Mekanisme Pembagian Layout Dinamis:
+ * 1. Sidebar dapat di-collapse (state `isCollapsed`) atau dibuka via
+ *    hamburger button di layar mobile (state `mobileSidebarOpen`).
+ * 2. Navbar menampilkan Breadcrumb dinamis mengikuti location.pathname,
+ *    badge kalender Hijriah & data semester yang dipull langsung dari
+ *    database (useGetDashboardStatsQuery dari RTK Query), SearchBar,
+ *    NotificationBell, dan UserDropdown (profile & logout) dari
+ *    useSelector(authSlice).
+ * 3. Content area meng-render <Outlet /> (dynamic page router) dalam
+ *    sebuah container scrollable dengan padding dinamis.
+ * 4. Footer dapat disembunyikan per halaman via LayoutContext API
+ *    (disarankan tetap tampil) sesuai mekanisme atomic design.
+ *
+ * Struktur responsif:
+ * - Desktop: Sidebar (fixed lebar) + Main Column (Navbar + Outlet + Footer)
+ * - Mobile: Sidebar tersembunyi di balik overlay, dibuka lewat tombol hamburger.
+ */
 export default function MainLayout() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const location = useLocation();
     const { user } = useSelector((state) => state.auth);
 
-    const handleLogout = () => {
-        dispatch(logOut());
-        navigate('/login');
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    const [searchValue, setSearchValue] = useState('');
+
+    // Get academic meta & notifications feed dari database (endpoint /api/main/dashboard/stats)
+    const { data: dashboardData, isLoading: isDashboardLoading } = useGetDashboardStatsQuery(undefined, {
+        skip: !user,
+    });
+
+    // Auto-close mobile sidebar saat route berubah
+    useEffect(() => {
+        setMobileSidebarOpen(false);
+    }, [location.pathname]);
+
+    const handleToggleCollapse = useCallback(() => {
+        setIsCollapsed((prev) => !prev);
+    }, []);
+
+    const handleOpenMobileMenu = useCallback(() => {
+        setMobileSidebarOpen(true);
+    }, []);
+
+    const handleCloseMobileMenu = useCallback(() => {
+        setMobileSidebarOpen(false);
+    }, []);
+
+    // Prepare academic metadata for navbar (hijri badge, semester, tahun ajaran)
+    const academicMeta = dashboardData?.data?.academic_year || {};
+
+    // Prepare notifications for navbar bell dropdown from database (recent_notices)
+    const notifications = (dashboardData?.data?.recent_notices || []).map((n) => ({
+        id: n.id,
+        title: n.type,
+        desc: n.desc,
+        time: n.time,
+        read: false,
+    }));
+
+    // Handle search
+    const handleSearchChange = (e) => {
+        setSearchValue(e.target.value);
     };
 
-    const navigation = [
-        { name: 'Dashboard', href: '/', icon: Home },
-        { name: 'Institusi & Jenjang', href: '/master/institusi', icon: Layers },
-        { name: 'Guru & Pendidik', href: '/master/guru', icon: UserCheck },
-        { name: 'Data Kesiswaan', href: '/siswa', icon: Users },
-        { name: 'Kurikulum & Mapel', href: '/master/mapel', icon: BookOpen },
-        { name: 'Tahfidz (Leveling)', href: '/tahfidz', icon: Award },
-        { name: 'Jadwal & Presensi', href: '/kbm', icon: Calendar },
-        { name: 'Penilaian & Ujian', href: '/nilai', icon: CheckSquare },
-        { name: 'Cetak Buku Rapor', href: '/rapor', icon: GraduationCap },
-    ];
-
     return (
-        <div className="flex h-screen bg-slate-50 text-slate-800">
-            {/* Sidebar */}
-            <aside className="w-64 border-r border-slate-200 bg-white flex flex-col justify-between shrink-0">
-                <div className="flex-1 overflow-y-auto">
-                    <div className="h-16 flex items-center px-6 gap-3 border-b border-slate-100">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm font-bold tracking-tight">
-                            TB
-                        </div>
-                        <div>
-                            <h1 className="text-base font-bold text-slate-900 leading-tight">Tarbiyah</h1>
-                            <p className="text-xs text-slate-500 font-medium">Manajemen Pendidikan</p>
-                        </div>
-                    </div>
+        <div className="flex h-screen bg-[#f1f5f9] text-slate-800 overflow-hidden font-sans">
+            {/* 1. SIDEBAR AREA */}
+            <Sidebar
+                collapsed={isCollapsed}
+                onToggleCollapse={handleToggleCollapse}
+                mobileOpen={mobileSidebarOpen}
+                onCloseMobile={handleCloseMobileMenu}
+            />
 
-                    <div className="p-4">
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-3 mb-2">
-                            Menu Utama
-                        </div>
-                        <nav className="space-y-1">
-                            {navigation.map((item) => {
-                                const Icon = item.icon;
-                                const isActive = location.pathname === item.href;
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        to={item.href}
-                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                                            isActive
-                                                ? 'bg-emerald-50 text-emerald-700 font-semibold'
-                                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                                        }`}
-                                    >
-                                        <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
-                                        {item.name}
-                                    </Link>
-                                );
-                            })}
-                        </nav>
-                    </div>
-                </div>
+            {/* 2. MAIN COLUMN (Navbar + Dynamic Content + Footer) */}
+            <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+                {/* NAVBAR AREA */}
+                <Navbar
+                    onOpenMobileMenu={handleOpenMobileMenu}
+                    academicMeta={academicMeta}
+                    notifications={notifications}
+                    searchValue={searchValue}
+                    onSearchChange={handleSearchChange}
+                />
 
-                <div className="p-4 border-t border-slate-100 bg-white">
-                    <div className="flex items-center justify-between mb-3 px-2">
-                        <div className="truncate">
-                            <p className="text-sm font-semibold text-slate-900 truncate">{user?.name || 'Administrator'}</p>
-                            <p className="text-xs text-slate-400 capitalize">{user?.role || 'Staff Akademik'}</p>
-                        </div>
+                {/* DYNAMIC CONTENT AREA */}
+                <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+                    <div className="max-w-[1600px] mx-auto">
+                        <Outlet />
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-rose-100"
-                    >
-                        <LogOut className="w-4 h-4" />
-                        Keluar
-                    </button>
-                </div>
-            </aside>
+                </main>
 
-            {/* Main Area */}
-            <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-                <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0">
-                    <div className="text-sm text-slate-500 font-medium">
-                        Sistem Pendidikan & Akademik Mandiri
-                    </div>
-                    <div className="flex items-center gap-3 text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full font-medium border border-emerald-200">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Tarbiyah v1.0 • Hybrid Monolith
-                    </div>
-                </header>
-
-                <div className="flex-1 overflow-auto p-8">
-                    <Outlet />
-                </div>
-            </main>
+                {/* FOOTER AREA */}
+                <Footer simple className="shrink-0 bg-white" />
+            </div>
         </div>
     );
 }

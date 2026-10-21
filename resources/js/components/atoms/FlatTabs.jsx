@@ -1,19 +1,18 @@
 import React from 'react';
 
 /**
- * KOMPONEN FLAT TABS DENGAN LATAR BELAKANG AKTIF
+ * KOMPONEN FLAT TABS DENGAN WARNA LATAR HASIL SAMPING
  *
- * Sesuai arahan: "berikan warna latar belakang untuk tab yang sedang aktif"
+ * Sesuai arahan: "warna latar belakang tab agak lebih sedikit, saat ini terlalu kontras"
  *
  * Tab aktif:
- * - Memiliki latar belakang soft emerald/brand (bg-emerald-50)
- * - Teks tegas dan kontras (text-[#093c30] font-bold)
- * - Garis bawah penanda aktif (border-b-2 border-[#093c30] -mb-px)
+ * - Menggunakan latar belakang netral soft (bg-slate-50 / bg-slate-100/40)
+ * - Dipadukan dengan teks tegas (text-slate-900) dan garis bawah brand
  * - Border-radius atas minimal (rounded-t-md)
  *
  * Tab tidak aktif:
- * - Latar belakang transparan dengan hover efek (hover:bg-slate-100/70)
- * - Teks slate-600
+ * - Latar belakang transparan dengan hover efek (hover:bg-slate-100/50)
+ * - Teks slate-500
  */
 export default function FlatTabs({
     tabs = [],
@@ -34,8 +33,8 @@ export default function FlatTabs({
                         onClick={() => onChange(tab.value || tab.id)}
                         className={`group px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all duration-150 inline-flex items-center gap-2 border-b-2 rounded-t-md select-none ${
                             isActive
-                                ? 'bg-emerald-50 text-[#093c30] border-[#093c30] -mb-px font-bold shadow-2xs'
-                                : 'bg-transparent text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-100/70 -mb-px'
+                                ? 'bg-slate-50 text-slate-900 border-[#093c30] -mb-px font-bold'
+                                : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50/60 -mb-px'
                         }`}
                     >
                         {Icon && (
@@ -51,8 +50,8 @@ export default function FlatTabs({
                             <span
                                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
                                     isActive
-                                        ? 'bg-[#093c30] text-white'
-                                        : 'bg-slate-200/80 text-slate-600 group-hover:bg-slate-300/80'
+                                        ? 'bg-slate-200 text-slate-700'
+                                        : 'bg-slate-100/70 text-slate-500 group-hover:bg-slate-200/60'
                                 }`}
                             >
                                 {tab.count}

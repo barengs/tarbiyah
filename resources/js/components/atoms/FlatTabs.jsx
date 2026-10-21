@@ -1,18 +1,16 @@
 import React from 'react';
 
 /**
- * KOMPONEN FLAT TABS DENGAN WARNA LATAR HASIL SAMPING
- *
- * Sesuai arahan: "warna latar belakang tab agak lebih sedikit, saat ini terlalu kontras"
+ * KOMPONEN FLAT TABS
  *
  * Tab aktif:
- * - Menggunakan latar belakang netral soft (bg-slate-50 / bg-slate-100/40)
- * - Dipadukan dengan teks tegas (text-slate-900) dan garis bawah brand
- * - Border-radius atas minimal (rounded-t-md)
+ * - Menggunakan latar belakang soft dark-green tint (bg-[#093c30]/[0.08])
+ *   yang terlihat jelas terpisah dari kanvas, tetapi tetap lembut dan tidak mencolok.
+ * - Dilengkapi garis tepi halus (border-t border-x) dan aksen bawah tebal (border-b-2 border-[#093c30]).
+ * - Border-radius atas minimal (rounded-t-md).
  *
  * Tab tidak aktif:
- * - Latar belakang transparan dengan hover efek (hover:bg-slate-100/50)
- * - Teks slate-500
+ * - Transparan dengan hover abu-abu lembut (hover:bg-slate-200/50).
  */
 export default function FlatTabs({
     tabs = [],
@@ -31,10 +29,10 @@ export default function FlatTabs({
                         key={tab.value || tab.id}
                         type="button"
                         onClick={() => onChange(tab.value || tab.id)}
-                        className={`group px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all duration-150 inline-flex items-center gap-2 border-b-2 rounded-t-md select-none ${
+                        className={`group px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all duration-150 inline-flex items-center gap-2 rounded-t-md select-none border-b-2 ${
                             isActive
-                                ? 'bg-slate-50 text-slate-900 border-[#093c30] -mb-px font-bold'
-                                : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50/60 -mb-px'
+                                ? 'bg-[#093c30]/[0.08] text-[#093c30] border-t border-x border-t-[#093c30]/20 border-x-[#093c30]/20 border-b-[#093c30] -mb-px font-bold'
+                                : 'bg-transparent text-slate-500 border-t border-x border-t-transparent border-x-transparent border-b-transparent hover:text-slate-800 hover:bg-slate-200/50 -mb-px'
                         }`}
                     >
                         {Icon && (
@@ -50,8 +48,8 @@ export default function FlatTabs({
                             <span
                                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
                                     isActive
-                                        ? 'bg-slate-200 text-slate-700'
-                                        : 'bg-slate-100/70 text-slate-500 group-hover:bg-slate-200/60'
+                                        ? 'bg-[#093c30] text-white'
+                                        : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300'
                                 }`}
                             >
                                 {tab.count}

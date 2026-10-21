@@ -6,126 +6,65 @@ use Illuminate\Database\Seeder;
 use App\Models\ClassGroup;
 use App\Models\EducationalInstitution;
 use App\Models\Education;
-use App\Models\Classroom;
 use App\Models\AcademicYear;
 use App\Models\Teacher;
+use App\Models\Classroom;
 
 class ClassGroupSeeder extends Seeder
 {
     /**
-     * Seeder Rombel dengan Hierarki Jenjang & Kelas Khas Pesantren:
-     * - Takhossus: TAKHOSSUS 2 A, TAKHOSSUS 2 B, TAKHOSSUS 1 A
-     * - MTs: Kelas VII-A, Kelas VII-B, Kelas VIII-A
-     * - Tahfidz: Halaqah Abu Bakar Ash-Shiddiq, Halaqah Umar bin Khattab
+     * Seeder Rombel dengan Hierarki Program Pesantren:
+     * - Program KUBAR:
+     *   - Jenjang Ula:  Rombel Ula 1A, Ula 1B, Ula 2A
+     *   - Jenjang Wustha: Rombel Wustha 1A, Wustha 1B, Wustha 2A
+     *   - Jenjang Ulya: Rombel Ulya 1A, Ulya 1B
+     * - Program TIBYAN:
+     *   - Jenjang Takhossus: Rombel Takhossus 1A, Takhossus 1B, Takhossus 2A, Takhossus 2B
      */
     public function run(): void
     {
         $tahun = AcademicYear::where('active', true)->first() ?? AcademicYear::first();
 
-        $takhossus = EducationalInstitution::where('short_name', 'Takhossus')->first();
-        $mts       = EducationalInstitution::where('short_name', 'MTs')->first();
-        $tahfidz   = EducationalInstitution::where('short_name', 'Tahfidz')->first();
+        $kubar  = EducationalInstitution::where('short_name', 'Kubar')->first();
+        $tibyan = EducationalInstitution::where('short_name', 'Tibyan')->first();
 
-        $edTk1 = Education::where('name', 'TAKHOSSUS 1')->first();
-        $edTk2 = Education::where('name', 'TAKHOSSUS 2')->first();
-        $edMts7 = Education::where('name', 'like', '%VII%')->first();
-        $edMts8 = Education::where('name', 'like', '%VIII%')->first();
-        $edTahfidz1 = Education::where('name', 'like', '%Level 1%')->first();
-        $edTahfidz2 = Education::where('name', 'like', '%Level 2%')->first();
+        $ula     = Education::where('name', 'Ula')->first();
+        $wustha  = Education::where('name', 'Wustha')->first();
+        $ulya    = Education::where('name', 'Ulya')->first();
+        $takh    = Education::where('name', 'Takhossus')->first();
 
-        $teachers = Teacher::all();
+        $teachers = Teacher::where('is_active', true)->orderBy('id')->get();
         $t1 = $teachers[0] ?? null;
         $t2 = $teachers[1] ?? $t1;
         $t3 = $teachers[2] ?? $t1;
+        $t4 = $teachers[count($teachers) - 1];
+
+        $roomUla1   = Classroom::where('code', 'R-ULA1')->first();
+        $roomWustha1 = Classroom::where('code', 'R-WST1')->first();
+        $roomUlya1  = Classroom::where('code', 'R-ULY1')->first();
+        $roomTakh1  = Classroom::where('code', 'R-TK1')->first();
+        $roomTakh2  = Classroom::where('code', 'R-TK2')->first();
 
         $groups = [
-            // ── TAKHOSSUS ──
-            [
-                'code' => 'TK-2A',
-                'name' => 'TAKHOSSUS 2 A',
-                'educational_institution_id' => $takhossus?->id,
-                'education_id'               => $edTk2?->id,
-                'homeroom_teacher_id'        => $t1?->id,
-                'gender'                     => 'L',
-                'progression_type'           => 'semester',
-                'capacity'                   => 35,
-            ],
-            [
-                'code' => 'TK-2B',
-                'name' => 'TAKHOSSUS 2 B',
-                'educational_institution_id' => $takhossus?->id,
-                'education_id'               => $edTk2?->id,
-                'homeroom_teacher_id'        => $t2?->id,
-                'gender'                     => 'L',
-                'progression_type'           => 'semester',
-                'capacity'                   => 35,
-            ],
-            [
-                'code' => 'TK-1A',
-                'name' => 'TAKHOSSUS 1 A',
-                'educational_institution_id' => $takhossus?->id,
-                'education_id'               => $edTk1?->id,
-                'homeroom_teacher_id'        => $t3?->id,
-                'gender'                     => 'L',
-                'progression_type'           => 'semester',
-                'capacity'                   => 35,
-            ],
+            // ── PROGRAM KUBAR: JENJANG ULA ──
+            ['code' => 'ULA-1A', 'name' => 'Ula 1A', 'educational_institution_id' => $kubar?->id, 'education_id' => $ula?->id, 'homeroom_teacher_id' => $t1?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 35, 'classroom_id' => $roomUla1?->id],
+            ['code' => 'ULA-1B', 'name' => 'Ula 1B', 'educational_institution_id' => $kubar?->id, 'education_id' => $ula?->id, 'homeroom_teacher_id' => $t2?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 35, 'classroom_id' => $roomUla1?->id],
+            ['code' => 'ULA-2A', 'name' => 'Ula 2A', 'educational_institution_id' => $kubar?->id, 'education_id' => $ula?->id, 'homeroom_teacher_id' => $t3?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 35, 'classroom_id' => $roomUla1?->id],
 
-            // ── MTs (FORMAL) ──
-            [
-                'code' => 'VII-A',
-                'name' => 'Kelas VII-A',
-                'educational_institution_id' => $mts?->id,
-                'education_id'               => $edMts7?->id,
-                'homeroom_teacher_id'        => $t1?->id,
-                'gender'                     => 'L',
-                'progression_type'           => 'semester',
-                'capacity'                   => 32,
-            ],
-            [
-                'code' => 'VII-B',
-                'name' => 'Kelas VII-B',
-                'educational_institution_id' => $mts?->id,
-                'education_id'               => $edMts7?->id,
-                'homeroom_teacher_id'        => $t2?->id,
-                'gender'                     => 'L',
-                'progression_type'           => 'semester',
-                'capacity'                   => 32,
-            ],
-            [
-                'code' => 'VIII-A',
-                'name' => 'Kelas VIII-A',
-                'educational_institution_id' => $mts?->id,
-                'education_id'               => $edMts8?->id,
-                'homeroom_teacher_id'        => $t3?->id,
-                'gender'                     => 'L',
-                'progression_type'           => 'semester',
-                'capacity'                   => 30,
-            ],
+            // ── PROGRAM KUBAR: JENJANG WUSTHA ──
+            ['code' => 'WST-1A', 'name' => 'Wustha 1A', 'educational_institution_id' => $kubar?->id, 'education_id' => $wustha?->id, 'homeroom_teacher_id' => $t1?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 35, 'classroom_id' => $roomWustha1?->id],
+            ['code' => 'WST-1B', 'name' => 'Wustha 1B', 'educational_institution_id' => $kubar?->id, 'education_id' => $wustha?->id, 'homeroom_teacher_id' => $t2?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 35, 'classroom_id' => $roomWustha1?->id],
+            ['code' => 'WST-2A', 'name' => 'Wustha 2A', 'educational_institution_id' => $kubar?->id, 'education_id' => $wustha?->id, 'homeroom_teacher_id' => $t3?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 35, 'classroom_id' => $roomWustha1?->id],
 
-            // ── TAHFIDZ ──
-            [
-                'code' => 'HLQ-ABUBAKAR',
-                'name' => 'Halaqah Abu Bakar Ash-Shiddiq',
-                'educational_institution_id' => $tahfidz?->id,
-                'education_id'               => $edTahfidz1?->id,
-                'homeroom_teacher_id'        => $t3?->id,
-                'gender'                     => 'L',
-                'progression_type'           => 'leveling',
-                'target_level'               => 'Juz 30 (An-Nas s.d An-Naba)',
-                'capacity'                   => 15,
-            ],
-            [
-                'code' => 'HLQ-UMAR',
-                'name' => 'Halaqah Umar bin Khattab',
-                'educational_institution_id' => $tahfidz?->id,
-                'education_id'               => $edTahfidz2?->id,
-                'homeroom_teacher_id'        => $t1?->id,
-                'gender'                     => 'L',
-                'progression_type'           => 'leveling',
-                'target_level'               => 'Juz 29 (Al-Mulk s.d Al-Mursalat)',
-                'capacity'                   => 15,
-            ],
+            // ── PROGRAM KUBAR: JENJANG ULYA ──
+            ['code' => 'ULY-1A', 'name' => 'Ulya 1A', 'educational_institution_id' => $kubar?->id, 'education_id' => $ulya?->id, 'homeroom_teacher_id' => $t1?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 35, 'classroom_id' => $roomUlya1?->id],
+            ['code' => 'ULY-1B', 'name' => 'Ulya 1B', 'educational_institution_id' => $kubar?->id, 'education_id' => $ulya?->id, 'homeroom_teacher_id' => $t4?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 35, 'classroom_id' => $roomUlya1?->id],
+
+            // ── PROGRAM TIBYAN: JENJANG TAKHOSSUS ──
+            ['code' => 'TK-1A', 'name' => 'Takhossus 1A', 'educational_institution_id' => $tibyan?->id, 'education_id' => $takh?->id, 'homeroom_teacher_id' => $t1?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 30, 'classroom_id' => $roomTakh1?->id],
+            ['code' => 'TK-1B', 'name' => 'Takhossus 1B', 'educational_institution_id' => $tibyan?->id, 'education_id' => $takh?->id, 'homeroom_teacher_id' => $t2?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 30, 'classroom_id' => $roomTakh2?->id],
+            ['code' => 'TK-2A', 'name' => 'Takhossus 2A', 'educational_institution_id' => $tibyan?->id, 'education_id' => $takh?->id, 'homeroom_teacher_id' => $t3?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 30, 'classroom_id' => $roomTakh1?->id],
+            ['code' => 'TK-2B', 'name' => 'Takhossus 2B', 'educational_institution_id' => $tibyan?->id, 'education_id' => $takh?->id, 'homeroom_teacher_id' => $t4?->id, 'gender' => 'L', 'progression_type' => 'semester', 'capacity' => 30, 'classroom_id' => $roomTakh2?->id],
         ];
 
         foreach ($groups as $g) {

@@ -197,7 +197,7 @@ export default function ClassGroupPage() {
             render: (row) => (
                 <button
                     onClick={(e) => { e.stopPropagation(); setSelectedGroupForStudents(row); }}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
                 >
                     <Users className="w-3.5 h-3.5" />
                     {row.students_count || 0} Siswa
@@ -211,21 +211,21 @@ export default function ClassGroupPage() {
                 <div className="flex items-center gap-1.5">
                     <button
                         onClick={(e) => { e.stopPropagation(); setSelectedGroupForSubjects(row); }}
-                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
                         title="Atur Guru Mapel"
                     >
                         <BookOpen className="w-4 h-4" />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
                         title="Edit Rombel"
                     >
                         <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                         title="Hapus Rombel"
                     >
                         <Trash2 className="w-4 h-4" />
@@ -246,7 +246,7 @@ export default function ClassGroupPage() {
                 </div>
                 <button
                     onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-xl hover:bg-emerald-700 transition shadow-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
                 >
                     <Plus className="w-4 h-4" />
                     Tambah Rombel
@@ -259,7 +259,7 @@ export default function ClassGroupPage() {
                 <select
                     value={instFilter}
                     onChange={(e) => setInstFilter(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
+                    className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-emerald-500"
                 >
                     <option value="">Semua Lembaga Formal</option>
                     {institutions.map((inst) => (
@@ -291,7 +291,7 @@ export default function ClassGroupPage() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Contoh: VII-A / VIII-B"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                     </div>
 
@@ -303,7 +303,7 @@ export default function ClassGroupPage() {
                                 value={code}
                                 onChange={(e) => setCode(e.target.value)}
                                 placeholder="VII-A"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
@@ -312,7 +312,7 @@ export default function ClassGroupPage() {
                                 type="number"
                                 value={capacity}
                                 onChange={(e) => setCapacity(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -323,7 +323,7 @@ export default function ClassGroupPage() {
                             required
                             value={institutionId}
                             onChange={(e) => setInstitutionId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                         >
                             <option value="">Pilih Lembaga</option>
                             {institutions.map((inst) => (
@@ -337,7 +337,7 @@ export default function ClassGroupPage() {
                         <select
                             value={homeroomTeacherId}
                             onChange={(e) => setHomeroomTeacherId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                         >
                             <option value="">-- Belum Ditunjuk --</option>
                             {teachers.map((t) => (
@@ -350,14 +350,14 @@ export default function ClassGroupPage() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan'}
                         </button>
@@ -377,7 +377,7 @@ export default function ClassGroupPage() {
                             required
                             value={selectedStudentToAdd}
                             onChange={(e) => setSelectedStudentToAdd(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-xs bg-white"
                         >
                             <option value="">-- Pilih Siswa untuk Dimasukkan --</option>
                             {allStudents.map((s) => (
@@ -388,13 +388,13 @@ export default function ClassGroupPage() {
                         </select>
                         <button
                             type="submit"
-                            className="px-3.5 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 flex items-center gap-1 shrink-0"
+                            className="px-3.5 py-2 bg-emerald-600 text-white rounded-md text-xs font-semibold hover:bg-emerald-700 flex items-center gap-1 shrink-0"
                         >
                             <UserPlus className="w-4 h-4" /> Masukkan
                         </button>
                     </form>
 
-                    <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                    <div className="border border-slate-200 rounded-md divide-y divide-slate-100 max-h-72 overflow-y-auto">
                         {!groupDetail?.student_classes?.length ? (
                             <div className="p-6 text-center text-xs text-slate-400">Belum ada siswa di kelas ini</div>
                         ) : (
@@ -435,14 +435,14 @@ export default function ClassGroupPage() {
                 onClose={() => setSelectedGroupForSubjects(null)}
             >
                 <div className="space-y-4">
-                    <form onSubmit={handleAssignSubject} className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <form onSubmit={handleAssignSubject} className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-md">
                         <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Tugaskan Guru ke Mapel Rombel Ini</div>
                         <div className="grid grid-cols-2 gap-2">
                             <select
                                 required
                                 value={selectedStudyId}
                                 onChange={(e) => setSelectedStudyId(e.target.value)}
-                                className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
+                                className="px-2.5 py-1.5 border border-slate-300 rounded-md text-xs bg-white"
                             >
                                 <option value="">-- Pilih Mapel --</option>
                                 {allStudies.map((s) => (
@@ -452,7 +452,7 @@ export default function ClassGroupPage() {
                             <select
                                 value={selectedTeacherId}
                                 onChange={(e) => setSelectedTeacherId(e.target.value)}
-                                className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
+                                className="px-2.5 py-1.5 border border-slate-300 rounded-md text-xs bg-white"
                             >
                                 <option value="">-- Pilih Guru Pengampu --</option>
                                 {teachers.map((t) => (
@@ -462,13 +462,13 @@ export default function ClassGroupPage() {
                         </div>
                         <button
                             type="submit"
-                            className="w-full py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700"
+                            className="w-full py-2 bg-indigo-600 text-white rounded-md text-xs font-semibold hover:bg-indigo-700"
                         >
                             + Simpan Penugasan
                         </button>
                     </form>
 
-                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl max-h-60 overflow-y-auto">
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-md max-h-60 overflow-y-auto">
                         {!groupDetail?.subjects?.length ? (
                             <div className="p-6 text-center text-xs text-slate-400">Belum ada mapel ditugaskan</div>
                         ) : (

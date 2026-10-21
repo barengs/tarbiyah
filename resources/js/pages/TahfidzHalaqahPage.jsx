@@ -162,7 +162,7 @@ export default function TahfidzHalaqahPage() {
             render: (row) => (
                 <div>
                     <span className="font-bold text-slate-900">{row.name}</span>
-                    <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full inline-block mt-1 font-semibold">
+                    <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded inline-block mt-1 font-semibold">
                         Target: {row.target_level || 'Belum Diset'}
                     </span>
                 </div>
@@ -183,7 +183,7 @@ export default function TahfidzHalaqahPage() {
             render: (row) => (
                 <button
                     onClick={(e) => { e.stopPropagation(); setSelectedHalaqah(row); }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition shadow-xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition shadow-xs"
                 >
                     <Users className="w-3.5 h-3.5 text-amber-600" />
                     {row.students_count || 0} Santri
@@ -197,14 +197,14 @@ export default function TahfidzHalaqahPage() {
                 <div className="flex items-center gap-1.5">
                     <button
                         onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
                         title="Edit Halaqah"
                     >
                         <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                         title="Hapus Halaqah"
                     >
                         <Trash2 className="w-4 h-4" />
@@ -220,7 +220,7 @@ export default function TahfidzHalaqahPage() {
                 <div>
                     <div className="flex items-center gap-2">
                         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Tahfidz & Halaqah (Leveling Dinamis)</h1>
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                        <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                             Model Mingguan
                         </span>
                     </div>
@@ -230,7 +230,7 @@ export default function TahfidzHalaqahPage() {
                 </div>
                 <button
                     onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white font-semibold text-sm rounded-xl hover:bg-amber-700 transition shadow-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white font-semibold text-sm rounded-md hover:bg-amber-700 transition shadow-sm"
                 >
                     <Plus className="w-4 h-4" />
                     Buat Halaqah Baru
@@ -238,7 +238,7 @@ export default function TahfidzHalaqahPage() {
             </div>
 
             {/* Banner Khusus Leveling Tahfidz */}
-            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-md flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-amber-900 leading-relaxed">
                     <span className="font-bold">Mekanisme Kenaikan Level Mingguan:</span> Berbeda dengan sistem formal semesteran, santri tahfidz tidak perlu menunggu akhir tahun untuk naik jenjang. Begitu santri menyelesaikan target hafalan di halaqahnya (misal Juz 30), Musyrif dapat langsung menaikkan santri ke halaqah tingkat berikutnya (misal Juz 1-5).
@@ -268,7 +268,7 @@ export default function TahfidzHalaqahPage() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Contoh: Halaqah Abu Bakar (Level Pemula)"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
                         />
                     </div>
 
@@ -280,7 +280,7 @@ export default function TahfidzHalaqahPage() {
                             value={targetLevel}
                             onChange={(e) => setTargetLevel(e.target.value)}
                             placeholder="Contoh: Juz 30 / Juz 1 s.d 5"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
                         />
                     </div>
 
@@ -290,7 +290,7 @@ export default function TahfidzHalaqahPage() {
                             <select
                                 value={homeroomTeacherId}
                                 onChange={(e) => setHomeroomTeacherId(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
                             >
                                 <option value="">-- Pilih Musyrif --</option>
                                 {teachers.map((t) => (
@@ -304,7 +304,7 @@ export default function TahfidzHalaqahPage() {
                                 type="number"
                                 value={capacity}
                                 onChange={(e) => setCapacity(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -313,14 +313,14 @@ export default function TahfidzHalaqahPage() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-amber-600 rounded-md hover:bg-amber-700 disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan'}
                         </button>
@@ -340,7 +340,7 @@ export default function TahfidzHalaqahPage() {
                             required
                             value={selectedStudentToAdd}
                             onChange={(e) => setSelectedStudentToAdd(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
+                            className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-xs bg-white"
                         >
                             <option value="">-- Masukkan Santri Baru ke Halaqah --</option>
                             {allStudents.map((s) => (
@@ -349,13 +349,13 @@ export default function TahfidzHalaqahPage() {
                         </select>
                         <button
                             type="submit"
-                            className="px-3 py-2 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 flex items-center gap-1 shrink-0"
+                            className="px-3 py-2 bg-amber-600 text-white rounded-md text-xs font-semibold hover:bg-amber-700 flex items-center gap-1 shrink-0"
                         >
                             <UserPlus className="w-4 h-4" /> Masukkan
                         </button>
                     </form>
 
-                    <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                    <div className="border border-slate-200 rounded-md divide-y divide-slate-100 max-h-72 overflow-y-auto">
                         {!halaqahDetail?.student_classes?.length ? (
                             <div className="p-6 text-center text-xs text-slate-400">Belum ada santri di halaqah ini</div>
                         ) : (
@@ -368,7 +368,7 @@ export default function TahfidzHalaqahPage() {
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => setPromotingStudent(sc.student)}
-                                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 shadow-xs text-xs"
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white font-semibold rounded-md hover:bg-emerald-700 shadow-xs text-xs"
                                             title="Promosikan Santri ke Halaqah Lebih Tinggi"
                                         >
                                             <ArrowUpRight className="w-3.5 h-3.5" /> Naik Level
@@ -404,7 +404,7 @@ export default function TahfidzHalaqahPage() {
                 onClose={() => setPromotingStudent(null)}
             >
                 <form onSubmit={handlePromoteLevel} className="space-y-4">
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md text-xs text-emerald-800">
                         Santri <span className="font-bold">{promotingStudent?.name}</span> akan dipindahkan dari <strong>{selectedHalaqah?.name}</strong> ke halaqah target berikutnya. Riwayat pencapaian akan direkam secara otomatis.
                     </div>
 
@@ -414,7 +414,7 @@ export default function TahfidzHalaqahPage() {
                             required
                             value={targetGroupId}
                             onChange={(e) => setTargetGroupId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-emerald-500"
                         >
                             <option value="">-- Pilih Halaqah Tingkat Selanjutnya --</option>
                             {groups.filter(g => g.id !== selectedHalaqah?.id).map((g) => (
@@ -432,7 +432,7 @@ export default function TahfidzHalaqahPage() {
                             value={promotionNote}
                             onChange={(e) => setPromotionNote(e.target.value)}
                             placeholder="Contoh: Telah lulus tasmi' 1 juz sekali duduk predikat Mumtaz..."
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
                         />
                     </div>
 
@@ -440,13 +440,13 @@ export default function TahfidzHalaqahPage() {
                         <button
                             type="button"
                             onClick={() => setPromotingStudent(null)}
-                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700"
                         >
                             Konfirmasi Naik Level
                         </button>

@@ -151,7 +151,7 @@ export default function StudyPage() {
             key: 'kkm',
             label: 'KKM Minimal',
             render: (row) => (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
                     {Number(row.kkm).toFixed(0)}
                 </span>
             ),
@@ -172,14 +172,14 @@ export default function StudyPage() {
                 <div className="flex items-center gap-1.5">
                     <button
                         onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
                         title="Edit Mapel"
                     >
                         <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                         title="Hapus Mapel"
                     >
                         <Trash2 className="w-4 h-4" />
@@ -201,14 +201,14 @@ export default function StudyPage() {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => setLessonHourModalOpen(true)}
-                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white text-slate-700 font-semibold text-sm rounded-xl border border-slate-300 hover:bg-slate-50 transition shadow-sm"
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white text-slate-700 font-semibold text-sm rounded-md border border-slate-300 hover:bg-slate-50 transition shadow-sm"
                     >
                         <Clock className="w-4 h-4 text-emerald-600" />
                         Jam Pelajaran
                     </button>
                     <button
                         onClick={openCreateModal}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-xl hover:bg-emerald-700 transition shadow-sm"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
                     >
                         <Plus className="w-4 h-4" />
                         Tambah Mapel
@@ -222,7 +222,7 @@ export default function StudyPage() {
                 <select
                     value={instFilter}
                     onChange={(e) => setInstFilter(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
+                    className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-emerald-500"
                 >
                     <option value="">Semua Lembaga</option>
                     {institutions.map((inst) => (
@@ -254,7 +254,7 @@ export default function StudyPage() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Contoh: Fiqih Ibadah / Matematika"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                     </div>
 
@@ -266,7 +266,7 @@ export default function StudyPage() {
                                 value={code}
                                 onChange={(e) => setCode(e.target.value)}
                                 placeholder="FQH-01"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
@@ -278,7 +278,7 @@ export default function StudyPage() {
                                 required
                                 value={kkm}
                                 onChange={(e) => setKkm(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -288,7 +288,7 @@ export default function StudyPage() {
                         <select
                             value={institutionId}
                             onChange={(e) => setInstitutionId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                         >
                             <option value="">Umum (Berlaku Semua Lembaga)</option>
                             {institutions.map((inst) => (
@@ -304,7 +304,7 @@ export default function StudyPage() {
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="Deskripsi materi pelajaran..."
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                     </div>
 
@@ -312,14 +312,14 @@ export default function StudyPage() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan'}
                         </button>
@@ -334,7 +334,7 @@ export default function StudyPage() {
                 onClose={() => setLessonHourModalOpen(false)}
             >
                 <div className="space-y-4">
-                    <form onSubmit={handleAddLessonHour} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                    <form onSubmit={handleAddLessonHour} className="p-3 bg-slate-50 border border-slate-200 rounded-md space-y-3">
                         <div className="font-semibold text-xs text-slate-700 uppercase tracking-wider">Tambah Jam Belajar / Istirahat</div>
                         <div className="grid grid-cols-3 gap-2">
                             <input
@@ -343,21 +343,21 @@ export default function StudyPage() {
                                 placeholder="Jam Ke-1 / Istirahat"
                                 value={hourName}
                                 onChange={(e) => setHourName(e.target.value)}
-                                className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+                                className="px-2.5 py-1.5 border border-slate-300 rounded-md text-xs"
                             />
                             <input
                                 type="time"
                                 required
                                 value={startTime}
                                 onChange={(e) => setStartTime(e.target.value)}
-                                className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+                                className="px-2.5 py-1.5 border border-slate-300 rounded-md text-xs"
                             />
                             <input
                                 type="time"
                                 required
                                 value={endTime}
                                 onChange={(e) => setEndTime(e.target.value)}
-                                className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+                                className="px-2.5 py-1.5 border border-slate-300 rounded-md text-xs"
                             />
                         </div>
                         <div className="flex items-center justify-between">
@@ -372,14 +372,14 @@ export default function StudyPage() {
                             </label>
                             <button
                                 type="submit"
-                                className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700"
+                                className="px-3 py-1.5 bg-emerald-600 text-white rounded-md text-xs font-semibold hover:bg-emerald-700"
                             >
                                 + Tambah Jam
                             </button>
                         </div>
                     </form>
 
-                    <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl">
+                    <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
                         {lessonHours.length === 0 ? (
                             <div className="p-6 text-center text-xs text-slate-400">Belum ada jam pelajaran diset</div>
                         ) : (

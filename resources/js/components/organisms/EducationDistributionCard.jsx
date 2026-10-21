@@ -29,7 +29,7 @@ export default function EducationDistributionCard({
                     </CardDescription>
                 </div>
                 {totalSantri > 0 && (
-                    <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full">
+                    <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                         {totalSantri.toLocaleString()} Santri
                     </span>
                 )}

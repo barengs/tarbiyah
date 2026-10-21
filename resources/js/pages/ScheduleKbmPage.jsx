@@ -192,7 +192,7 @@ export default function ScheduleKbmPage() {
                     <select
                         value={effectiveGroupId || ''}
                         onChange={(e) => setSelectedGroupId(e.target.value)}
-                        className="px-3.5 py-2 text-sm font-semibold border border-slate-300 rounded-xl bg-white shadow-xs focus:ring-2 focus:ring-emerald-500"
+                        className="px-3.5 py-2 text-sm font-semibold border border-slate-300 rounded-md bg-white shadow-xs focus:ring-2 focus:ring-emerald-500"
                     >
                         {groups.map((g) => (
                             <option key={g.id} value={g.id}>
@@ -207,7 +207,7 @@ export default function ScheduleKbmPage() {
             <div className="flex gap-2 border-b border-slate-200 pb-2">
                 <button
                     onClick={() => setActiveTab('schedules')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
                         activeTab === 'schedules'
                             ? 'bg-emerald-600 text-white shadow-sm'
                             : 'text-slate-600 hover:bg-slate-100'
@@ -218,7 +218,7 @@ export default function ScheduleKbmPage() {
                 </button>
                 <button
                     onClick={() => setActiveTab('journals')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
                         activeTab === 'journals'
                             ? 'bg-emerald-600 text-white shadow-sm'
                             : 'text-slate-600 hover:bg-slate-100'
@@ -229,7 +229,7 @@ export default function ScheduleKbmPage() {
                 </button>
                 <button
                     onClick={() => setActiveTab('recap')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
                         activeTab === 'recap'
                             ? 'bg-emerald-600 text-white shadow-sm'
                             : 'text-slate-600 hover:bg-slate-100'
@@ -254,7 +254,7 @@ export default function ScheduleKbmPage() {
                                 setSchedTeacherId(teachers[0]?.id || '');
                                 setScheduleModalOpen(true);
                             }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-md hover:bg-emerald-700"
                         >
                             <Plus className="w-3.5 h-3.5" /> + Jadwal Pelajaran
                         </button>
@@ -264,10 +264,10 @@ export default function ScheduleKbmPage() {
                         {days.map((day) => {
                             const daySchedules = schedules.filter((s) => s.day === day.id);
                             return (
-                                <div key={day.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs flex flex-col">
+                                <div key={day.id} className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-xs flex flex-col">
                                     <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
                                         <span className="font-bold text-sm text-slate-800">{day.name}</span>
-                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
                                             {daySchedules.length} Sesi
                                         </span>
                                     </div>
@@ -276,7 +276,7 @@ export default function ScheduleKbmPage() {
                                             <p className="text-xs text-slate-400 italic py-6 text-center">Tidak ada KBM</p>
                                         ) : (
                                             daySchedules.map((s) => (
-                                                <div key={s.id} className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-emerald-50/40 transition">
+                                                <div key={s.id} className="p-2.5 rounded-md border border-slate-100 bg-slate-50/50 hover:bg-emerald-50/40 transition">
                                                     <div className="flex items-start justify-between">
                                                         <div>
                                                             <p className="font-bold text-xs text-slate-900">{s.study?.name}</p>
@@ -320,7 +320,7 @@ export default function ScheduleKbmPage() {
                                 setJNotes('');
                                 setJournalModalOpen(true);
                             }}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-xl hover:bg-emerald-700 shadow-xs"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-md hover:bg-emerald-700 shadow-xs"
                         >
                             <Plus className="w-4 h-4" /> Buka Jurnal Pertemuan Baru
                         </button>
@@ -328,15 +328,15 @@ export default function ScheduleKbmPage() {
 
                     <div className="space-y-3">
                         {journals.length === 0 ? (
-                            <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-2xl">
+                            <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-md">
                                 Belum ada jurnal pertemuan KBM yang dibuka
                             </div>
                         ) : (
                             journals.map((j) => (
-                                <div key={j.id} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div key={j.id} className="p-4 bg-white border border-slate-200 rounded-md shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
-                                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                            <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
                                                 Pertemuan Ke-{j.meeting_number}
                                             </span>
                                             <span className="text-xs text-slate-400 font-mono">
@@ -352,23 +352,23 @@ export default function ScheduleKbmPage() {
                                     <div className="flex items-center gap-4">
                                         {/* Presensi counts */}
                                         <div className="flex gap-2 text-xs font-semibold">
-                                            <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                 {j.hadir_count || 0} Hadir
                                             </span>
-                                            <span className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+                                            <span className="px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
                                                 {j.izin_count || 0} Izin
                                             </span>
-                                            <span className="px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+                                            <span className="px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
                                                 {j.sakit_count || 0} Sakit
                                             </span>
-                                            <span className="px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">
+                                            <span className="px-2 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
                                                 {j.alpa_count || 0} Alpa
                                             </span>
                                         </div>
 
                                         <button
                                             onClick={() => handleOpenPresenceModal(j)}
-                                            className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition"
+                                            className="px-3.5 py-2 bg-slate-900 text-white rounded-md text-xs font-semibold hover:bg-slate-800 transition"
                                         >
                                             Input Presensi
                                         </button>
@@ -383,7 +383,7 @@ export default function ScheduleKbmPage() {
             {/* TAB 3: REKAP KEHADIRAN */}
             {activeTab === 'recap' && (
                 <div className="space-y-4">
-                    <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+                    <div className="p-4 bg-white border border-slate-200 rounded-md shadow-xs">
                         <div className="mb-4">
                             <h3 className="font-bold text-base text-slate-900">Rekapitulasi Kehadiran Siswa</h3>
                             <p className="text-xs text-slate-500">Total {recap?.total_meetings || 0} Pertemuan KBM Terlaksana di {currentGroup?.name}</p>
@@ -407,7 +407,7 @@ export default function ScheduleKbmPage() {
                                             </div>
 
                                             <div className="w-24 text-right">
-                                                <span className={`font-bold px-2.5 py-0.5 rounded-full text-xs ${
+                                                <span className={`font-bold px-2.5 py-0.5 rounded text-xs ${
                                                     st.percentage >= 80 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
                                                 }`}>
                                                     {st.percentage}%
@@ -436,7 +436,7 @@ export default function ScheduleKbmPage() {
                         <select
                             value={schedDay}
                             onChange={(e) => setSchedDay(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                         >
                             {days.map((d) => (
                                 <option key={d.id} value={d.id}>{d.name}</option>
@@ -450,7 +450,7 @@ export default function ScheduleKbmPage() {
                             required
                             value={schedHourId}
                             onChange={(e) => setSchedHourId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                         >
                             <option value="">-- Pilih Jam Pelajaran --</option>
                             {lessonHours.map((h) => (
@@ -467,7 +467,7 @@ export default function ScheduleKbmPage() {
                             required
                             value={schedStudyId}
                             onChange={(e) => setSchedStudyId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                         >
                             <option value="">-- Pilih Mapel --</option>
                             {studies.map((s) => (
@@ -482,7 +482,7 @@ export default function ScheduleKbmPage() {
                             required
                             value={schedTeacherId}
                             onChange={(e) => setSchedTeacherId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                         >
                             <option value="">-- Pilih Guru --</option>
                             {teachers.map((t) => (
@@ -495,14 +495,14 @@ export default function ScheduleKbmPage() {
                         <button
                             type="button"
                             onClick={() => setScheduleModalOpen(false)}
-                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreatingSchedule}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700"
                         >
                             Simpan Jadwal
                         </button>
@@ -526,7 +526,7 @@ export default function ScheduleKbmPage() {
                                 required
                                 value={jMeetingNo}
                                 onChange={(e) => setJMeetingNo(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
                             />
                         </div>
                         <div>
@@ -536,7 +536,7 @@ export default function ScheduleKbmPage() {
                                 required
                                 value={jDate}
                                 onChange={(e) => setJDate(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
                             />
                         </div>
                     </div>
@@ -547,7 +547,7 @@ export default function ScheduleKbmPage() {
                             required
                             value={jStudyId}
                             onChange={(e) => setJStudyId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                         >
                             <option value="">-- Pilih Mapel --</option>
                             {studies.map((s) => (
@@ -562,7 +562,7 @@ export default function ScheduleKbmPage() {
                             required
                             value={jTeacherId}
                             onChange={(e) => setJTeacherId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                         >
                             <option value="">-- Pilih Guru --</option>
                             {teachers.map((t) => (
@@ -579,7 +579,7 @@ export default function ScheduleKbmPage() {
                             placeholder="Contoh: Bab 3 - Kaidah Fiqih Muamalah"
                             value={jTopic}
                             onChange={(e) => setJTopic(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
                         />
                     </div>
 
@@ -590,7 +590,7 @@ export default function ScheduleKbmPage() {
                             placeholder="Catatan pelaksanaan KBM..."
                             value={jNotes}
                             onChange={(e) => setJNotes(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
                         />
                     </div>
 
@@ -598,14 +598,14 @@ export default function ScheduleKbmPage() {
                         <button
                             type="button"
                             onClick={() => setJournalModalOpen(false)}
-                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreatingJournal}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700"
                         >
                             Buka Jurnal & Input Absensi
                         </button>
@@ -624,7 +624,7 @@ export default function ScheduleKbmPage() {
                         Topik: <strong className="text-slate-800">{presenceModalJournal?.topic}</strong>
                     </p>
 
-                    <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-80 overflow-y-auto">
+                    <div className="border border-slate-200 rounded-md divide-y divide-slate-100 max-h-80 overflow-y-auto">
                         {!presenceModalJournal?.presences?.length && !singleJournal?.presences?.length ? (
                             <div className="p-6 text-center text-xs text-slate-400">Belum ada siswa terdaftar di rombel ini</div>
                         ) : (
@@ -673,14 +673,14 @@ export default function ScheduleKbmPage() {
                         <button
                             type="button"
                             onClick={() => setPresenceModalJournal(null)}
-                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Tutup
                         </button>
                         <button
                             type="submit"
                             disabled={isSavingPresences}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-800"
                         >
                             Simpan Presensi
                         </button>

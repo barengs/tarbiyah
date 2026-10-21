@@ -149,7 +149,7 @@ export default function AssessmentPage() {
                     <select
                         value={effectiveGroupId || ''}
                         onChange={(e) => setSelectedGroupId(e.target.value)}
-                        className="px-3.5 py-2 text-sm font-semibold border border-slate-300 rounded-xl bg-white shadow-xs focus:ring-2 focus:ring-emerald-500"
+                        className="px-3.5 py-2 text-sm font-semibold border border-slate-300 rounded-md bg-white shadow-xs focus:ring-2 focus:ring-emerald-500"
                     >
                         {groups.map((g) => (
                             <option key={g.id} value={g.id}>{g.name}</option>
@@ -162,7 +162,7 @@ export default function AssessmentPage() {
             <div className="flex gap-2 border-b border-slate-200 pb-2">
                 <button
                     onClick={() => setActiveTab('assessments')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
                         activeTab === 'assessments' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -171,7 +171,7 @@ export default function AssessmentPage() {
                 </button>
                 <button
                     onClick={() => setActiveTab('gradebook')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
                         activeTab === 'gradebook' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -195,13 +195,13 @@ export default function AssessmentPage() {
                                 setFTitle('');
                                 setCreateModalOpen(true);
                             }}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-xl hover:bg-emerald-700 shadow-xs"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-md hover:bg-emerald-700 shadow-xs"
                         >
                             <Plus className="w-4 h-4" /> + Buat Asesmen
                         </button>
                     </div>
 
-                    <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-xs">
+                    <div className="overflow-x-auto bg-white border border-slate-200 rounded-md shadow-xs">
                         <table className="min-w-full divide-y divide-slate-200">
                             <thead className="bg-slate-50">
                                 <tr>
@@ -229,7 +229,7 @@ export default function AssessmentPage() {
                                                 {a.date ? new Date(a.date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '-'}
                                             </td>
                                             <td className="px-5 py-3.5 text-xs">
-                                                <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold">
+                                                <span className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-semibold">
                                                     {a.scores_count || 0} Siswa
                                                 </span>
                                             </td>
@@ -237,7 +237,7 @@ export default function AssessmentPage() {
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => setScoreModalAssessment(a)}
-                                                        className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800"
+                                                        className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-xs font-semibold hover:bg-slate-800"
                                                     >
                                                         Input Nilai
                                                     </button>
@@ -261,11 +261,11 @@ export default function AssessmentPage() {
             {/* TAB 2: LEGER NILAI KELAS */}
             {activeTab === 'gradebook' && (
                 <div className="space-y-4">
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-600">
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-600">
                         <span className="font-bold text-slate-800">Leger Nilai Akhir</span> — Rekapitulasi rata-rata nilai seluruh mata pelajaran dan peringkat kelas <strong>{currentGroup?.name}</strong>.
                     </div>
 
-                    <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-xs">
+                    <div className="overflow-x-auto bg-white border border-slate-200 rounded-md shadow-xs">
                         <table className="min-w-full divide-y divide-slate-200">
                             <thead className="bg-slate-50">
                                 <tr>
@@ -284,7 +284,7 @@ export default function AssessmentPage() {
                                     gradebook.students.map((st) => (
                                         <tr key={st.student_id} className="hover:bg-slate-50 transition">
                                             <td className="px-4 py-3.5">
-                                                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
+                                                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold ${
                                                     st.rank === 1 ? 'bg-amber-100 text-amber-800' :
                                                     st.rank <= 3 ? 'bg-emerald-100 text-emerald-800' :
                                                     'bg-slate-100 text-slate-600'
@@ -308,7 +308,7 @@ export default function AssessmentPage() {
                                                 );
                                             })}
                                             <td className="px-4 py-3.5 text-center">
-                                                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                <span className="px-2.5 py-1 rounded text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                     {st.average}
                                                 </span>
                                             </td>
@@ -342,7 +342,7 @@ export default function AssessmentPage() {
                             placeholder="Contoh: Ulangan Harian Bab 4"
                             value={fTitle}
                             onChange={(e) => setFTitle(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
                         />
                     </div>
 
@@ -353,7 +353,7 @@ export default function AssessmentPage() {
                                 required
                                 value={fCategoryId}
                                 onChange={(e) => setFCategoryId(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                             >
                                 <option value="">-- Pilih Kategori --</option>
                                 {categories.map((c) => (
@@ -368,7 +368,7 @@ export default function AssessmentPage() {
                                 required
                                 value={fDate}
                                 onChange={(e) => setFDate(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
                             />
                         </div>
                     </div>
@@ -379,7 +379,7 @@ export default function AssessmentPage() {
                             required
                             value={fStudyId}
                             onChange={(e) => setFStudyId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                         >
                             <option value="">-- Pilih Mapel --</option>
                             {studies.map((s) => (
@@ -394,7 +394,7 @@ export default function AssessmentPage() {
                             required
                             value={fTeacherId}
                             onChange={(e) => setFTeacherId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                         >
                             <option value="">-- Pilih Guru --</option>
                             {teachers.map((t) => (
@@ -407,14 +407,14 @@ export default function AssessmentPage() {
                         <button
                             type="button"
                             onClick={() => setCreateModalOpen(false)}
-                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700"
                         >
                             Buat Asesmen
                         </button>
@@ -433,7 +433,7 @@ export default function AssessmentPage() {
                         Mapel: <strong className="text-slate-800">{detailedAssessment?.study?.name}</strong> • Maksimal Nilai: <strong>{detailedAssessment?.max_score || 100}</strong>
                     </p>
 
-                    <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                    <div className="border border-slate-200 rounded-md divide-y divide-slate-100 max-h-96 overflow-y-auto">
                         {detailedAssessment?.scores?.length ? (
                             detailedAssessment.scores.map((s) => (
                                 <div key={s.id} className="p-3 flex items-center justify-between text-xs gap-4">
@@ -456,7 +456,7 @@ export default function AssessmentPage() {
                                                     score: e.target.value,
                                                 }
                                             }))}
-                                            className="w-20 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs text-center font-bold focus:ring-2 focus:ring-emerald-500"
+                                            className="w-20 px-2.5 py-1.5 border border-slate-300 rounded-md text-xs text-center font-bold focus:ring-2 focus:ring-emerald-500"
                                         />
                                         <input
                                             type="text"
@@ -469,7 +469,7 @@ export default function AssessmentPage() {
                                                     feedback: e.target.value,
                                                 }
                                             }))}
-                                            className="w-40 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs"
+                                            className="w-40 px-2.5 py-1.5 border border-slate-200 rounded-md text-xs"
                                         />
                                     </div>
                                 </div>
@@ -483,14 +483,14 @@ export default function AssessmentPage() {
                         <button
                             type="button"
                             onClick={() => setScoreModalAssessment(null)}
-                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Tutup
                         </button>
                         <button
                             onClick={handleSaveScores}
                             disabled={isSaving}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:opacity-50"
+                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-800 disabled:opacity-50"
                         >
                             <Save className="w-4 h-4" />
                             {isSaving ? 'Menyimpan...' : 'Simpan Nilai'}

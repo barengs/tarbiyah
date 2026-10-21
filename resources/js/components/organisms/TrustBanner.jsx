@@ -21,7 +21,7 @@ export default function TrustBanner({ className = '' }) {
                     </span>
                 </div>
 
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-[#b45309] bg-orange-50 border border-orange-100 px-3 py-1 rounded-full whitespace-nowrap shrink-0">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-[#b45309] bg-orange-50 border border-orange-100 px-2.5 py-1 rounded whitespace-nowrap shrink-0">
                     <Lock className="w-3 h-3" />
                     Enkripsi TLS 1.3 / SSL 256-bit
                 </span>

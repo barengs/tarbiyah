@@ -148,12 +148,12 @@ export default function StudentPage() {
             label: 'Tipe Kesiswaan',
             render: (row) => (
                 row.is_mukim ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <Home className="w-3.5 h-3.5 text-emerald-600" />
                         Santri Mukim (90%)
                     </span>
                 ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                         <School className="w-3.5 h-3.5 text-indigo-600" />
                         Siswa Reguler Luar (10%)
                     </span>
@@ -180,7 +180,7 @@ export default function StudentPage() {
                 if (row.status === 'keluar') badgeClass = 'bg-rose-50 text-rose-700 border-rose-200';
 
                 return (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize ${badgeClass}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold border capitalize ${badgeClass}`}>
                         {row.status || 'aktif'}
                     </span>
                 );
@@ -193,14 +193,14 @@ export default function StudentPage() {
                 <div className="flex items-center gap-1.5">
                     <button
                         onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
                         title="Edit Siswa"
                     >
                         <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                         title="Hapus Siswa"
                     >
                         <Trash2 className="w-4 h-4" />
@@ -222,7 +222,7 @@ export default function StudentPage() {
                 </div>
                 <button
                     onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-xl hover:bg-emerald-700 transition shadow-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
                 >
                     <Plus className="w-4 h-4" />
                     Daftar Siswa Luar
@@ -230,7 +230,7 @@ export default function StudentPage() {
             </div>
 
             {/* Banner Penjelasan Dualitas Kesiswaan */}
-            <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl flex items-start gap-3">
+            <div className="p-4 bg-slate-100 border border-slate-200 rounded-md flex items-start gap-3">
                 <Info className="w-5 h-5 text-slate-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-slate-600 leading-relaxed space-y-1">
                     <p>
@@ -253,7 +253,7 @@ export default function StudentPage() {
                         <button
                             key={tab.value}
                             onClick={() => setMukimFilter(tab.value)}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                                 mukimFilter === tab.value
                                     ? 'bg-emerald-600 text-white shadow-sm'
                                     : 'text-slate-600 hover:bg-slate-100'
@@ -272,7 +272,7 @@ export default function StudentPage() {
                             placeholder="Cari nama, NIS, NISN..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none w-56"
+                            className="pl-9 pr-3 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none w-56"
                         />
                     </div>
                 </div>
@@ -296,7 +296,7 @@ export default function StudentPage() {
                     <div>
                         <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Tipe Kesiswaan *</label>
                         <div className="mt-1 grid grid-cols-2 gap-3">
-                            <label className={`flex items-center gap-2 p-3 border rounded-xl cursor-pointer text-xs font-semibold ${
+                            <label className={`flex items-center gap-2 p-3 border rounded-md cursor-pointer text-xs font-semibold ${
                                 !isMukim ? 'border-indigo-500 bg-indigo-50 text-indigo-900' : 'border-slate-200 text-slate-600'
                             }`}>
                                 <input
@@ -308,7 +308,7 @@ export default function StudentPage() {
                                 />
                                 Siswa Reguler Luar (Kalong)
                             </label>
-                            <label className={`flex items-center gap-2 p-3 border rounded-xl cursor-pointer text-xs font-semibold ${
+                            <label className={`flex items-center gap-2 p-3 border rounded-md cursor-pointer text-xs font-semibold ${
                                 isMukim ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-slate-200 text-slate-600'
                             }`}>
                                 <input
@@ -331,7 +331,7 @@ export default function StudentPage() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Contoh: Muhammad Farhan"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                     </div>
 
@@ -344,7 +344,7 @@ export default function StudentPage() {
                                 value={nis}
                                 onChange={(e) => setNis(e.target.value)}
                                 placeholder="Contoh: 20260001"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
@@ -354,7 +354,7 @@ export default function StudentPage() {
                                 value={nisn}
                                 onChange={(e) => setNisn(e.target.value)}
                                 placeholder="Contoh: 0081234567"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -365,7 +365,7 @@ export default function StudentPage() {
                             <select
                                 value={gender}
                                 onChange={(e) => setGender(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                             >
                                 <option value="L">Laki-laki (Ikhwan)</option>
                                 <option value="P">Perempuan (Akhwat)</option>
@@ -376,7 +376,7 @@ export default function StudentPage() {
                             <select
                                 value={status}
                                 onChange={(e) => setStatus(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                             >
                                 <option value="aktif">Aktif</option>
                                 <option value="lulus">Lulus</option>
@@ -394,7 +394,7 @@ export default function StudentPage() {
                                 value={bornIn}
                                 onChange={(e) => setBornIn(e.target.value)}
                                 placeholder="Jakarta"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
@@ -403,7 +403,7 @@ export default function StudentPage() {
                                 type="date"
                                 value={bornAt}
                                 onChange={(e) => setBornAt(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -416,7 +416,7 @@ export default function StudentPage() {
                                 value={parentName}
                                 onChange={(e) => setParentName(e.target.value)}
                                 placeholder="Nama ayah / ibu / wali"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
@@ -426,7 +426,7 @@ export default function StudentPage() {
                                 value={parentPhone}
                                 onChange={(e) => setParentPhone(e.target.value)}
                                 placeholder="08..."
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -438,7 +438,7 @@ export default function StudentPage() {
                             value={address}
                             onChange={(e) => setAddress(e.target.value)}
                             placeholder="Alamat tempat tinggal siswa saat ini..."
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                     </div>
 
@@ -446,14 +446,14 @@ export default function StudentPage() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan Siswa'}
                         </button>

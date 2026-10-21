@@ -145,11 +145,11 @@ export default function InstitutionPage() {
             label: 'Model Kenaikan',
             render: (row) =>
                 row.progression_type === 'leveling' ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                         Leveling Dinamis (Tahfidz)
                     </span>
                 ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                         Semesteran (Formal)
                     </span>
                 ),
@@ -164,7 +164,7 @@ export default function InstitutionPage() {
                         setSelectedInstForLevels(row);
                         setNewLevelOrder((row.educations?.length || 0) + 1);
                     }}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
                 >
                     <Layers className="w-3.5 h-3.5" />
                     {row.educations?.length || 0} Tingkat
@@ -178,13 +178,13 @@ export default function InstitutionPage() {
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     <button
                         onClick={() => openEditModal(row)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 transition-colors"
+                        className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-slate-100 transition-colors"
                     >
                         <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={() => setDeleteTarget(row)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 transition-colors"
+                        className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-slate-100 transition-colors"
                     >
                         <Trash2 className="w-4 h-4" />
                     </button>
@@ -204,7 +204,7 @@ export default function InstitutionPage() {
                 </div>
                 <button
                     onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-sm transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-md text-sm font-semibold hover:bg-emerald-700 shadow-sm transition-colors"
                 >
                     <Plus className="w-4 h-4" />
                     Tambah Lembaga
@@ -228,7 +228,7 @@ export default function InstitutionPage() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Contoh: Madrasah Tsanawiyah Al-Hikmah"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                     </div>
 
@@ -240,7 +240,7 @@ export default function InstitutionPage() {
                                 value={shortName}
                                 onChange={(e) => setShortName(e.target.value)}
                                 placeholder="MTs / MA / Tahfidz"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
@@ -250,7 +250,7 @@ export default function InstitutionPage() {
                                 value={regNumber}
                                 onChange={(e) => setRegNumber(e.target.value)}
                                 placeholder="121232..."
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -260,7 +260,7 @@ export default function InstitutionPage() {
                         <select
                             value={progressionType}
                             onChange={(e) => setProgressionType(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                         >
                             <option value="semester">Semesteran (Formal - SMP/SMA/MTs/MA)</option>
                             <option value="leveling">Leveling Dinamis (Tahfidz / Milestone Mingguan)</option>
@@ -280,7 +280,7 @@ export default function InstitutionPage() {
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
                                 placeholder="021-..."
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
@@ -290,7 +290,7 @@ export default function InstitutionPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="mts@pesantren.id"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -299,14 +299,14 @@ export default function InstitutionPage() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan Institusi'}
                         </button>
@@ -328,7 +328,7 @@ export default function InstitutionPage() {
                             placeholder={selectedInstForLevels?.progression_type === 'leveling' ? 'Contoh: Juz 30' : 'Contoh: Kelas 7'}
                             value={newLevelName}
                             onChange={(e) => setNewLevelName(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                         <input
                             type="number"
@@ -337,17 +337,17 @@ export default function InstitutionPage() {
                             placeholder="Level"
                             value={newLevelOrder}
                             onChange={(e) => setNewLevelOrder(e.target.value)}
-                            className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="w-20 px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                         <button
                             type="submit"
-                            className="px-3.5 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 flex items-center gap-1"
+                            className="px-3.5 py-2 bg-emerald-600 text-white rounded-md text-sm font-semibold hover:bg-emerald-700 flex items-center gap-1"
                         >
                             <Plus className="w-4 h-4" /> Tambah
                         </button>
                     </form>
 
-                    <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                    <div className="border border-slate-200 rounded-md divide-y divide-slate-100 max-h-64 overflow-y-auto">
                         {educations.length === 0 ? (
                             <div className="p-6 text-center text-xs text-slate-400">Belum ada tingkat terdaftar</div>
                         ) : (

@@ -48,7 +48,7 @@ export default function MetricCard({
                     </div>
                 </div>
                 {Icon && (
-                    <div className={`p-2.5 rounded-xl shrink-0 ${a.icon}`}>
+                    <div className={`p-2.5 rounded-md shrink-0 ${a.icon}`}>
                         <Icon className="w-5 h-5" />
                     </div>
                 )}

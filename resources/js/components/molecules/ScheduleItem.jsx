@@ -31,7 +31,7 @@ export default function ScheduleItem({ subject, category = 'Diniyah', teacher, r
                     <div className="flex flex-col items-end gap-1 shrink-0">
                         <Badge variant={accent.badge} size="xs">{studyType || category}</Badge>
                         {status && (
-                            <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5">
+                            <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-2 py-0.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                 {status}
                             </span>

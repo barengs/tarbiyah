@@ -128,7 +128,7 @@ export default function TeacherPage() {
                     label = 'Honorer';
                 }
                 return (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold border ${badgeClass}`}>
                         {label}
                     </span>
                 );
@@ -160,14 +160,14 @@ export default function TeacherPage() {
                 <div className="flex items-center gap-1.5">
                     <button
                         onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
                         title="Edit Guru"
                     >
                         <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                         title="Hapus Guru"
                     >
                         <Trash2 className="w-4 h-4" />
@@ -189,7 +189,7 @@ export default function TeacherPage() {
                 </div>
                 <button
                     onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-xl hover:bg-emerald-700 transition shadow-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
                 >
                     <Plus className="w-4 h-4" />
                     Tambah Guru
@@ -207,7 +207,7 @@ export default function TeacherPage() {
                     <button
                         key={tab.value}
                         onClick={() => setStatusFilter(tab.value)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                             statusFilter === tab.value
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'text-slate-600 hover:bg-slate-100'
@@ -219,7 +219,7 @@ export default function TeacherPage() {
             </div>
 
             {/* Note banner */}
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-3">
                 <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-amber-800 leading-relaxed">
                     <span className="font-bold">Akses Guru Luar:</span> Guru bertipe <em>Guru Luar</em> dapat masuk langsung melalui portal login mandiri tanpa melihat modul-modul kepesantrenan (kamtib, asrama, perizinan) sehingga antarmuka tetap bersih dan fokus pada KBM, absensi, serta input nilai.
@@ -249,7 +249,7 @@ export default function TeacherPage() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Ust. Ahmad Zaki, S.Pd.I"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                     </div>
 
@@ -261,7 +261,7 @@ export default function TeacherPage() {
                                 value={nip}
                                 onChange={(e) => setNip(e.target.value)}
                                 placeholder="198501..."
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
@@ -269,7 +269,7 @@ export default function TeacherPage() {
                             <select
                                 value={gender}
                                 onChange={(e) => setGender(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                             >
                                 <option value="L">Laki-laki</option>
                                 <option value="P">Perempuan</option>
@@ -283,7 +283,7 @@ export default function TeacherPage() {
                             <select
                                 value={status}
                                 onChange={(e) => setStatus(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                             >
                                 <option value="tetap">Guru Tetap Pesantren</option>
                                 <option value="honorer">Guru Honorer</option>
@@ -297,7 +297,7 @@ export default function TeacherPage() {
                                 value={specialization}
                                 onChange={(e) => setSpecialization(e.target.value)}
                                 placeholder="Matematika / Fiqih"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -310,7 +310,7 @@ export default function TeacherPage() {
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
                                 placeholder="08123456789"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
@@ -320,7 +320,7 @@ export default function TeacherPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="guru@tarbiyah.id"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -329,14 +329,14 @@ export default function TeacherPage() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan Data'}
                         </button>

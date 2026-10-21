@@ -38,7 +38,7 @@ export default function ScheduleKbmPage() {
         { skip: !showAllGroups && !effectiveGroupId }
     );
     const allSchedules = schedulesData?.data || [];
-    const schedules = showAllGroups ? allSchedules : allSchedules.filter(s => s.class_group_id === effectiveGroupId);
+    const schedules = showAllGroups ? allSchedules : allSchedules.filter(s => Number(s.class_group_id) === Number(effectiveGroupId));
 
     const { data: hoursData } = useGetLessonHoursQuery();
     const lessonHours = hoursData?.data || [];
@@ -196,8 +196,11 @@ export default function ScheduleKbmPage() {
     };
 
     const getScheduleAt = (dayId, hourOrder) => {
-        if (!showAllGroups && !schedules.some(s => s.day === dayId && s.lesson_hour?.order === hourOrder)) return null;
-        const target = schedules.find(s => s.day === dayId && s.lesson_hour?.order === hourOrder && (showAllGroups ? true : s.class_group_id === effectiveGroupId));
+        const target = schedules.find(s => 
+            Number(s.day) === Number(dayId) && 
+            Number(s.lesson_hour?.order) === Number(hourOrder) && 
+            (showAllGroups ? true : Number(s.class_group_id) === Number(effectiveGroupId))
+        );
         return target || null;
     };
 

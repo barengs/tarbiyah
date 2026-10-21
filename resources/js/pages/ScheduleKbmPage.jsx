@@ -205,7 +205,8 @@ export default function ScheduleKbmPage() {
             </div>
 
             {/* Navigation Flat Tabs */}
-            <FlatTabs
+            <div className="space-y-2.5">
+                <FlatTabs
                 tabs={[
                     { id: 'schedules', name: 'Jadwal Mingguan', icon: Calendar },
                     { id: 'journals', name: 'Jurnal Mengajar & Presensi', icon: BookOpen },
@@ -398,6 +399,8 @@ export default function ScheduleKbmPage() {
                     </div>
                 </div>
             )}
+
+            </div>
 
             {/* Modal Tambah Jadwal */}
             <Modal

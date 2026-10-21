@@ -160,7 +160,8 @@ export default function AssessmentPage() {
             </div>
 
             {/* Navigation Flat Tabs */}
-            <FlatTabs
+            <div className="space-y-2.5">
+                <FlatTabs
                 tabs={[
                     { id: 'assessments', name: 'Daftar Asesmen / Ujian', icon: BookOpen },
                     { id: 'gradebook', name: 'Leger Nilai Kelas', icon: BarChart3 },
@@ -315,6 +316,8 @@ export default function AssessmentPage() {
                     </div>
                 </div>
             )}
+
+            </div>
 
             {/* Modal Create Assessment */}
             <Modal

@@ -243,24 +243,26 @@ export default function StudentPage() {
                 </div>
             </div>
 
-            {/* Flat Tabulasi Status Kesiswaan */}
-            <FlatTabs
-                tabs={[
-                    { label: 'Semua Siswa', value: '' },
-                    { label: 'Santri Mukim (90%)', value: 'true' },
-                    { label: 'Siswa Luar (10%)', value: 'false' },
-                ]}
-                activeTab={mukimFilter}
-                onChange={setMukimFilter}
-            />
+            {/* Flat Tab & Tabel Kesiswaan Ramping */}
+            <div className="space-y-2.5">
+                <FlatTabs
+                    tabs={[
+                        { label: 'Semua Siswa', value: '' },
+                        { label: 'Santri Mukim (90%)', value: 'true' },
+                        { label: 'Siswa Luar (10%)', value: 'false' },
+                    ]}
+                    activeTab={mukimFilter}
+                    onChange={setMukimFilter}
+                />
 
-            {/* Table */}
-            <DataTable
-                columns={columns}
-                data={students}
-                isLoading={isLoading}
-                emptyMessage="Belum ada data siswa ditemukan"
-            />
+                {/* Table */}
+                <DataTable
+                    columns={columns}
+                    data={students}
+                    isLoading={isLoading}
+                    emptyMessage="Belum ada data siswa ditemukan"
+                />
+            </div>
 
             {/* Form Modal */}
             <Modal

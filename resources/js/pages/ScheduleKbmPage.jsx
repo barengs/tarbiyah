@@ -790,7 +790,7 @@ export default function ScheduleKbmPage() {
             <ConfirmDialog
                 open={!!deleteScheduleTarget}
                 title="Hapus Jadwal Pelajaran"
-                message={`Yakin ingin menghapus jadwal "${deleteScheduleTarget?.study?.name}" pada hari ${LessonSchedulePage.getDayName(deleteScheduleTarget?.day)} di ${deleteScheduleTarget?.lesson_hour?.name}?`}
+                message={`Yakin ingin menghapus jadwal "${deleteScheduleTarget?.study?.name}" pada hari ${getDayName(deleteScheduleTarget?.day)} di ${deleteScheduleTarget?.lesson_hour?.name}?`}
                 confirmLabel="Ya, Hapus Jadwal"
                 onConfirm={async () => {
                     try {
@@ -807,8 +807,7 @@ export default function ScheduleKbmPage() {
     );
 }
 
-// Helper
-ScheduleKbmPage.getDayName = (dayId) => {
+function getDayName(dayId) {
     const m = { 6: 'Sabtu', 7: 'Ahad', 1: 'Senin', 2: 'Selasa', 3: 'Rabu', 4: 'Kamis', 5: 'Jumat (Libur)' };
     return m[dayId] || 'Tidak Diketahui';
-};
+}

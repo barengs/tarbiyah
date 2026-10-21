@@ -6,6 +6,7 @@ import {
     useDeleteStudentMutation 
 } from '../store/slices/studentApi';
 import DataTable from '../components/ui/DataTable';
+import FlatTabs from '../components/atoms/FlatTabs';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { Plus, Edit2, Trash2, Users, Home, School, Search, Info } from 'lucide-react';
@@ -242,41 +243,16 @@ export default function StudentPage() {
                 </div>
             </div>
 
-            {/* Filter Tabs & Search */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                <div className="flex gap-2">
-                    {[
-                        { label: 'Semua Siswa', value: '' },
-                        { label: 'Santri Mukim (90%)', value: 'true' },
-                        { label: 'Siswa Luar (10%)', value: 'false' },
-                    ].map((tab) => (
-                        <button
-                            key={tab.value}
-                            onClick={() => setMukimFilter(tab.value)}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                                mukimFilter === tab.value
-                                    ? 'bg-emerald-600 text-white shadow-sm'
-                                    : 'text-slate-600 hover:bg-slate-100'
-                            }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <div className="relative">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                        <input
-                            type="text"
-                            placeholder="Cari nama, NIS, NISN..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 pr-3 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none w-56"
-                        />
-                    </div>
-                </div>
-            </div>
+            {/* Flat Tabulasi Status Kesiswaan */}
+            <FlatTabs
+                tabs={[
+                    { label: 'Semua Siswa', value: '' },
+                    { label: 'Santri Mukim (90%)', value: 'true' },
+                    { label: 'Siswa Luar (10%)', value: 'false' },
+                ]}
+                activeTab={mukimFilter}
+                onChange={setMukimFilter}
+            />
 
             {/* Table */}
             <DataTable

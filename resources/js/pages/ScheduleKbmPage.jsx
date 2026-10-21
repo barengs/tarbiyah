@@ -17,6 +17,7 @@ import { useGetTeachersQuery } from '../store/slices/teacherApi';
 import { useGetLessonHoursQuery } from '../store/slices/lessonHourApi';
 import DataTable from '../components/ui/DataTable';
 import Modal from '../components/ui/Modal';
+import FlatTabs from '../components/atoms/FlatTabs';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { Calendar, Plus, Clock, BookOpen, UserCheck, CheckCircle2, AlertCircle, XCircle, Users, BarChart3 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -203,42 +204,16 @@ export default function ScheduleKbmPage() {
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex gap-2 border-b border-slate-200 pb-2">
-                <button
-                    onClick={() => setActiveTab('schedules')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
-                        activeTab === 'schedules'
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                >
-                    <Calendar className="w-4 h-4" />
-                    Jadwal Mingguan
-                </button>
-                <button
-                    onClick={() => setActiveTab('journals')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
-                        activeTab === 'journals'
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                >
-                    <BookOpen className="w-4 h-4" />
-                    Jurnal Mengajar & Presensi
-                </button>
-                <button
-                    onClick={() => setActiveTab('recap')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
-                        activeTab === 'recap'
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                >
-                    <BarChart3 className="w-4 h-4" />
-                    Rekap Kehadiran
-                </button>
-            </div>
+            {/* Navigation Flat Tabs */}
+            <FlatTabs
+                tabs={[
+                    { id: 'schedules', name: 'Jadwal Mingguan', icon: Calendar },
+                    { id: 'journals', name: 'Jurnal Mengajar & Presensi', icon: BookOpen },
+                    { id: 'recap', name: 'Rekap Kehadiran', icon: BarChart3 },
+                ]}
+                activeTab={activeTab}
+                onChange={setActiveTab}
+            />
 
             {/* TAB 1: JADWAL PELAJARAN */}
             {activeTab === 'schedules' && (

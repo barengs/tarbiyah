@@ -11,6 +11,7 @@ import { useGetClassGroupsQuery } from '../store/slices/classGroupApi';
 import { useGetStudiesQuery } from '../store/slices/studyApi';
 import { useGetTeachersQuery } from '../store/slices/teacherApi';
 import Modal from '../components/ui/Modal';
+import FlatTabs from '../components/atoms/FlatTabs';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { Plus, Trash2, Save, BookOpen, BarChart3, GraduationCap } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -158,27 +159,15 @@ export default function AssessmentPage() {
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex gap-2 border-b border-slate-200 pb-2">
-                <button
-                    onClick={() => setActiveTab('assessments')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
-                        activeTab === 'assessments' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                >
-                    <BookOpen className="w-4 h-4" />
-                    Daftar Asesmen / Ujian
-                </button>
-                <button
-                    onClick={() => setActiveTab('gradebook')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition ${
-                        activeTab === 'gradebook' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                >
-                    <BarChart3 className="w-4 h-4" />
-                    Leger Nilai Kelas
-                </button>
-            </div>
+            {/* Navigation Flat Tabs */}
+            <FlatTabs
+                tabs={[
+                    { id: 'assessments', name: 'Daftar Asesmen / Ujian', icon: BookOpen },
+                    { id: 'gradebook', name: 'Leger Nilai Kelas', icon: BarChart3 },
+                ]}
+                activeTab={activeTab}
+                onChange={setActiveTab}
+            />
 
             {/* TAB 1: ASESMEN LIST */}
             {activeTab === 'assessments' && (

@@ -1,13 +1,19 @@
 import React from 'react';
 
 /**
- * KOMPONEN FLAT TABS
+ * KOMPONEN FLAT TABS DENGAN LATAR BELAKANG AKTIF
  *
- * Mengikuti arahan UI/UX user:
- * "gunakan flat tab jika dalam satu halaman terdapat tabulasi."
+ * Sesuai arahan: "berikan warna latar belakang untuk tab yang sedang aktif"
  *
- * Tab dengan garis bawah (border-b-2) aktif, tanpa background blok tebal / tombol pil,
- * ramping dan menyatu secara elegan dengan layout.
+ * Tab aktif:
+ * - Memiliki latar belakang soft emerald/brand (bg-emerald-50)
+ * - Teks tegas dan kontras (text-[#093c30] font-bold)
+ * - Garis bawah penanda aktif (border-b-2 border-[#093c30] -mb-px)
+ * - Border-radius atas minimal (rounded-t-md)
+ *
+ * Tab tidak aktif:
+ * - Latar belakang transparan dengan hover efek (hover:bg-slate-100/70)
+ * - Teks slate-600
  */
 export default function FlatTabs({
     tabs = [],
@@ -16,7 +22,7 @@ export default function FlatTabs({
     className = '',
 }) {
     return (
-        <div className={`border-b border-slate-200/90 flex items-center gap-6 overflow-x-auto ${className}`}>
+        <div className={`border-b border-slate-200 flex items-center gap-1.5 overflow-x-auto ${className}`}>
             {tabs.map((tab) => {
                 const isActive = activeTab === tab.value || activeTab === tab.id;
                 const Icon = tab.icon;
@@ -26,10 +32,10 @@ export default function FlatTabs({
                         key={tab.value || tab.id}
                         type="button"
                         onClick={() => onChange(tab.value || tab.id)}
-                        className={`group pb-3 pt-1 text-xs sm:text-sm font-semibold transition-all duration-150 inline-flex items-center gap-2 border-b-2 whitespace-nowrap select-none ${
+                        className={`group px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all duration-150 inline-flex items-center gap-2 border-b-2 rounded-t-md select-none ${
                             isActive
-                                ? 'border-[#093c30] text-[#093c30] -mb-px'
-                                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 -mb-px'
+                                ? 'bg-emerald-50 text-[#093c30] border-[#093c30] -mb-px font-bold shadow-2xs'
+                                : 'bg-transparent text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-100/70 -mb-px'
                         }`}
                     >
                         {Icon && (
@@ -43,10 +49,10 @@ export default function FlatTabs({
 
                         {tab.count !== undefined && tab.count !== null && (
                             <span
-                                className={`text-[10px] font-bold px-1.5 py-0.2 rounded transition-colors ${
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
                                     isActive
-                                        ? 'bg-[#093c30]/10 text-[#093c30]'
-                                        : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200/70'
+                                        ? 'bg-[#093c30] text-white'
+                                        : 'bg-slate-200/80 text-slate-600 group-hover:bg-slate-300/80'
                                 }`}
                             >
                                 {tab.count}

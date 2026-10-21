@@ -64,6 +64,20 @@ return [
             ]) : [],
         ],
 
+        
+        'smpt' => [
+            'driver' => 'mysql',
+            'host' => env('DB_SMPT_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('DB_SMPT_PORT', env('DB_PORT', '3306')),
+            'database' => env('DB_SMPT_DATABASE', 'pesantren'),
+            'username' => env('DB_SMPT_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('DB_SMPT_PASSWORD', env('DB_PASSWORD', '')),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => false,
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

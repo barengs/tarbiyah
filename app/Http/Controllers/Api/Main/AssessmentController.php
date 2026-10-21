@@ -9,6 +9,8 @@ use App\Models\AssessmentScore;
 use App\Models\ClassGroup;
 use App\Models\StudentClass;
 use App\Models\Study;
+use App\Models\Student;
+use App\Services\BankSantriService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -331,5 +333,53 @@ class AssessmentController extends Controller
                 'message' => 'Gagal membuat leger nilai',
             ], 500);
         }
+    }
+
+    /**
+     * GET /api/main/assessments/exam-eligibility?nis={nis}
+     * Cek kelayakan ujian 1 santri (dispensasi tunggakan via bank-santri).
+     */
+    public function examEligibility(Request $request, BankSantriService $bankSantri)
+    {
+        $validated = $request->validate([
+            'nis' => 'required|string|exists:students,nis',
+        ]);
+
+        $student = Student::where('nis', $validated['nis'])->firstOrFail();
+
+        return response()->json([
+            'status'  => 'success',
+            'data'    => $bankSantri->checkExamEligibility($student),
+        ]);
+    }
+
+    /**
+     * GET /api/main/assessments/class-exam-eligibility/{class_group_id}
+     * Rekap kelayakan ujian seluruh siswa pada satu rombel (untuk panitia ujian).
+     */
+    public function classExamEligibility(string $classGroupId, BankSantriService $bankSantri)
+    {
+        $studentIds = StudentClass::where('class_group_id', $classGroupId)
+            ->where('status', 'aktif')
+            ->pluck('student_id');
+
+        $students = Student::whereIn('id', $studentIds)->get();
+
+        $results = $students->map(function (Student $student) use ($bankSantri) {
+            return [
+                'nis'         => $student->nis,
+                'name'        => $student->name,
+                'is_mukim'    => $student->is_mukim,
+                'eligibility' => $bankSantri->checkExamEligibility($student),
+            ];
+        });
+
+        return response()->json([
+            'status'       => 'success',
+            'total'        => $results->count(),
+            'eligible'     => $results->where('eligibility.eligible', true)->count(),
+            'not_eligible' => $results->where('eligibility.eligible', false)->count(),
+            'data'         => $results->values(),
+        ]);
     }
 }

@@ -55,6 +55,7 @@ Route::prefix('internal')->middleware('internal.key')->group(function () {
 
     // Endpoint sinkronisasi santri dari SMPT backend
     Route::post('students/sync', [InternalStudentController::class, 'sync']);
+    Route::post('students/sync-bulk', [InternalStudentController::class, 'bulkSync']);
 });
 
 // Master Data Routes (Protected by JWT & AutoProvision)
@@ -103,6 +104,8 @@ Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function
     // Penilaian & Asesmen Siswa
     Route::get('assessments/categories', [AssessmentController::class, 'categories']);
     Route::get('assessments/gradebook', [AssessmentController::class, 'classGradebook']);
+    Route::get('assessments/exam-eligibility', [AssessmentController::class, 'examEligibility']);
+    Route::get('assessments/class-exam-eligibility/{class_group_id}', [AssessmentController::class, 'classExamEligibility']);
     Route::post('assessments/{id}/scores', [AssessmentController::class, 'saveScores']);
     Route::apiResource('assessments', AssessmentController::class);
 

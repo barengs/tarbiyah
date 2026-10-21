@@ -5,44 +5,27 @@ import Sidebar from '../components/organisms/Sidebar';
 import Navbar from '../components/organisms/Navbar';
 import Footer from '../components/organisms/Footer';
 import { useGetDashboardStatsQuery } from '../store/slices/dashboardApi';
-import { useNavigate } from 'react-router-dom';
 
 /**
  * LAYOUT UTAMA DYNAMIK: SIM Akademik (e-Panyeppen Pro)
  *
- * Mekanisme Pembagian Layout Dinamis:
- * 1. Sidebar dapat di-collapse (state `isCollapsed`) atau dibuka via
- *    hamburger button di layar mobile (state `mobileSidebarOpen`).
- * 2. Navbar menampilkan Breadcrumb dinamis mengikuti location.pathname,
- *    badge kalender Hijriah & data semester yang dipull langsung dari
- *    database (useGetDashboardStatsQuery dari RTK Query), SearchBar,
- *    NotificationBell, dan UserDropdown (profile & logout) dari
- *    useSelector(authSlice).
- * 3. Content area meng-render <Outlet /> (dynamic page router) dalam
- *    sebuah container scrollable dengan padding dinamis.
- * 4. Footer dapat disembunyikan per halaman via LayoutContext API
- *    (disarankan tetap tampil) sesuai mekanisme atomic design.
- *
- * Struktur responsif:
- * - Desktop: Sidebar (fixed lebar) + Main Column (Navbar + Outlet + Footer)
- * - Mobile: Sidebar tersembunyi di balik overlay, dibuka lewat tombol hamburger.
+ * 1. Tombol Toggle Sidebar ditempatkan di Navbar sisi paling kiri (desktop: collapse, mobile: slide-in).
+ * 2. SearchBar pada navbar telah dihilangkan sesuai kebutuhan sistem.
+ * 3. Header Sidebar tampil rapi dan fokus pada logo & nama sistem.
  */
 export default function MainLayout() {
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
     const location = useLocation();
     const { user } = useSelector((state) => state.auth);
 
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    const [searchValue, setSearchValue] = useState('');
 
-    // Get academic meta & notifications feed dari database (endpoint /api/main/dashboard/stats)
-    const { data: dashboardData, isLoading: isDashboardLoading } = useGetDashboardStatsQuery(undefined, {
+    // Get academic meta & notifications feed dari database
+    const { data: dashboardData } = useGetDashboardStatsQuery(undefined, {
         skip: !user,
     });
 
-    // Auto-close mobile sidebar saat route berubah
+    // Auto-close mobile sidebar saat navigasi berpindah
     useEffect(() => {
         setMobileSidebarOpen(false);
     }, [location.pathname]);
@@ -59,10 +42,10 @@ export default function MainLayout() {
         setMobileSidebarOpen(false);
     }, []);
 
-    // Prepare academic metadata for navbar (hijri badge, semester, tahun ajaran)
+    // Metadata akademik untuk navbar (hijri badge, semester, tahun ajaran)
     const academicMeta = dashboardData?.data?.academic_year || {};
 
-    // Prepare notifications for navbar bell dropdown from database (recent_notices)
+    // Notifikasi untuk navbar bell dropdown
     const notifications = (dashboardData?.data?.recent_notices || []).map((n) => ({
         id: n.id,
         title: n.type,
@@ -71,30 +54,24 @@ export default function MainLayout() {
         read: false,
     }));
 
-    // Handle search
-    const handleSearchChange = (e) => {
-        setSearchValue(e.target.value);
-    };
-
     return (
         <div className="flex h-screen bg-[#f1f5f9] text-slate-800 overflow-hidden font-sans">
             {/* 1. SIDEBAR AREA */}
             <Sidebar
                 collapsed={isCollapsed}
-                onToggleCollapse={handleToggleCollapse}
                 mobileOpen={mobileSidebarOpen}
                 onCloseMobile={handleCloseMobileMenu}
             />
 
             {/* 2. MAIN COLUMN (Navbar + Dynamic Content + Footer) */}
             <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-                {/* NAVBAR AREA */}
+                {/* NAVBAR AREA (Dengan Toggle Sidebar di paling kiri, tanpa SearchBar) */}
                 <Navbar
+                    isCollapsed={isCollapsed}
+                    onToggleCollapse={handleToggleCollapse}
                     onOpenMobileMenu={handleOpenMobileMenu}
                     academicMeta={academicMeta}
                     notifications={notifications}
-                    searchValue={searchValue}
-                    onSearchChange={handleSearchChange}
                 />
 
                 {/* DYNAMIC CONTENT AREA */}

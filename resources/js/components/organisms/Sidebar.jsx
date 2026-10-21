@@ -3,18 +3,17 @@ import { NavLink, Link } from 'react-router-dom';
 import {
     LayoutDashboard,
     Layers,
-    Users2,
+    Users,
     GraduationCap,
     CalendarCheck2,
     ClipboardCheck,
     ScrollText,
     BookOpen,
     ShieldCheck,
-    ChevronLeft,
     ExternalLink,
 } from 'lucide-react';
 
-export const NAVIGATION_ITEMS = [
+const NAVIGATION_ITEMS = [
     {
         name: 'Dashboard Utama',
         to: '/',
@@ -22,13 +21,13 @@ export const NAVIGATION_ITEMS = [
     },
     {
         name: 'Jenjang & Kurikulum',
-        to: '/master/institusi',
+        to: '/kurikulum',
         icon: Layers,
     },
     {
         name: 'Kelas & Rombel',
-        to: '/rombel',
-        icon: Users2,
+        to: '/kelas',
+        icon: Users,
     },
     {
         name: 'Santri & Kenaikan Kelas',
@@ -54,13 +53,13 @@ export const NAVIGATION_ITEMS = [
 
 export default function Sidebar({
     collapsed = false,
-    onToggleCollapse,
     mobileOpen = false,
     onCloseMobile,
     className = '',
 }) {
     return (
         <>
+            {/* Overlay untuk mobile saat sidebar terbuka */}
             {mobileOpen && (
                 <div
                     onClick={onCloseMobile}
@@ -74,7 +73,8 @@ export default function Sidebar({
                 } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${className}`}
             >
                 <div>
-                    <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100">
+                    {/* Header Sidebar: Logo & Nama Aplikasi Bersih */}
+                    <div className="h-16 px-4 flex items-center border-b border-slate-100">
                         <Link to="/" className="flex items-center gap-3 overflow-hidden">
                             <div className="w-9 h-9 rounded-md bg-[#093c30] text-white flex items-center justify-center shrink-0 shadow-xs font-bold">
                                 <BookOpen className="w-5 h-5 text-emerald-300" />
@@ -95,19 +95,9 @@ export default function Sidebar({
                                 </div>
                             )}
                         </Link>
-
-                        {onToggleCollapse && (
-                            <button
-                                type="button"
-                                onClick={onToggleCollapse}
-                                aria-label="Toggle Sidebar"
-                                className="hidden lg:flex w-7 h-7 rounded-md border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 items-center justify-center transition-colors"
-                            >
-                                <ChevronLeft className={`w-4 h-4 transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`} />
-                            </button>
-                        )}
                     </div>
 
+                    {/* Label Navigasi */}
                     <div className="px-4 pt-4 pb-2">
                         {!collapsed ? (
                             <p className="text-[10px] font-bold tracking-[0.12em] text-slate-400 uppercase">
@@ -118,6 +108,7 @@ export default function Sidebar({
                         )}
                     </div>
 
+                    {/* Daftar Menu Navigasi */}
                     <nav className="px-3 space-y-1">
                         {NAVIGATION_ITEMS.map((item) => {
                             const Icon = item.icon;
@@ -153,6 +144,7 @@ export default function Sidebar({
                     </nav>
                 </div>
 
+                {/* Footer Sidebar: Status Sinkronisasi EMIS */}
                 <div className="p-3 border-t border-slate-100 bg-slate-50/50">
                     {!collapsed ? (
                         <div className="p-2.5 rounded-md border border-slate-200 bg-white shadow-2xs flex items-center justify-between gap-2">

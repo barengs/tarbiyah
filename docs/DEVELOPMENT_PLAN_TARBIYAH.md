@@ -84,7 +84,7 @@ Fokus: Synchronizing dengan layanan lain dan Cutover akhir.
 
 | ID | Task | Status | Output / Definition of Done |
 |---|---|---|---|
-| **T5.1** | **Integrasi Santri dengan `smpt`** | `[ ] Belum` | Payload Webhook saat santri masuk/putus di `smpt` tersinkronisasi |
-| **T5.2** | **Integrasi Ujian dengan `bank-santri`** | `[ ] Belum` | Endpoint `bank-santri` dicek saat panitia mengeluarkan kartu ujian (dispensasi tunggakan) |
+| **T5.1** | **Integrasi Santri dengan `smpt`** | `[x] Selesai` | Payload Webhook saat santri masuk/putus di `smpt` tersinkronisasi |
+| **T5.2** | **Integrasi Ujian dengan `bank-santri`** | `[x] Selesai` | Endpoint `bank-santri` dicek saat panitia mengeluarkan kartu ujian (dispensasi tunggakan) |
 | **T5.3** | **Pembersihan Kode & Isolasi `smpt`** | `[ ] Belum` | Model dan Controller akademik dihapus atau dinonaktifkan dari `smpt` |
 | **T5.4** | **Testing, Load Testing & Deploy** | `[ ] Belum` | Uji beban presensi & cetak rapor ribuan santri berjalan lancar di server produksi |

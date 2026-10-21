@@ -16,38 +16,38 @@ export default function Navbar({
 }) {
     return (
         <header
-            className={`h-16 px-4 lg:px-6 bg-white border-b border-slate-200/90 flex items-center justify-between gap-4 sticky top-0 z-30 shrink-0 ${className}`}
+            className={`h-16 pl-2 sm:pl-2.5 pr-4 lg:pr-6 bg-white border-b border-slate-200/90 flex items-center justify-between gap-4 sticky top-0 z-30 shrink-0 ${className}`}
         >
-            {/* SISI KIRI: TOMBOL TOGGLE/MINIMIZE SIDEBAR & BREADCRUMB */}
-            <div className="flex items-center gap-3 min-w-0">
-                {/* 1. Tombol Toggle Sidebar di Desktop */}
+            {/* SISI KIRI: ICON TOGGLE SIDEBAR (MEPET KIRI, ICON-ONLY) & BREADCRUMB */}
+            <div className="flex items-center gap-1.5 min-w-0">
+                {/* 1. Toggle Sidebar Desktop: Icon murni tanpa border/box tebal */}
                 <button
                     type="button"
                     onClick={onToggleCollapse}
                     aria-label={isCollapsed ? 'Rentangkan Sidebar' : 'Ciutkan Sidebar'}
                     title={isCollapsed ? 'Rentangkan Sidebar' : 'Ciutkan Sidebar'}
-                    className="hidden lg:flex w-9 h-9 rounded-md border border-slate-200/90 hover:border-slate-300 text-slate-600 hover:text-[#093c30] hover:bg-slate-50 items-center justify-center transition-colors shadow-2xs shrink-0"
+                    className="hidden lg:flex p-1.5 rounded text-slate-500 hover:text-[#093c30] hover:bg-slate-100 transition-colors shrink-0"
                 >
                     {isCollapsed ? (
-                        <PanelLeftOpen className="w-4 h-4 text-emerald-800" />
+                        <PanelLeftOpen className="w-5 h-5 text-emerald-800" />
                     ) : (
-                        <PanelLeftClose className="w-4 h-4 text-slate-600" />
+                        <PanelLeftClose className="w-5 h-5 text-slate-600 hover:text-[#093c30]" />
                     )}
                 </button>
 
-                {/* 2. Tombol Hamburger di Layar Mobile */}
+                {/* 2. Hamburger Mobile: Icon murni */}
                 <button
                     type="button"
                     onClick={onOpenMobileMenu}
                     aria-label="Buka Menu Navigasi"
                     title="Buka Menu"
-                    className="flex lg:hidden w-9 h-9 rounded-md border border-slate-200/90 text-slate-600 hover:bg-slate-50 items-center justify-center transition-colors shrink-0"
+                    className="flex lg:hidden p-1.5 rounded text-slate-500 hover:text-[#093c30] hover:bg-slate-100 transition-colors shrink-0"
                 >
-                    <Menu className="w-4 h-4" />
+                    <Menu className="w-5 h-5" />
                 </button>
 
-                {/* Divider Halus */}
-                <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0" />
+                {/* Divider Pemisah Halus */}
+                <div className="h-4 w-px bg-slate-200 shrink-0 mx-0.5" />
 
                 {/* Breadcrumb Navigasi Dinamis */}
                 <Breadcrumb items={breadcrumbItems} />

@@ -18,8 +18,10 @@ class ClassGroupController extends Controller
         try {
             $query = ClassGroup::with([
                 'academicYear',
+                'program',
                 'educationalInstitution',
                 'education',
+                'educationClass',
                 'classroom',
                 'homeroomTeacher'
             ])->withCount(['studentClasses as students_count' => function ($q) {

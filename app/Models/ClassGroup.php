@@ -21,6 +21,11 @@ class ClassGroup extends Model
         return $this->belongsTo(AcademicYear::class);
     }
 
+    public function program()
+    {
+        return $this->belongsTo(Program::class, 'program_id');
+    }
+
     public function educationalInstitution()
     {
         return $this->belongsTo(EducationalInstitution::class, 'educational_institution_id');
@@ -28,12 +33,17 @@ class ClassGroup extends Model
 
     public function education()
     {
-        return $this->belongsTo(Education::class);
+        return $this->belongsTo(Education::class, 'education_id');
+    }
+
+    public function educationClass()
+    {
+        return $this->belongsTo(EducationClass::class, 'education_class_id');
     }
 
     public function classroom()
     {
-        return $this->belongsTo(Classroom::class);
+        return $this->belongsTo(Classroom::class, 'classroom_id');
     }
 
     public function homeroomTeacher()
@@ -61,9 +71,6 @@ class ClassGroup extends Model
         return $this->hasMany(LessonSchedule::class, 'class_group_id');
     }
 
-    /**
-     * Cek apakah rombel ini tipe leveling (tahfidz).
-     */
     public function isLeveling(): bool
     {
         return $this->progression_type === 'leveling';

@@ -11,4 +11,14 @@ class EducationClass extends Model
     use HasFactory, SoftDeletes;
 
     protected $guarded = ['id'];
+
+    public function education()
+    {
+        return $this->belongsTo(Education::class, 'education_id');
+    }
+
+    public function classGroups()
+    {
+        return $this->hasMany(ClassGroup::class, 'education_class_id');
+    }
 }

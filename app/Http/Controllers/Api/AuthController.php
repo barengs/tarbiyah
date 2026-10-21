@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -90,5 +91,54 @@ class AuthController extends Controller
             'expires_in'   => auth('api')->factory()->getTTL() * 60,
             'user'         => $user ?? auth('api')->user(),
         ]);
+    }
+
+    /**
+     * POST /api/auth/sso
+     * SSO Handover dari portal pesantren (smpt) ke tarbiyah.
+     */
+    public function ssoHandover(Request $request)
+    {
+        $validated = $request->validate([
+            'token' => 'required|string',
+        ]);
+
+        try {
+            $smptUser = JWTAuth::setToken($validated['token'])->getPayload();
+        } catch (JWTException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'SSO gagal: token pesantren tidak valid atau kedaluwarsa.',
+            ], 401);
+        }
+
+        $email = $smptUser['email'] ?? null;
+        if (empty($email)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'SSO gagal: token tidak memuat email pengguna.',
+            ], 401);
+        }
+
+        $user = User::updateOrCreate(
+            ['email' => $email],
+            [
+                'name' => $smptUser['name'] ?? ($smptUser['sub_name'] ?? $email),
+                'role' => 'guru',
+            ]
+        );
+
+        try {
+            $token = JWTAuth::fromUser($user);
+        } catch (JWTException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'SSO gagal membuat token tarbiyah: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        Log::info("SSO Handover dari smpt: {$user->email} masuk ke tarbiyah.");
+
+        return $this->respondWithToken($token, $user);
     }
 }

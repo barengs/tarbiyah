@@ -13,7 +13,6 @@ class AssessmentScore extends Model
 
     protected $casts = [
         'score' => 'decimal:2',
-        'date'  => 'date',
     ];
 
     public function assessment()
@@ -24,13 +23,5 @@ class AssessmentScore extends Model
     public function student()
     {
         return $this->belongsTo(Student::class);
-    }
-
-    /**
-     * Relasi ke skema smpt (migrasi data 1:1).
-     */
-    public function studentAssessment()
-    {
-        return $this->belongsTo(StudentAssessment::class);
     }
 }

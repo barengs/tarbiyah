@@ -6,6 +6,7 @@ import {
 } from '../store/slices/scheduleApi';
 import { 
     useGetJournalsQuery, 
+    useGetListWithPresenceQuery,
     useGetJournalQuery,
     useCreateJournalMutation, 
     useUpdatePresencesMutation, 

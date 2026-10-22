@@ -26,7 +26,8 @@ class TeachingJournalController extends Controller
                 'study',
                 'teacher',
                 'substituteTeacher',
-                'lessonSchedule.lessonHour'
+                'lessonSchedule',
+                'presences'
             ])->withCount([
                 'presences as hadir_count' => function ($q) { $q->where('status', 'hadir'); },
                 'presences as sakit_count' => function ($q) { $q->where('status', 'sakit'); },
@@ -1143,6 +1144,48 @@ class TeachingJournalController extends Controller
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Gagal menyimpan presensi rentang hari: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Daftar Jurnal KBM yang terhubung ke presensi hari (untuk tab Jurnal Mengajar)
+     * Menampilkan status presensi santri pada sesi pertemuan tersebut.
+     */
+    public function listWithPresenceSummary(Request $request)
+    {
+        try {
+            $query = TeachingJournal::with([
+                'classGroup',
+                'study',
+                'teacher',
+                'lessonSchedule.lessonHour',
+                'presences.student'
+            ])->withCount([
+                'presences as hadir_count' => function ($q) { $q->where('status', 'hadir'); },
+                'presences as sakit_count' => function ($q) { $q->where('status', 'sakit'); },
+                'presences as izin_count'  => function ($q) { $q->where('status', 'izin'); },
+                'presences as alpa_count'  => function ($q) { $q->where('status', 'alpa'); },
+                'presences as total_presented'
+            ]);
+
+            if ($request->has('class_group_id')) {
+                $query->where('class_group_id', $request->query('class_group_id'));
+            }
+
+            $journals = $query->orderBy('date', 'desc')->orderBy('meeting_number', 'desc')->get();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Daftar jurnal dengan rekapitulasi kehadiran berhasil diambil',
+                'data'    => $journals,
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error listing journals with presence summary: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal mengambil data: ' . $e->getMessage(),
             ], 500);
         }
     }

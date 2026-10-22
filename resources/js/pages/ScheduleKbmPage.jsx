@@ -171,12 +171,36 @@ export default function ScheduleKbmPage() {
     const [schedTargetGroupId, setSchedTargetGroupId] = useState('');
     const [schedClassroomId, setSchedClassroomId] = useState('');
 
-    // Jurnal & Presensi States
-    const { data: journalsData } = useGetJournalsQuery(
+    // Jurnal & Presensi States with presence summary
+    const [journalFilterStudyId, setJournalFilterStudyId] = useState('');
+    const [journalSearchQuery, setJournalSearchQuery] = useState('');
+
+    const { 
+        data: journalsData, 
+        isLoading: isLoadingJournals,
+        refetch: refetchJournals 
+    } = useGetListWithPresenceQuery(
         currentWeeklyGroup?.id ? { class_group_id: currentWeeklyGroup.id } : undefined,
         { skip: !currentWeeklyGroup?.id }
     );
-    const journals = journalsData?.data || [];
+    const rawJournals = journalsData?.data || [];
+
+    // Filtered journals
+    const journals = useMemo(() => {
+        return rawJournals.filter(j => {
+            if (journalFilterStudyId && Number(j.study_id) !== Number(journalFilterStudyId)) {
+                return false;
+            }
+            if (journalSearchQuery) {
+                const q = journalSearchQuery.toLowerCase();
+                const matchTopic = j.topic?.toLowerCase().includes(q);
+                const matchStudy = j.study?.name?.toLowerCase().includes(q);
+                const matchTeacher = j.teacher?.name?.toLowerCase().includes(q);
+                if (!matchTopic && !matchStudy && !matchTeacher) return false;
+            }
+            return true;
+        });
+    }, [rawJournals, journalFilterStudyId, journalSearchQuery]);
 
     const [createJournal, { isLoading: isCreatingJournal }] = useCreateJournalMutation();
     const [updatePresences, { isLoading: isSavingPresences }] = useUpdatePresencesMutation();
@@ -997,65 +1021,221 @@ export default function ScheduleKbmPage() {
                     ═══════════════════════════════════════════════════════════ */}
                 {activeTab === 'journals' && (
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                Riwayat Jurnal Pertemuan KBM &bull; {currentWeeklyGroup?.name}
-                            </span>
-                            <button
-                                onClick={() => {
-                                    setJMeetingNo((journals.length || 0) + 1);
-                                    setJStudyId(studies[0]?.id || '');
-                                    setJTeacherId(teachers[0]?.id || '');
-                                    setJTopic('');
-                                    setJNotes('');
-                                    setJournalModalOpen(true);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#093c30] text-white text-xs font-semibold rounded-md hover:bg-[#064e3b] shadow-xs"
-                            >
-                                <Plus className="w-4 h-4" /> Buka Jurnal Pertemuan Baru
-                            </button>
+                        {/* Control Bar: Pilih Rombel, Filter Mapel, Search & Tombol Buka Jurnal */}
+                        <div className="bg-white border border-slate-200 rounded-md p-4 shadow-xs space-y-3">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                            Rombel / Kelas Aktif
+                                        </label>
+                                        <select
+                                            value={currentWeeklyGroup?.id || ''}
+                                            onChange={(e) => setSelectedWeeklyGroupId(e.target.value)}
+                                            className="px-3 py-1.5 text-xs font-bold border border-slate-300 rounded bg-white text-slate-900"
+                                        >
+                                            {allGroups.map(g => (
+                                                <option key={g.id} value={g.id}>
+                                                    {g.name} &bull; {g.program?.name} ({g.education?.name} - {g.education_class?.name})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                            Filter Mata Pelajaran
+                                        </label>
+                                        <select
+                                            value={journalFilterStudyId}
+                                            onChange={(e) => setJournalFilterStudyId(e.target.value)}
+                                            className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded bg-white text-slate-800"
+                                        >
+                                            <option value="">Semua Mata Pelajaran</option>
+                                            {studies.map(s => (
+                                                <option key={s.id} value={s.id}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 self-end md:self-auto">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setJMeetingNo((journals.length || 0) + 1);
+                                            setJStudyId(studies[0]?.id || '');
+                                            setJTeacherId(teachers[0]?.id || '');
+                                            setJTopic('');
+                                            setJNotes('');
+                                            setJournalModalOpen(true);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#093c30] text-white text-xs font-bold rounded-md hover:bg-[#064e3b] shadow-xs transition"
+                                    >
+                                        <Plus className="w-4 h-4 text-emerald-300" /> Buka Jurnal Pertemuan Baru
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Status Bar Ringkasan */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                                <div className="flex items-center gap-3 text-slate-600">
+                                    <span>
+                                        Total Jurnal KBM: <b className="text-slate-900">{journals.length} Sesi</b>
+                                    </span>
+                                    <span>&bull;</span>
+                                    <span>
+                                        Wali Kelas: <b className="text-slate-900">{currentWeeklyGroup?.homeroom_teacher?.name || '-'}</b>
+                                    </span>
+                                </div>
+
+                                <div className="w-full sm:w-64">
+                                    <input
+                                        type="text"
+                                        placeholder="Cari materi / nama guru..."
+                                        value={journalSearchQuery}
+                                        onChange={(e) => setJournalSearchQuery(e.target.value)}
+                                        className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
+                        {/* List Kartu Jurnal Mengajar */}
                         <div className="space-y-3">
-                            {journals.length === 0 ? (
+                            {isLoadingJournals ? (
                                 <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-md">
-                                    Belum ada jurnal pertemuan KBM yang dibuka untuk rombel ini.
+                                    Memuat daftar riwayat jurnal mengajar...
+                                </div>
+                            ) : journals.length === 0 ? (
+                                <div className="p-12 text-center bg-white border border-slate-200 rounded-md shadow-xs space-y-3">
+                                    <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                        <BookOpen className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-800">
+                                            Belum Ada Jurnal KBM untuk {currentWeeklyGroup?.name}
+                                        </h3>
+                                        <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                                            Jurnal otomatis terisi ketika presensi jam pelajaran disimpan di menu <b>Presensi & Disiplin</b>, atau Anda dapat membuka sesi jurnal baru secara manual di sini.
+                                        </p>
+                                    </div>
+                                    <div className="pt-2 flex items-center justify-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setJMeetingNo(1);
+                                                setJStudyId(studies[0]?.id || '');
+                                                setJTeacherId(teachers[0]?.id || '');
+                                                setJTopic('KBM Perdana Tatap Muka');
+                                                setJournalModalOpen(true);
+                                            }}
+                                            className="px-3.5 py-2 bg-[#093c30] text-white text-xs font-semibold rounded hover:bg-[#064e3b] transition"
+                                        >
+                                            + Buka Jurnal Pertemuan Baru
+                                        </button>
+                                        <a
+                                            href="/presensi"
+                                            className="px-3.5 py-2 bg-emerald-50 text-emerald-800 text-xs font-semibold rounded border border-emerald-200 hover:bg-emerald-100 transition"
+                                        >
+                                            Isi Presensi Harian &bull; 6 Jam
+                                        </a>
+                                    </div>
                                 </div>
                             ) : (
-                                journals.map((j) => (
-                                    <div key={j.id} className="p-4 bg-white border border-slate-200 rounded-md shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
-                                                    Pertemuan Ke-{j.meeting_number}
-                                                </span>
-                                                <span className="text-xs text-slate-400 font-mono">
-                                                    {j.date ? new Date(j.date).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}
-                                                </span>
-                                            </div>
-                                            <p className="font-semibold text-slate-800 text-sm">{j.study?.name}</p>
-                                            <p className="text-xs text-slate-500">Materi: {j.topic}</p>
-                                            <p className="text-xs text-slate-500">Diampu oleh: {j.teacher?.name || '-'}</p>
-                                        </div>
+                                journals.map((j) => {
+                                    const totalStudents = (j.hadir_count || 0) + (j.sakit_count || 0) + (j.izin_count || 0) + (j.alpa_count || 0);
+                                    const hadirPct = totalStudents > 0 ? Math.round(((j.hadir_count || 0) / totalStudents) * 100) : 0;
+                                    const hourOrder = j.lesson_schedule?.lesson_hour?.order;
+                                    const hourTime = j.lesson_schedule?.lesson_hour?.start_time ? 
+                                        `${j.lesson_schedule.lesson_hour.start_time.substring(0, 5)} - ${j.lesson_schedule.lesson_hour.end_time?.substring(0, 5)}` : null;
 
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => handleOpenPresenceModal(j)}
-                                                className="px-3.5 py-2 bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-100 hover:bg-emerald-100 rounded-md"
-                                            >
-                                                Absensi Santri
-                                            </button>
+                                    return (
+                                        <div 
+                                            key={j.id} 
+                                            className="p-4 bg-white border border-slate-200 rounded-md shadow-xs hover:border-slate-300 transition space-y-3"
+                                        >
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                                <div className="space-y-1">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-[#093c30] text-emerald-100">
+                                                            Pertemuan Ke-{j.meeting_number}
+                                                        </span>
+                                                        {hourOrder && (
+                                                            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                                Jam Ke-{hourOrder} {hourTime ? `(${hourTime})` : ''}
+                                                            </span>
+                                                        )}
+                                                        <span className="text-xs text-slate-500 font-mono">
+                                                            📅 {j.date ? new Date(j.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
+                                                        </span>
+                                                    </div>
+
+                                                    <h4 className="font-extrabold text-slate-900 text-sm">
+                                                        {j.study?.name}
+                                                    </h4>
+                                                    
+                                                    <p className="text-xs text-slate-600">
+                                                        <span className="font-semibold text-slate-700">Materi / Bahasan:</span> {j.topic || 'KBM Reguler Sesuai Silabus'}
+                                                    </p>
+                                                    
+                                                    <p className="text-xs text-slate-500">
+                                                        Pengampu: <span className="font-medium text-slate-700">{j.teacher?.name || '-'}</span>
+                                                        {j.substitute_teacher && (
+                                                            <span className="ml-2 text-amber-700 font-medium">
+                                                                (Guru Pengganti: {j.substitute_teacher.name})
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                </div>
+
+                                                {/* Rekap Kehadiran Pill Badges & Tombol Aksi */}
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
+                                                    <div className="bg-slate-50 border border-slate-200 rounded p-2 text-xs space-y-1">
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                                                Kehadiran Santri
+                                                            </span>
+                                                            <span className="font-mono font-bold text-emerald-700">
+                                                                {hadirPct}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-[11px]">
+                                                            <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold" title="Hadir">
+                                                                H: {j.hadir_count || 0}
+                                                            </span>
+                                                            <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold" title="Sakit">
+                                                                S: {j.sakit_count || 0}
+                                                            </span>
+                                                            <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 font-bold" title="Izin">
+                                                                I: {j.izin_count || 0}
+                                                            </span>
+                                                            <span className="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 font-bold" title="Alpa">
+                                                                A: {j.alpa_count || 0}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenPresenceModal(j)}
+                                                            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold border border-emerald-200 rounded transition flex items-center gap-1"
+                                                        >
+                                                            <Users className="w-3.5 h-3.5 text-emerald-700" />
+                                                            Detail Presensi
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>
                 )}
 
-                {/* ═══════════════════════════════════════════════════════════
-                    TAB 3: REKAP PRESENSI SANTRI
-                    ═══════════════════════════════════════════════════════════ */}
                 {activeTab === 'recap' && (
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">

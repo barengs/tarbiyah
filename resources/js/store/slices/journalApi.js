@@ -2,6 +2,13 @@ import { apiSlice } from './apiSlice';
 
 export const journalApi = apiSlice.injectEndpoints({
     endpoints: (builder) => ({
+        getListWithPresence: builder.query({
+            query: (params) => ({
+                url: 'main/journals/list-with-presence',
+                params,
+            }),
+            providesTags: ['Journal'],
+        }),
         getJournals: builder.query({
             query: (params) => ({
                 url: 'main/journals',
@@ -100,6 +107,7 @@ export const journalApi = apiSlice.injectEndpoints({
 });
 
 export const {
+    useGetListWithPresenceQuery,
     useGetJournalsQuery,
     useGetJournalQuery,
     useGetAttendanceSheetQuery,

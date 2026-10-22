@@ -873,4 +873,278 @@ class TeachingJournalController extends Controller
         }
     }
 
+
+    /**
+     * Ambil Grid Presensi untuk Rentang Hari Berurutan (Multi-Day / Sepekan Sabtu s.d. Kamis)
+     * Mengembalikan data jadwal jam dan status kehadiran seluruh santri untuk setiap hari dalam rentang.
+     */
+    public function rangeGrid(Request $request)
+    {
+        $validated = $request->validate([
+            'class_group_id' => 'required|exists:class_groups,id',
+            'start_date'     => 'required|date',
+            'end_date'       => 'required|date|after_or_equal:start_date',
+        ]);
+
+        try {
+            $classGroup = ClassGroup::with([
+                'program',
+                'education',
+                'educationClass',
+                'classroom',
+                'homeroomTeacher',
+                'academicYear'
+            ])->findOrFail($validated['class_group_id']);
+
+            $startDate = Carbon::parse($validated['start_date']);
+            $endDate   = Carbon::parse($validated['end_date']);
+
+            // Batasi rentang maksimal 14 hari agar performa tetap ringan
+            if ($startDate->diffInDays($endDate) > 14) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Rentang hari maksimal adalah 14 hari.',
+                ], 422);
+            }
+
+            $dayNames = [
+                6 => 'Sabtu',
+                7 => 'Ahad',
+                1 => 'Senin',
+                2 => 'Selasa',
+                3 => 'Rabu',
+                4 => 'Kamis',
+                5 => 'Jumat'
+            ];
+
+            // Ambil seluruh santri aktif
+            $students = StudentClass::where('class_group_id', $classGroup->id)
+                ->where('status', 'aktif')
+                ->with('student')
+                ->get()
+                ->sortBy(fn($sc) => $sc->student->name ?? '')
+                ->values();
+
+            $daysResult = [];
+            $cur = $startDate->copy();
+
+            while ($cur->lte($endDate)) {
+                $isoDay = $cur->dayOfWeekIso; // 1=Mon .. 7=Sun
+                $dayName = $dayNames[$isoDay] ?? 'Hari Belajar';
+                $curDateStr = $cur->format('Y-m-d');
+
+                // Jadwal pada hari tersebut
+                $schedules = LessonSchedule::with(['lessonHour', 'study', 'teacher'])
+                    ->where('class_group_id', $classGroup->id)
+                    ->where('day', $isoDay)
+                    ->where('is_active', true)
+                    ->get()
+                    ->sortBy(fn($s) => $s->lessonHour->order ?? 0)
+                    ->values();
+
+                // Format daftar jam pelajaran
+                $hours = [];
+                foreach ($schedules as $sched) {
+                    $hours[] = [
+                        'schedule_id'  => $sched->id,
+                        'hour_id'      => $sched->lesson_hour_id,
+                        'order'        => $sched->lessonHour->order ?? 1,
+                        'hour_name'    => $sched->lessonHour->name ?? ('Jam Ke-' . ($sched->lessonHour->order ?? 1)),
+                        'time'         => substr($sched->lessonHour->start_time ?? '07:00', 0, 5) . ' - ' . substr($sched->lessonHour->end_time ?? '08:30', 0, 5),
+                        'study_id'     => $sched->study_id,
+                        'study_name'   => $sched->study->name ?? 'Mata Pelajaran',
+                        'study_code'   => $sched->study->code ?? '',
+                        'teacher_id'   => $sched->teacher_id,
+                        'teacher_name' => $sched->teacher->name ?? '-',
+                    ];
+                }
+
+                // Ambil jurnal yang sudah ada pada tanggal ini
+                $existingJournals = TeachingJournal::with('presences')
+                    ->where('class_group_id', $classGroup->id)
+                    ->whereDate('date', $curDateStr)
+                    ->get()
+                    ->keyBy('lesson_schedule_id');
+
+                // Susun baris santri untuk hari ini
+                $studentRows = [];
+                foreach ($students as $sc) {
+                    $st = $sc->student;
+                    $attendances = [];
+
+                    foreach ($hours as $h) {
+                        $order = $h['order'];
+                        $schedId = $h['schedule_id'];
+                        $status = 'hadir'; // DEFAULT SELALU HADIR
+                        $notes  = null;
+
+                        if ($existingJournals->has($schedId)) {
+                            $j = $existingJournals->get($schedId);
+                            $presence = $j->presences->firstWhere('student_id', $st->id);
+                            if ($presence) {
+                                $status = $presence->status;
+                                $notes  = $presence->notes;
+                            }
+                        }
+
+                        $attendances[$order] = [
+                            'schedule_id' => $schedId,
+                            'study_id'    => $h['study_id'],
+                            'status'      => $status,
+                            'notes'       => $notes,
+                        ];
+                    }
+
+                    $studentRows[] = [
+                        'student_id'   => $st->id,
+                        'nis'          => $st->nis,
+                        'name'         => $st->name,
+                        'gender'       => $st->gender,
+                        'attendances'  => $attendances,
+                    ];
+                }
+
+                $daysResult[] = [
+                    'date'        => $curDateStr,
+                    'day_number'  => $isoDay,
+                    'day_name'    => $dayName,
+                    'hours_count' => count($hours),
+                    'hours'       => $hours,
+                    'students'    => $studentRows,
+                ];
+
+                $cur->addDay();
+            }
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Grid rentang hari berhasil dimuat',
+                'data'    => [
+                    'class_group' => [
+                        'id'               => $classGroup->id,
+                        'name'             => $classGroup->name,
+                        'academic_year'    => $classGroup->academicYear->name ?? '1446/1447 H',
+                        'program'          => $classGroup->program->name ?? '',
+                        'education'        => $classGroup->education->name ?? '',
+                        'education_class'  => $classGroup->educationClass->name ?? '',
+                        'homeroom_teacher' => $classGroup->homeroomTeacher->name ?? '',
+                    ],
+                    'start_date'  => $startDate->format('Y-m-d'),
+                    'end_date'    => $endDate->format('Y-m-d'),
+                    'total_days'  => count($daysResult),
+                    'days'        => $daysResult,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error loading range grid: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal memuat grid rentang hari: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Simpan Presensi Sekaligus untuk Rentang Hari Berurutan (Multi-Day / Sepekan Kamis)
+     */
+    public function saveMultiDayGrid(Request $request)
+    {
+        $validated = $request->validate([
+            'class_group_id' => 'required|exists:class_groups,id',
+            'days'           => 'required|array',
+            'days.*.date'    => 'required|date',
+            'days.*.grid'    => 'required|array',
+            'days.*.grid.*.student_id' => 'required|exists:students,id',
+            'days.*.grid.*.attendances' => 'required|array',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $classGroup = ClassGroup::findOrFail($validated['class_group_id']);
+            $academicYearId = $classGroup->academic_year_id ?? 1;
+
+            $totalJournalsSaved = 0;
+            $totalPresencesSaved = 0;
+
+            foreach ($validated['days'] as $dayItem) {
+                $curDate = Carbon::parse($dayItem['date']);
+                $dateStr = $curDate->format('Y-m-d');
+                $isoDay  = $curDate->dayOfWeekIso;
+
+                $journalCache = [];
+
+                foreach ($dayItem['grid'] as $studentRow) {
+                    $studentId = $studentRow['student_id'];
+
+                    foreach ($studentRow['attendances'] as $order => $att) {
+                        $schedId = $att['schedule_id'] ?? null;
+                        $status  = $att['status'] ?? 'hadir';
+                        $notes   = $att['notes'] ?? null;
+
+                        if (!$schedId) continue;
+
+                        if (!isset($journalCache[$schedId])) {
+                            $sched = LessonSchedule::with('lessonHour')->find($schedId);
+                            if (!$sched) continue;
+
+                            $journal = TeachingJournal::firstOrCreate(
+                                [
+                                    'class_group_id'     => $classGroup->id,
+                                    'study_id'           => $sched->study_id,
+                                    'date'               => $dateStr,
+                                    'lesson_schedule_id' => $sched->id,
+                                ],
+                                [
+                                    'academic_year_id' => $academicYearId,
+                                    'teacher_id'       => $sched->teacher_id,
+                                    'meeting_number'   => (TeachingJournal::where('class_group_id', $classGroup->id)->where('study_id', $sched->study_id)->count() + 1),
+                                    'topic'            => 'KBM Jam Ke-' . ($sched->lessonHour->order ?? $order),
+                                    'notes'            => 'Presensi terintegrasi jadwal mingguan',
+                                    'teacher_status'   => 'hadir',
+                                ]
+                            );
+                            $journalCache[$schedId] = $journal;
+                            $totalJournalsSaved++;
+                        }
+
+                        $journal = $journalCache[$schedId];
+
+                        StudentPresence::updateOrCreate(
+                            [
+                                'teaching_journal_id' => $journal->id,
+                                'student_id'          => $studentId,
+                            ],
+                            [
+                                'status' => $status,
+                                'notes'  => $notes,
+                            ]
+                        );
+                        $totalPresencesSaved++;
+                    }
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => "Presensi sepekan berhasil disimpan! ($totalJournalsSaved sesi KBM, $totalPresencesSaved catatan presensi santri)",
+                'data'    => [
+                    'journals_count'  => $totalJournalsSaved,
+                    'presences_count' => $totalPresencesSaved,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error saving multi-day grid: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan presensi rentang hari: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
 }

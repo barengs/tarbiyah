@@ -2,30 +2,31 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
     useGetAttendanceSheetQuery,
     useGetDayGridQuery,
+    useGetRangeGridQuery,
     useSaveDayGridMutation,
+    useSaveMultiDayGridMutation,
     useUpdatePresencesMutation,
     useGetJournalQuery
 } from '../store/slices/journalApi';
 import { useGetClassGroupsQuery } from '../store/slices/classGroupApi';
 import { useGetStudiesQuery } from '../store/slices/studyApi';
 import Modal from '../components/ui/Modal';
-import FlatTabs from '../components/atoms/FlatTabs';
 import { 
     Calendar, Clock, BookOpen, User, CheckCircle2, AlertTriangle, 
-    Zap, Plus, Trash2, Printer, ChevronLeft, ShieldCheck, Filter, 
+    Zap, Plus, Trash2, Printer, ChevronLeft, ChevronRight, ShieldCheck, Filter, 
     CalendarDays, Users, Award, FileText, Check, HelpCircle, Save,
-    CheckCheck, UserX, AlertCircle, RefreshCw
+    CheckCheck, UserX, AlertCircle, RefreshCw, CalendarRange, Layers
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function AttendancePage() {
     // ═══════════════════════════════════════════════════════════
-    // ACTIVE TAB: FORMULIR BERBASIS JAM vs LEMBAR MATRIKS P1-P16
+    // ACTIVE TAB UTAMA: FORMULIR vs LEMBAR MATRIKS P1-P16
     // ═══════════════════════════════════════════════════════════
-    const [activeTab, setActiveTab] = useState('day_grid'); // 'day_grid' | 'matrix_sheet'
+    const [activeTab, setActiveTab] = useState('attendance_form'); // 'attendance_form' | 'matrix_sheet'
 
     // Master Rombel
-    const { data: groupsData, isLoading: isLoadingGroups } = useGetClassGroupsQuery();
+    const { data: groupsData } = useGetClassGroupsQuery();
     const groups = groupsData?.data || [];
     const [selectedGroupId, setSelectedGroupId] = useState('');
     const currentGroup = useMemo(() => {
@@ -36,148 +37,303 @@ export default function AttendancePage() {
     }, [groups, selectedGroupId]);
 
     // ═══════════════════════════════════════════════════════════
-    // STATE FORMULIR PRESENSI BERBASIS JAM PELAJARAN (TAB 1)
+    // MODE PRESENSI: HARIAN vs MINGGUAN (KAMIS) vs RENTANG HARI
     // ═══════════════════════════════════════════════════════════
-    const [attendanceDate, setAttendanceDate] = useState('2026-10-17'); // Default tanggal belajar aktif
-    
-    // Fetch data grid harian dari Backend
-    const { 
-        data: dayGridData, 
-        isLoading: isLoadingDayGrid, 
-        isFetching: isFetchingDayGrid,
-        refetch: refetchDayGrid 
-    } = useGetDayGridQuery(
-        currentGroup?.id ? {
-            class_group_id: currentGroup.id,
-            date: attendanceDate
-        } : undefined,
-        { skip: !currentGroup?.id || !attendanceDate }
-    );
-    const dayGrid = dayGridData?.data;
+    const [entryMode, setEntryMode] = useState('daily'); // 'daily' | 'weekly' | 'range'
 
-    // Local state untuk editable grid presensi santri x jam pelajaran
-    const [gridRows, setGridRows] = useState([]);
-    const [notesMap, setNotesMap] = useState({});
+    // Parameter Tanggal
+    const [singleDate, setSingleDate] = useState('2026-10-17'); // Hari Sabtu default
+    const [rangeStartDate, setRangeStartDate] = useState('2026-10-17'); // Sabtu
+    const [rangeEndDate, setRangeEndDate] = useState('2026-10-22'); // Kamis (Akhir pekan)
 
-    // Sinkronisasi data grid lokal saat data Backend tiba
-    useEffect(() => {
-        if (dayGrid?.students && dayGrid?.hours) {
-            const initialRows = dayGrid.students.map(st => {
-                const atts = {};
-                dayGrid.hours.forEach(h => {
-                    const existingAtt = st.attendances?.[h.order];
-                    atts[h.order] = {
-                        schedule_id: h.schedule_id,
-                        study_id: h.study_id,
-                        status: existingAtt?.status || 'hadir', // DEFAULT SELALU HADIR
-                    };
-                });
-                return {
-                    student_id: st.student_id,
-                    name: st.name,
-                    nis: st.nis,
-                    attendances: atts,
-                };
-            });
-            setGridRows(initialRows);
-
-            const initialNotes = {};
-            dayGrid.students.forEach(st => {
-                dayGrid.hours.forEach(h => {
-                    const existingAtt = st.attendances?.[h.order];
-                    if (existingAtt?.notes) {
-                        initialNotes[st.student_id] = existingAtt.notes;
-                    }
-                });
-            });
-            setNotesMap(initialNotes);
-        }
-    }, [dayGrid]);
-
-    // Ubah status kehadiran santri di jam tertentu
-    const handleSetStatus = (studentId, hourOrder, newStatus) => {
-        setGridRows(prev => prev.map(row => {
-            if (row.student_id === studentId) {
-                return {
-                    ...row,
-                    attendances: {
-                        ...row.attendances,
-                        [hourOrder]: {
-                            ...row.attendances[hourOrder],
-                            status: newStatus
-                        }
-                    }
-                };
-            }
-            return row;
-        }));
+    // Saat beralih ke mode mingguan, otomatis set rentang Sabtu s.d Kamis pekan berjalan
+    const handleSetWeeklyMode = () => {
+        setEntryMode('weekly');
+        setRangeStartDate('2026-10-17'); // Sabtu
+        setRangeEndDate('2026-10-22');   // Kamis akhir pekan
     };
 
-    // Aksi Cepat Baris: Set Semua Jam Santri Ini (Hadir / Sakit / Izin / Alpa)
+    // Effective date range untuk query range
+    const effectiveStartDate = entryMode === 'daily' ? singleDate : rangeStartDate;
+    const effectiveEndDate   = entryMode === 'daily' ? singleDate : rangeEndDate;
+
+    // Fetch Range Grid dari Backend (Mencakup 1 hari, rentang hari berurutan, atau 1 pekan penuh)
+    const { 
+        data: rangeGridData, 
+        isLoading: isLoadingRange,
+        isFetching: isFetchingRange,
+        refetch: refetchRangeGrid 
+    } = useGetRangeGridQuery(
+        currentGroup?.id ? {
+            class_group_id: currentGroup.id,
+            start_date: effectiveStartDate,
+            end_date: effectiveEndDate
+        } : undefined,
+        { skip: !currentGroup?.id || !effectiveStartDate || !effectiveEndDate }
+    );
+    const rangeData = rangeGridData?.data;
+    const daysList = rangeData?.days || [];
+
+    // Active Day Index untuk Day Stepper Tabs
+    const [activeDayIndex, setActiveDayIndex] = useState(0);
+
+    // Pastikan activeDayIndex valid saat daysList berganti
+    useEffect(() => {
+        if (activeDayIndex >= daysList.length) {
+            setActiveDayIndex(0);
+        }
+    }, [daysList.length]);
+
+    // ═══════════════════════════════════════════════════════════
+    // LOCAL MULTI-DAY STATE: { [dateStr]: [ { student_id, name, nis, attendances: { [order]: { schedule_id, status } } } ] }
+    // ═══════════════════════════════════════════════════════════
+    const [multiDayState, setMultiDayState] = useState({});
+    const [multiDayNotes, setMultiDayNotes] = useState({}); // { [dateStr]: { [student_id]: notes } }
+
+    // Sinkronisasi data saat API selesai memuat
+    useEffect(() => {
+        if (daysList && daysList.length > 0) {
+            const newState = {};
+            const newNotes = {};
+
+            daysList.forEach(day => {
+                const dateKey = day.date;
+                const rows = day.students.map(st => {
+                    const atts = {};
+                    day.hours.forEach(h => {
+                        const existingAtt = st.attendances?.[h.order];
+                        atts[h.order] = {
+                            schedule_id: h.schedule_id,
+                            study_id: h.study_id,
+                            status: existingAtt?.status || 'hadir', // DEFAULT 100% HADIR
+                        };
+                    });
+                    return {
+                        student_id: st.student_id,
+                        name: st.name,
+                        nis: st.nis,
+                        attendances: atts
+                    };
+                });
+                newState[dateKey] = rows;
+
+                const dayNotes = {};
+                day.students.forEach(st => {
+                    day.hours.forEach(h => {
+                        const existingAtt = st.attendances?.[h.order];
+                        if (existingAtt?.notes) {
+                            dayNotes[st.student_id] = existingAtt.notes;
+                        }
+                    });
+                });
+                newNotes[dateKey] = dayNotes;
+            });
+
+            setMultiDayState(newState);
+            setMultiDayNotes(newNotes);
+        }
+    }, [rangeData]);
+
+    // Current Day Object & Rows
+    const currentDayObj = daysList[activeDayIndex] || daysList[0];
+    const currentDayDate = currentDayObj?.date || effectiveStartDate;
+    const currentDayRows = multiDayState[currentDayDate] || [];
+    const currentDayNotes = multiDayNotes[currentDayDate] || {};
+
+    // Ubah status kehadiran santri di jam tertentu pada hari aktif
+    const handleSetStatus = (studentId, hourOrder, newStatus) => {
+        setMultiDayState(prev => {
+            const dayRows = prev[currentDayDate] || [];
+            const updatedRows = dayRows.map(row => {
+                if (row.student_id === studentId) {
+                    return {
+                        ...row,
+                        attendances: {
+                            ...row.attendances,
+                            [hourOrder]: {
+                                ...row.attendances[hourOrder],
+                                status: newStatus
+                            }
+                        }
+                    };
+                }
+                return row;
+            });
+            return { ...prev, [currentDayDate]: updatedRows };
+        });
+    };
+
+    // Aksi Cepat Baris: Set Semua Jam Santri Ini di Hari Aktif (Hadir / Sakit / Izin / Alpa)
     const handleSetAllHoursForStudent = (studentId, status) => {
-        setGridRows(prev => prev.map(row => {
-            if (row.student_id === studentId) {
+        setMultiDayState(prev => {
+            const dayRows = prev[currentDayDate] || [];
+            const updatedRows = dayRows.map(row => {
+                if (row.student_id === studentId) {
+                    const updatedAtts = {};
+                    Object.keys(row.attendances).forEach(order => {
+                        updatedAtts[order] = {
+                            ...row.attendances[order],
+                            status: status
+                        };
+                    });
+                    return { ...row, attendances: updatedAtts };
+                }
+                return row;
+            });
+            return { ...prev, [currentDayDate]: updatedRows };
+        });
+    };
+
+    // Aksi Cepat Global: Set Semua Santri & Semua Jam di Hari Aktif ke "Hadir"
+    const handleSetAllStudentsHadir = () => {
+        setMultiDayState(prev => {
+            const dayRows = prev[currentDayDate] || [];
+            const updatedRows = dayRows.map(row => {
                 const updatedAtts = {};
                 Object.keys(row.attendances).forEach(order => {
                     updatedAtts[order] = {
                         ...row.attendances[order],
-                        status: status
+                        status: 'hadir'
                     };
                 });
                 return { ...row, attendances: updatedAtts };
-            }
-            return row;
-        }));
+            });
+            return { ...prev, [currentDayDate]: updatedRows };
+        });
+        toast.info(`Seluruh santri di hari ${currentDayObj?.day_name} diatur menjadi HADIR`);
     };
 
-    // Aksi Cepat Global: Set Semua Santri & Semua Jam ke "Hadir"
-    const handleSetAllStudentsHadir = () => {
-        setGridRows(prev => prev.map(row => {
-            const updatedAtts = {};
-            Object.keys(row.attendances).forEach(order => {
-                updatedAtts[order] = {
-                    ...row.attendances[order],
-                    status: 'hadir'
+    // ═══════════════════════════════════════════════════════════
+    // FITUR AKSELERASI: "TERAPKAN IZIN / SAKIT RENTANG HARI"
+    // ═══════════════════════════════════════════════════════════
+    const [ruleModalOpen, setRuleModalOpen] = useState(false);
+    const [ruleStudentId, setRuleStudentId] = useState('');
+    const [ruleStatus, setRuleStatus] = useState('izin'); // 'izin' | 'sakit' | 'alpa'
+    const [ruleScope, setRuleScope] = useState('fullday'); // 'fullday' | 'selected_hours'
+    const [ruleSelectedHours, setRuleSelectedHours] = useState([1, 2]); // Array jam tertentu
+    const [ruleSelectedDays, setRuleSelectedDays] = useState([]); // Array tanggal yang dicentang
+    const [ruleNotes, setRuleNotes] = useState('');
+
+    // Buka modal rule
+    const handleOpenRuleModal = () => {
+        if (!currentDayRows || currentDayRows.length === 0) {
+            toast.error('Data santri belum termuat');
+            return;
+        }
+        setRuleStudentId(currentDayRows[0]?.student_id || '');
+        // Default: seluruh hari dalam rentang terpilih
+        setRuleSelectedDays(daysList.map(d => d.date));
+        setRuleModalOpen(true);
+    };
+
+    // Terapkan Rule ke Multi-Day State
+    const handleApplyRule = (e) => {
+        e.preventDefault();
+        if (!ruleStudentId) {
+            toast.error('Pilih santri terlebih dahulu');
+            return;
+        }
+        if (ruleSelectedDays.length === 0) {
+            toast.error('Pilih minimal satu hari dalam rentang');
+            return;
+        }
+
+        setMultiDayState(prev => {
+            const copy = { ...prev };
+
+            ruleSelectedDays.forEach(dateKey => {
+                const dayRows = copy[dateKey] || [];
+                copy[dateKey] = dayRows.map(row => {
+                    if (row.student_id === Number(ruleStudentId)) {
+                        const updatedAtts = { ...row.attendances };
+                        Object.keys(updatedAtts).forEach(order => {
+                            const orderNum = Number(order);
+                            let shouldApply = false;
+                            if (ruleScope === 'fullday') {
+                                shouldApply = true;
+                            } else {
+                                shouldApply = ruleSelectedHours.includes(orderNum);
+                            }
+
+                            if (shouldApply) {
+                                updatedAtts[order] = {
+                                    ...updatedAtts[order],
+                                    status: ruleStatus
+                                };
+                            }
+                        });
+                        return { ...row, attendances: updatedAtts };
+                    }
+                    return row;
+                });
+            });
+
+            return copy;
+        });
+
+        // Set catatan
+        if (ruleNotes) {
+            setMultiDayNotes(prev => {
+                const copy = { ...prev };
+                ruleSelectedDays.forEach(dateKey => {
+                    copy[dateKey] = {
+                        ...(copy[dateKey] || {}),
+                        [ruleStudentId]: ruleNotes
+                    };
+                });
+                return copy;
+            });
+        }
+
+        toast.success(`Status ${ruleStatus.toUpperCase()} berhasil diterapkan ke ${ruleSelectedDays.length} hari!`);
+        setRuleModalOpen(false);
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // SIMPAN GRID PRESENSI (SERENTAK UNTUK SELURUH HARI)
+    // ═══════════════════════════════════════════════════════════
+    const [saveMultiDayGrid, { isLoading: isSavingMultiDay }] = useSaveMultiDayGridMutation();
+
+    const handleSaveAllDays = async () => {
+        try {
+            const payloadDays = daysList.map(day => {
+                const dateKey = day.date;
+                const rows = multiDayState[dateKey] || [];
+                const notes = multiDayNotes[dateKey] || {};
+
+                return {
+                    date: dateKey,
+                    grid: rows.map(r => {
+                        const attsWithNotes = {};
+                        Object.keys(r.attendances).forEach(order => {
+                            attsWithNotes[order] = {
+                                ...r.attendances[order],
+                                notes: notes[r.student_id] || null
+                            };
+                        });
+                        return {
+                            student_id: r.student_id,
+                            attendances: attsWithNotes
+                        };
+                    })
                 };
             });
-            return { ...row, attendances: updatedAtts };
-        }));
-        toast.info('Seluruh santri di semua jam pelajaran diatur menjadi HADIR');
-    };
 
-    // Simpan Grid Presensi Harian Berbasis Jam
-    const [saveDayGrid, { isLoading: isSavingGrid }] = useSaveDayGridMutation();
-    const handleSaveDayGrid = async () => {
-        try {
-            const payload = {
+            const res = await saveMultiDayGrid({
                 class_group_id: currentGroup.id,
-                date: attendanceDate,
-                grid: gridRows.map(row => {
-                    const attsWithNotes = {};
-                    Object.keys(row.attendances).forEach(order => {
-                        attsWithNotes[order] = {
-                            ...row.attendances[order],
-                            notes: notesMap[row.student_id] || null
-                        };
-                    });
-                    return {
-                        student_id: row.student_id,
-                        attendances: attsWithNotes
-                    };
-                })
-            };
+                days: payloadDays
+            }).unwrap();
 
-            const res = await saveDayGrid(payload).unwrap();
-            toast.success(res.message || 'Presensi harian berdasarkan jam pelajaran berhasil disimpan!');
-            refetchDayGrid();
+            toast.success(res.message || 'Presensi berhasil disimpan ke seluruh hari dan jam!');
+            refetchRangeGrid();
             refetchSheet();
         } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menyimpan presensi harian');
+            toast.error(err?.data?.message || 'Gagal menyimpan presensi');
         }
     };
 
     // ═══════════════════════════════════════════════════════════
-    // STATE TAB 2: LEMBAR PRESENSI MATRIKS P1 - P16 (AKUMULASI)
+    // TAB 2: LEMBAR PRESENSI MATRIKS AKUMULASI P1 - P16
     // ═══════════════════════════════════════════════════════════
     const { data: studiesData } = useGetStudiesQuery();
     const studies = studiesData?.data || [];
@@ -196,7 +352,7 @@ export default function AttendancePage() {
     );
     const sheet = sheetData?.data;
 
-    // Modal Pertemuan Tunggal (dari Lembar Matriks P1-P16)
+    // Modal Pertemuan Tunggal
     const [singleMeetingModal, setSingleMeetingModal] = useState(null);
     const [singlePresencesMap, setSinglePresencesMap] = useState({});
     const [updatePresences, { isLoading: isSubmittingSingle }] = useUpdatePresencesMutation();
@@ -231,23 +387,21 @@ export default function AttendancePage() {
                     presences: payload
                 }).unwrap();
                 toast.success(`Presensi Pertemuan Ke-${singleMeetingModal.meeting_number} berhasil diperbarui!`);
-            } else {
-                toast.info('Sesi pertemuan otomatis tersinkron saat pengisian jam harian.');
             }
             setSingleMeetingModal(null);
             refetchSheet();
-            refetchDayGrid();
+            refetchRangeGrid();
         } catch (err) {
             toast.error(err?.data?.message || 'Gagal menyimpan presensi');
         }
     };
 
-    // Hitung ringkasan status harian
-    const statsSummary = useMemo(() => {
+    // Hitung ringkasan status santri di hari aktif
+    const dayStats = useMemo(() => {
         let fullPresent = 0;
         let partialAbsent = 0;
 
-        gridRows.forEach(row => {
+        currentDayRows.forEach(row => {
             const statuses = Object.values(row.attendances).map(a => a.status);
             const allHadir = statuses.every(s => s === 'hadir');
             if (allHadir) {
@@ -257,13 +411,13 @@ export default function AttendancePage() {
             }
         });
 
-        return { fullPresent, partialAbsent, total: gridRows.length };
-    }, [gridRows]);
+        return { fullPresent, partialAbsent, total: currentDayRows.length };
+    }, [currentDayRows]);
 
     return (
         <div className="space-y-6">
             {/* ═══════════════════════════════════════════════════════════
-                HEADER UTAMA & NAVIGATION TABS
+                HEADER UTAMA: IDENTITAS ROMBEL & NAVIGASI TAB UTAMA
                 ═══════════════════════════════════════════════════════════ */}
             <div className="bg-white border border-slate-200 rounded-md p-4 shadow-xs space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -280,7 +434,7 @@ export default function AttendancePage() {
                             Presensi Jam Pelajaran & Lembar Akumulasi
                         </h1>
                         <p className="text-xs text-slate-500">
-                            Presensi dicatat mengacu pada jam pelajaran (Jam 1 s.d 6), dan terakumulasi otomatis ke lembar pertemuan mata pelajaran (P1 - P16).
+                            Pencatatan presensi terintegrasi jam pelajaran: Harian, Rekap Akhir Pekan (Kamis), atau Rentang Hari Berurutan.
                         </p>
                     </div>
 
@@ -288,9 +442,9 @@ export default function AttendancePage() {
                     <div className="flex items-center p-1 bg-slate-100 rounded-md border border-slate-200 shrink-0">
                         <button
                             type="button"
-                            onClick={() => setActiveTab('day_grid')}
+                            onClick={() => setActiveTab('attendance_form')}
                             className={`px-3.5 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
-                                activeTab === 'day_grid'
+                                activeTab === 'attendance_form'
                                     ? 'bg-[#093c30] text-white shadow-xs'
                                     : 'text-slate-600 hover:text-slate-900'
                             }`}
@@ -313,7 +467,7 @@ export default function AttendancePage() {
                     </div>
                 </div>
 
-                {/* Filter Global: Rombongan Belajar */}
+                {/* Filter Global: Rombel, Wali Kelas, Semester */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
                     <div>
                         <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
@@ -358,99 +512,214 @@ export default function AttendancePage() {
             </div>
 
             {/* ═══════════════════════════════════════════════════════════
-                TAB 1: FORMULIR PENGISIAN ABSEN BERBASIS JAM PELAJARAN
+                TAB 1: FORMULIR PRESENSI (HARIAN, MINGGUAN KAMIS, RENTANG HARI)
                 ═══════════════════════════════════════════════════════════ */}
-            {activeTab === 'day_grid' && (
+            {activeTab === 'attendance_form' && (
                 <div className="space-y-4">
-                    {/* Control Bar: Tanggal Absen, Indikator Hari, & Tombol Simpan */}
-                    <div className="bg-white border border-slate-200 rounded-md p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div>
-                                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                                    Tanggal Pelaksanaan KBM
-                                </label>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="date"
-                                        value={attendanceDate}
-                                        onChange={(e) => setAttendanceDate(e.target.value)}
-                                        className="px-3 py-1.5 border border-slate-300 rounded text-xs font-bold bg-white text-slate-900"
-                                    />
-                                    <span className="px-2.5 py-1 rounded bg-[#093c30] text-white text-xs font-bold">
-                                        Hari {dayGrid?.day_name || 'Sabtu'}
-                                    </span>
-                                </div>
+                    {/* Control Bar: Pilihan Mode (Harian, Mingguan Akhir Pekan, Rentang Hari) */}
+                    <div className="bg-white border border-slate-200 rounded-md p-4 shadow-xs space-y-4">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            {/* Radio Switcher 3 Mode */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setEntryMode('daily')}
+                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                                        entryMode === 'daily'
+                                            ? 'bg-[#093c30] text-white shadow-xs'
+                                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                    }`}
+                                >
+                                    <Clock className="w-3.5 h-3.5" />
+                                    Presensi Harian (1 Hari)
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleSetWeeklyMode}
+                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                                        entryMode === 'weekly'
+                                            ? 'bg-[#093c30] text-white shadow-xs'
+                                            : 'bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                                    }`}
+                                    title="Rekap sepekan penuh (Sabtu s.d. Kamis) di akhir pekan"
+                                >
+                                    <CalendarDays className="w-3.5 h-3.5 text-amber-300" />
+                                    Rekap Akhir Pekan (Kamis / Sepekan)
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setEntryMode('range')}
+                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                                        entryMode === 'range'
+                                            ? 'bg-[#093c30] text-white shadow-xs'
+                                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                    }`}
+                                    title="Pilih rentang hari yang berdekatan/berurutan"
+                                >
+                                    <CalendarRange className="w-3.5 h-3.5" />
+                                    Rentang Hari Berurutan
+                                </button>
                             </div>
 
-                            {/* Shortcut Hari Pesantren (Sabtu s.d. Kamis) */}
-                            <div className="hidden lg:block pl-3 border-l border-slate-200">
-                                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                                    Loncat Hari (Pekan Ini)
-                                </label>
-                                <div className="flex items-center gap-1">
-                                    {[
-                                        { label: 'Sab', date: '2026-10-17' },
-                                        { label: 'Ahd', date: '2026-10-18' },
-                                        { label: 'Sen', date: '2026-10-19' },
-                                        { label: 'Sel', date: '2026-10-20' },
-                                        { label: 'Rab', date: '2026-10-21' },
-                                        { label: 'Kam', date: '2026-10-22' },
-                                    ].map(d => (
-                                        <button
-                                            key={d.label}
-                                            type="button"
-                                            onClick={() => setAttendanceDate(d.date)}
-                                            className={`px-2 py-1 text-[11px] font-bold rounded transition ${
-                                                attendanceDate === d.date
-                                                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                                                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                                            }`}
-                                        >
-                                            {d.label}
-                                        </button>
-                                    ))}
-                                </div>
+                            {/* Tombol Aksi Cepat: Terapkan Izin Berhari-hari & Simpan Semua */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                {entryMode !== 'daily' && (
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenRuleModal}
+                                        className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded shadow-xs transition flex items-center gap-1.5"
+                                        title="Catat santri yang izin atau sakit selama beberapa hari sekaligus"
+                                    >
+                                        <Plus className="w-3.5 h-3.5 text-amber-700" />
+                                        Terapkan Izin Berhari-hari
+                                    </button>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={handleSetAllStudentsHadir}
+                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded transition flex items-center gap-1"
+                                    title="Reset seluruh santri di hari ini ke status Hadir"
+                                >
+                                    <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                    Hadir Semua Hari Ini
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleSaveAllDays}
+                                    disabled={isSavingMultiDay}
+                                    className="px-4 py-2 bg-[#093c30] hover:bg-[#064e3b] text-white text-xs font-bold rounded shadow-xs transition flex items-center gap-1.5"
+                                >
+                                    <Save className="w-4 h-4 text-emerald-300" />
+                                    {isSavingMultiDay 
+                                        ? 'Menyimpan...' 
+                                        : entryMode === 'weekly' 
+                                            ? 'Simpan Presensi Sepekan (Kamis)'
+                                            : entryMode === 'range'
+                                                ? `Simpan ${daysList.length} Hari Sekaligus`
+                                                : 'Simpan Presensi Hari Ini'
+                                    }
+                                </button>
                             </div>
                         </div>
 
-                        {/* Ringkasan & Tombol Simpan */}
-                        <div className="flex items-center gap-3">
-                            <button
-                                type="button"
-                                onClick={handleSetAllStudentsHadir}
-                                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded transition flex items-center gap-1"
-                                title="Reset seluruh kolom jam menjadi HADIR"
-                            >
-                                <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                Semua Hadir
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={handleSaveDayGrid}
-                                disabled={isSavingGrid}
-                                className="px-4 py-2 bg-[#093c30] hover:bg-[#064e3b] text-white text-xs font-bold rounded shadow-xs transition flex items-center gap-1.5"
-                            >
-                                <Save className="w-4 h-4 text-emerald-300" />
-                                {isSavingGrid ? 'Menyimpan...' : 'Simpan Presensi Harian (6 Jam)'}
-                            </button>
+                        {/* Input Pemilihan Tanggal / Rentang */}
+                        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-4 text-xs">
+                            {entryMode === 'daily' ? (
+                                <div className="flex items-center gap-3">
+                                    <span className="font-semibold text-slate-600">Tanggal Absen:</span>
+                                    <input
+                                        type="date"
+                                        value={singleDate}
+                                        onChange={(e) => setSingleDate(e.target.value)}
+                                        className="px-3 py-1.5 border border-slate-300 rounded font-bold text-slate-900 bg-white"
+                                    />
+                                    <span className="px-2.5 py-1 rounded bg-[#093c30] text-white font-bold">
+                                        Hari {currentDayObj?.day_name || 'Sabtu'}
+                                    </span>
+                                </div>
+                            ) : entryMode === 'weekly' ? (
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <span className="px-2.5 py-1 rounded bg-emerald-100 text-emerald-900 font-bold border border-emerald-300">
+                                        Rekap Akhir Pekan (Hari Kamis)
+                                    </span>
+                                    <span className="text-slate-600">
+                                        Memproses KBM Sepekan: <b>Sabtu ({rangeStartDate})</b> s.d. <b>Kamis ({rangeEndDate})</b>
+                                    </span>
+                                    <span className="text-slate-400">&bull;</span>
+                                    <span className="text-slate-500">
+                                        Total: <b>{daysList.length} Hari Belajar</b> ({daysList.reduce((acc, d) => acc + (d.hours_count || 0), 0)} Jam Pelajaran)
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <span className="font-semibold text-slate-600">Pilih Rentang Hari Berurutan:</span>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="date"
+                                            value={rangeStartDate}
+                                            onChange={(e) => setRangeStartDate(e.target.value)}
+                                            className="px-2.5 py-1.5 border border-slate-300 rounded font-bold text-slate-900 bg-white"
+                                        />
+                                        <span className="text-slate-400 font-bold">s.d.</span>
+                                        <input
+                                            type="date"
+                                            value={rangeEndDate}
+                                            onChange={(e) => setRangeEndDate(e.target.value)}
+                                            className="px-2.5 py-1.5 border border-slate-300 rounded font-bold text-slate-900 bg-white"
+                                        />
+                                    </div>
+                                    <span className="text-slate-500">
+                                        (Terpilih <b>{daysList.length} Hari Berurutan</b>)
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Ringkasan Urutan Jam Pelajaran Hari Ini */}
+                    {/* ═══════════════════════════════════════════════════════════
+                        DAY STEPPER TABS: DERETAN TAB HARI BERURUTAN
+                        ═══════════════════════════════════════════════════════════ */}
+                    {daysList.length > 1 && (
+                        <div className="bg-slate-100 border border-slate-200 rounded-md p-1.5 flex items-center gap-1 overflow-x-auto shadow-2xs">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-2 shrink-0">
+                                Pilih Hari:
+                            </span>
+                            {daysList.map((d, idx) => {
+                                const isActive = idx === activeDayIndex;
+                                const dateRows = multiDayState[d.date] || [];
+                                // Hitung apakah ada santri tidak hadir di hari ini
+                                let hasAbsent = false;
+                                dateRows.forEach(r => {
+                                    if (Object.values(r.attendances).some(a => a.status !== 'hadir')) {
+                                        hasAbsent = true;
+                                    }
+                                });
+
+                                return (
+                                    <button
+                                        key={d.date}
+                                        type="button"
+                                        onClick={() => setActiveDayIndex(idx)}
+                                        className={`px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-2 shrink-0 ${
+                                            isActive
+                                                ? 'bg-[#093c30] text-white shadow-xs'
+                                                : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                                        }`}
+                                    >
+                                        <Calendar className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
+                                        <span>{idx + 1}. {d.day_name}</span>
+                                        <span className={`text-[10px] font-mono ${isActive ? 'text-emerald-200' : 'text-slate-400'}`}>
+                                            ({d.date.substring(5)})
+                                        </span>
+                                        {hasAbsent ? (
+                                            <span className="w-2 h-2 rounded-full bg-amber-400" title="Ada catatan ketidakhadiran di hari ini" />
+                                        ) : (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" title="Semua santri hadir" />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Ringkasan Susunan Jam Pelajaran Hari Aktif */}
                     <div className="bg-slate-50 border border-slate-200 rounded-md p-3">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                                 <Clock className="w-3.5 h-3.5 text-[#093c30]" />
-                                Susunan Jam Pelajaran Hari {dayGrid?.day_name || 'Sabtu'} ({dayGrid?.hours?.length || 6} Jam KBM)
+                                Susunan Jam Pelajaran Hari {currentDayObj?.day_name} &bull; {currentDayObj?.date} ({currentDayObj?.hours?.length || 6} Jam KBM)
                             </span>
                             <span className="text-[11px] text-slate-500 font-medium">
-                                Posisi mapel disesuaikan dengan jadwal resmi hari ini
+                                Posisi mapel disesuaikan dengan jadwal resmi pada hari ini
                             </span>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                            {dayGrid?.hours?.map(h => (
+                            {currentDayObj?.hours?.map(h => (
                                 <div key={h.schedule_id} className="bg-white border border-slate-200 rounded p-2 shadow-2xs space-y-0.5">
                                     <div className="flex items-center justify-between">
                                         <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[#093c30] text-emerald-100">
@@ -472,23 +741,23 @@ export default function AttendancePage() {
                     </div>
 
                     {/* ═══════════════════════════════════════════════════════════
-                        TABEL GRID PENGISIAN ABSEN (SANTRI X JAM PELAJARAN)
+                        TABEL GRID PENGISIAN ABSEN (SANTRI X JAM PELAJARAN DI HARI AKTIF)
                         ═══════════════════════════════════════════════════════════ */}
                     <div className="bg-white border border-slate-200 rounded-md shadow-xs overflow-hidden">
                         <div className="p-3 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                             <div className="flex items-center gap-2">
                                 <span className="font-bold text-slate-900">
-                                    Daftar Santri & Status Kehadiran Per Jam Pelajaran
+                                    Daftar Santri & Status Kehadiran Hari {currentDayObj?.day_name}
                                 </span>
                                 <span className="text-slate-400">&bull;</span>
                                 <span className="text-emerald-700 font-semibold">
-                                    Hadir Penuh: {statsSummary.fullPresent}
+                                    Hadir Penuh: {dayStats.fullPresent}
                                 </span>
-                                {statsSummary.partialAbsent > 0 && (
+                                {dayStats.partialAbsent > 0 && (
                                     <>
                                         <span className="text-slate-400">&bull;</span>
                                         <span className="text-amber-700 font-semibold">
-                                            Berhalangan Parsial: {statsSummary.partialAbsent}
+                                            Berhalangan Sebagian / Full: {dayStats.partialAbsent}
                                         </span>
                                     </>
                                 )}
@@ -525,8 +794,8 @@ export default function AttendancePage() {
                                             Set 1 Baris
                                         </th>
 
-                                        {/* Kolom Tiap Jam Pelajaran Hari Ini */}
-                                        {dayGrid?.hours?.map(h => (
+                                        {/* Kolom Tiap Jam Pelajaran di Hari Ini */}
+                                        {currentDayObj?.hours?.map(h => (
                                             <th key={h.schedule_id} className="px-2 py-2.5 text-center min-w-[7.5rem] border-r border-[#064e3b] last:border-0">
                                                 <div className="font-extrabold text-[12px] text-emerald-200">
                                                     Jam {h.order}
@@ -546,20 +815,20 @@ export default function AttendancePage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {isLoadingDayGrid ? (
+                                    {isLoadingRange ? (
                                         <tr>
                                             <td colSpan={10} className="p-8 text-center text-slate-400">
                                                 Memuat jadwal dan daftar santri...
                                             </td>
                                         </tr>
-                                    ) : gridRows.length === 0 ? (
+                                    ) : currentDayRows.length === 0 ? (
                                         <tr>
                                             <td colSpan={10} className="p-8 text-center text-slate-400 italic">
                                                 Tidak ada santri aktif atau jadwal tidak ditemukan pada hari ini.
                                             </td>
                                         </tr>
                                     ) : (
-                                        gridRows.map((row, idx) => (
+                                        currentDayRows.map((row, idx) => (
                                             <tr key={row.student_id} className={idx % 2 !== 0 ? 'bg-slate-50/40 hover:bg-slate-100/60' : 'bg-white hover:bg-slate-50'}>
                                                 <td className="sticky left-0 z-10 bg-inherit px-3 py-2 text-center text-slate-400 font-mono border-r border-slate-200">
                                                     {idx + 1}
@@ -573,14 +842,14 @@ export default function AttendancePage() {
                                                     </div>
                                                 </td>
 
-                                                {/* Tombol Aksi Cepat 1 Baris Santri */}
+                                                {/* Tombol Aksi Cepat 1 Baris Santri (Full Day) */}
                                                 <td className="px-2 py-2 text-center border-r border-slate-200">
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
                                                             type="button"
                                                             onClick={() => handleSetAllHoursForStudent(row.student_id, 'hadir')}
                                                             className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                                                            title="Set Hadir untuk seluruh jam santri ini"
+                                                            title="Set Hadir untuk seluruh jam santri ini hari ini"
                                                         >
                                                             H
                                                         </button>
@@ -588,7 +857,7 @@ export default function AttendancePage() {
                                                             type="button"
                                                             onClick={() => handleSetAllHoursForStudent(row.student_id, 'sakit')}
                                                             className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-                                                            title="Set Sakit untuk seluruh jam santri ini"
+                                                            title="Set Sakit seharian (Full Day) untuk santri ini"
                                                         >
                                                             S
                                                         </button>
@@ -596,7 +865,7 @@ export default function AttendancePage() {
                                                             type="button"
                                                             onClick={() => handleSetAllHoursForStudent(row.student_id, 'izin')}
                                                             className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-                                                            title="Set Izin untuk seluruh jam santri ini"
+                                                            title="Set Izin seharian (Full Day) untuk santri ini"
                                                         >
                                                             I
                                                         </button>
@@ -604,7 +873,7 @@ export default function AttendancePage() {
                                                 </td>
 
                                                 {/* Kolom Pilihan Status Tiap Jam Pelajaran */}
-                                                {dayGrid?.hours?.map(h => {
+                                                {currentDayObj?.hours?.map(h => {
                                                     const att = row.attendances?.[h.order] || {};
                                                     const status = att.status || 'hadir';
 
@@ -644,11 +913,17 @@ export default function AttendancePage() {
                                                     <input
                                                         type="text"
                                                         placeholder="Catatan jika izin / sakit..."
-                                                        value={notesMap[row.student_id] || ''}
-                                                        onChange={(e) => setNotesMap(prev => ({
-                                                            ...prev,
-                                                            [row.student_id]: e.target.value
-                                                        }))}
+                                                        value={currentDayNotes[row.student_id] || ''}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setMultiDayNotes(prev => ({
+                                                                ...prev,
+                                                                [currentDayDate]: {
+                                                                    ...(prev[currentDayDate] || {}),
+                                                                    [row.student_id]: val
+                                                                }
+                                                            }));
+                                                        }}
                                                         className="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white text-slate-800 placeholder:text-slate-300"
                                                     />
                                                 </td>
@@ -659,20 +934,46 @@ export default function AttendancePage() {
                             </table>
                         </div>
 
-                        {/* Footer Tabel dengan Tombol Simpan Bawah */}
+                        {/* Footer Tabel dengan Navigasi Hari Berikutnya & Tombol Simpan */}
                         <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <span className="text-xs text-slate-500">
-                                Presensi otomatis mencatat kehadiran santri ke jurnal KBM masing-masing mata pelajaran.
-                            </span>
+                            <div className="flex items-center gap-2">
+                                {daysList.length > 1 && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            disabled={activeDayIndex === 0}
+                                            onClick={() => setActiveDayIndex(prev => Math.max(0, prev - 1))}
+                                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded hover:bg-slate-50 disabled:opacity-40 flex items-center gap-1"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" /> Hari Sebelumnya
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={activeDayIndex === daysList.length - 1}
+                                            onClick={() => setActiveDayIndex(prev => Math.min(daysList.length - 1, prev + 1))}
+                                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded hover:bg-slate-50 disabled:opacity-40 flex items-center gap-1"
+                                        >
+                                            Hari Berikutnya <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
 
                             <button
                                 type="button"
-                                onClick={handleSaveDayGrid}
-                                disabled={isSavingGrid}
+                                onClick={handleSaveAllDays}
+                                disabled={isSavingMultiDay}
                                 className="px-5 py-2.5 bg-[#093c30] hover:bg-[#064e3b] text-white text-xs font-bold rounded shadow-xs transition flex items-center justify-center gap-2"
                             >
                                 <Save className="w-4 h-4 text-emerald-300" />
-                                {isSavingGrid ? 'Menyimpan Presensi...' : 'Simpan Presensi Harian (6 Jam Sekaligus)'}
+                                {isSavingMultiDay 
+                                    ? 'Menyimpan...' 
+                                    : entryMode === 'weekly' 
+                                        ? 'Simpan Presensi Sepekan (Sabtu s.d. Kamis)'
+                                        : entryMode === 'range'
+                                            ? `Simpan ${daysList.length} Hari Sekaligus`
+                                            : 'Simpan Presensi Hari Ini'
+                                }
                             </button>
                         </div>
                     </div>
@@ -880,6 +1181,191 @@ export default function AttendancePage() {
                     </div>
                 </div>
             )}
+
+            {/* ═══════════════════════════════════════════════════════════
+                MODAL FITUR: "TERAPKAN IZIN / SAKIT RENTANG HARI"
+                ═══════════════════════════════════════════════════════════ */}
+            <Modal
+                open={ruleModalOpen}
+                title="⚡ Terapkan Izin / Sakit Rentang Hari"
+                onClose={() => setRuleModalOpen(false)}
+            >
+                <form onSubmit={handleApplyRule} className="space-y-4">
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs space-y-1 text-amber-900">
+                        <p className="font-bold flex items-center gap-1.5">
+                            <CalendarRange className="w-4 h-4 text-amber-700" />
+                            Pencatatan Izin / Sakit Berhari-hari (Multi-Day Rule)
+                        </p>
+                        <p className="text-[11px] text-amber-800 leading-relaxed">
+                            Mekanisme ini menerapkan status santri pada hari-hari yang Anda centang secara otomatis, baik seharian penuh (*Full Day*) maupun hanya jam tertentu saja (misal: Jam 1 & 2).
+                        </p>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                        {/* Pilih Santri */}
+                        <div>
+                            <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                                Pilih Santri
+                            </label>
+                            <select
+                                value={ruleStudentId}
+                                onChange={(e) => setRuleStudentId(e.target.value)}
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded font-bold text-slate-900 bg-white"
+                            >
+                                {currentDayRows.map(s => (
+                                    <option key={s.student_id} value={s.student_id}>
+                                        {s.name} (NIS: {s.nis})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Status Kehadiran */}
+                        <div>
+                            <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                                Status Kehadiran
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[
+                                    { value: 'izin', label: 'Izin', color: 'bg-blue-600 text-white' },
+                                    { value: 'sakit', label: 'Sakit', color: 'bg-amber-500 text-white' },
+                                    { value: 'alpa', label: 'Alpa', color: 'bg-rose-600 text-white' },
+                                ].map(st => (
+                                    <button
+                                        key={st.value}
+                                        type="button"
+                                        onClick={() => setRuleStatus(st.value)}
+                                        className={`py-1.5 text-xs font-bold rounded transition text-center border ${
+                                            ruleStatus === st.value
+                                                ? `${st.color} border-transparent shadow-xs`
+                                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        {st.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Pilih Hari yang Diterapkan */}
+                        <div>
+                            <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                                Terapkan Pada Hari (Rentang Terpilih)
+                            </label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-md">
+                                {daysList.map(d => {
+                                    const isChecked = ruleSelectedDays.includes(d.date);
+                                    return (
+                                        <label key={d.date} className="flex items-center gap-1.5 text-xs text-slate-800 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => {
+                                                    if (isChecked) {
+                                                        setRuleSelectedDays(prev => prev.filter(x => x !== d.date));
+                                                    } else {
+                                                        setRuleSelectedDays(prev => [...prev, d.date]);
+                                                    }
+                                                }}
+                                                className="rounded border-slate-300 text-emerald-800 focus:ring-emerald-700"
+                                            />
+                                            <span className="font-medium">{d.day_name} ({d.date.substring(5)})</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Lingkup Jam: Full Day vs Jam Tertentu */}
+                        <div>
+                            <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                                Lingkup Jam Pelajaran
+                            </label>
+                            <div className="flex items-center gap-4 mb-2">
+                                <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-800">
+                                    <input
+                                        type="radio"
+                                        name="ruleScope"
+                                        value="fullday"
+                                        checked={ruleScope === 'fullday'}
+                                        onChange={() => setRuleScope('fullday')}
+                                        className="text-[#093c30]"
+                                    />
+                                    Full Day (Semua Jam Pelajaran)
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-800">
+                                    <input
+                                        type="radio"
+                                        name="ruleScope"
+                                        value="selected_hours"
+                                        checked={ruleScope === 'selected_hours'}
+                                        onChange={() => setRuleScope('selected_hours')}
+                                        className="text-[#093c30]"
+                                    />
+                                    Jam Tertentu Saja
+                                </label>
+                            </div>
+
+                            {/* Checklist Jam Tertentu */}
+                            {ruleScope === 'selected_hours' && (
+                                <div className="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-md">
+                                    {[1, 2, 3, 4, 5, 6].map(hourNum => {
+                                        const isChecked = ruleSelectedHours.includes(hourNum);
+                                        return (
+                                            <label key={hourNum} className="flex items-center gap-1 px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-bold cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isChecked}
+                                                    onChange={() => {
+                                                        if (isChecked) {
+                                                            setRuleSelectedHours(prev => prev.filter(x => x !== hourNum));
+                                                        } else {
+                                                            setRuleSelectedHours(prev => [...prev, hourNum]);
+                                                        }
+                                                    }}
+                                                    className="rounded border-slate-300 text-emerald-800"
+                                                />
+                                                Jam {hourNum}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Catatan / Alasan */}
+                        <div>
+                            <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                                Catatan / Keterangan Alasan
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Misal: Izin sambangan keluarga / Istirahat di UKS"
+                                value={ruleNotes}
+                                onChange={(e) => setRuleNotes(e.target.value)}
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white text-slate-800"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-3 border-t">
+                        <button
+                            type="button"
+                            onClick={() => setRuleModalOpen(false)}
+                            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            className="px-5 py-2 bg-[#093c30] text-white text-xs font-bold rounded-md hover:bg-[#064e3b] shadow-xs flex items-center gap-1.5"
+                        >
+                            <Check className="w-4 h-4 text-emerald-300" />
+                            Terapkan ke Rentang Hari
+                        </button>
+                    </div>
+                </form>
+            </Modal>
 
             {/* ═══════════════════════════════════════════════════════════
                 MODAL PRESENSI PERTEMUAN KE-N (PERSIS SCREENSHOT 2)

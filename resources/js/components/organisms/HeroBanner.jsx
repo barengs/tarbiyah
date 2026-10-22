@@ -17,9 +17,9 @@ export default function HeroBanner({ user, academicMeta, ctaHandlers, className 
     const firstName = (user?.name || 'Mudir').replace(/^(KH|H|Hj|Ust\.|Ustzh\.|Drs|Ir|Prof)\.?\s+/gi, '').split(' ')[0];
 
     const systemLabel =
-        academicMeta?.name && academicMeta?.semester
-            ? `Sistem Operasional Aktif • Semester ${academicMeta.semester} ${academicMeta.name}`
-            : 'Sistem Operasional Aktif';
+        academicMeta?.triwulan_detail || academicMeta?.triwulan
+            ? `Sistem Operasional Aktif • ${academicMeta.triwulan_detail || academicMeta.triwulan} • TA ${academicMeta.hijri_year || '1446/1447 H'}`
+            : 'Sistem Operasional Aktif • KBM Terjadwal';
 
     return (
         <Card className={`p-6 lg:p-8 bg-gradient-to-br from-white via-white to-emerald-50/40 border-emerald-100/60 relative overflow-hidden ${className}`}>

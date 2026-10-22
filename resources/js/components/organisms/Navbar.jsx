@@ -58,8 +58,8 @@ export default function Navbar({
                 {academicMeta && (
                     <HijriBadge
                         hijri={academicMeta.hijri || '14 Syawal 1446 H'}
-                        semester={academicMeta.semester || 'Genap'}
-                        academicYear={academicMeta.name || '2024/2025'}
+                        triwulan={academicMeta.triwulan_detail || academicMeta.triwulan || 'Triwulan IV (Syawal - Dzulhijjah)'}
+                        academicYear={academicMeta.hijri_year || '1446/1447 H'}
                     />
                 )}
 

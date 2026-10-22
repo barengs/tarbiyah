@@ -502,10 +502,10 @@ export default function AttendancePage() {
 
                     <div>
                         <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                            Tahun Ajaran & Semester
+                            Tahun Ajaran & Triwulan
                         </label>
                         <div className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded text-slate-700 font-mono font-semibold">
-                            {currentGroup?.academic_year?.name || '1446/1447 H'} &bull; Semester Genap
+                            {currentGroup?.academic_year?.name || '1446/1447 H'} &bull; Triwulan IV (Syawal - Dzulhijjah)
                         </div>
                     </div>
                 </div>

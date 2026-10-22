@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Main;
 
 use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
+use App\Models\AcademicQuarter;
 use App\Models\Assessment;
 use App\Models\ClassGroup;
 use App\Models\Education;
@@ -26,8 +27,31 @@ class DashboardController extends Controller
     public function stats(Request $request): JsonResponse
     {
         $today = Carbon::today();
-        $activeYear = AcademicYear::where('active', true)->first() 
-            ?? AcademicYear::latest('start_date')->first();
+        
+        // 1. Periode Aktif (Priotitas Triwulan Hijriah / 2. Semester Masehi)
+        $activeTriwulanYear = AcademicYear::where('type', 'triwulan')->where('active', true)->first();
+        $activeSemesterYear = AcademicYear::where('type', 'semester')->where('active', true)->first();
+        $activeYear = $activeTriwulanYear ?? $activeSemesterYear ?? AcademicYear::where('active', true)->first();
+        
+        $activeQuarter = AcademicQuarter::where('active', true)->first();
+
+        // 2. Label Periode Akademik & Triwulan
+        $hijriYear = $activeTriwulanYear ? ($activeTriwulanYear->year . ' H') : '1446/1447 H';
+        $triwulanName = 'Triwulan IV';
+        $triwulanDetail = 'Triwulan IV (Syawal - Dzulhijjah)';
+        if ($activeTriwulanYear) {
+            if (stripos($activeTriwulanYear->periode, 'triwulan') !== false) {
+                $triwulanName = $activeTriwulanYear->periode;
+            } elseif ($activeTriwulanYear->periode === 'genap') {
+                $triwulanName = 'Triwulan IV';
+            } elseif ($activeTriwulanYear->periode === 'ganjil') {
+                $triwulanName = 'Triwulan I';
+            }
+        }
+        if ($activeQuarter && $activeQuarter->academicYear->type === 'triwulan') {
+            $triwulanDetail = $activeQuarter->name;
+            $triwulanName = $activeQuarter->name;
+        }
 
         // 1. TOTAL SANTRI AKTIF & GENDER METRICS
         $totalSantri = Student::where('status', 'Aktif')->count();
@@ -215,9 +239,12 @@ class DashboardController extends Controller
             'status' => 'success',
             'data'   => [
                 'academic_year' => [
-                    'name'     => $activeYear ? ($activeYear->year ?? $activeYear->name) : '2024/2025',
-                    'semester' => $activeYear ? ucfirst($activeYear->periode ?? $activeYear->semester ?? 'Genap') : 'Genap',
-                    'hijri'    => '14 Syawal 1446 H',
+                    'name'           => $activeYear ? ($activeYear->year ?? $activeYear->name) : '1446/1447 H',
+                    'hijri_year'     => $hijriYear,
+                    'triwulan'       => $triwulanName,
+                    'triwulan_detail'=> $triwulanDetail,
+                    'period'         => $triwulanName . ' • ' . $hijriYear,
+                    'hijri'          => '14 Syawal 1446 H',
                 ],
                 'overview' => [
                     'total_santri' => [

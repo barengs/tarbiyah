@@ -4,95 +4,73 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Student;
-use App\Models\StudentClass;
 use App\Models\ClassGroup;
+use App\Models\StudentClass;
 use App\Models\AcademicYear;
 
 class StudentSeeder extends Seeder
 {
-    /**
-     * Seeder data siswa / santri:
-     *  - Santri Mukim (~90%): terikat asrama pesantren & memiliki santri_id
-     *  - Siswa Reguler Luar (~10%): siswa non-mukim (kalong) yang hanya bersekolah
-     */
     public function run(): void
     {
-        $tahun           = AcademicYear::where('active', true)->first();
-        $rombel7A        = ClassGroup::where('code', 'VII-A')->first();
-        $halaqahAbuBakar = ClassGroup::where('code', 'HLQ-ABUBAKAR')->first();
+        $tahun = AcademicYear::where('active', true)->first() ?? AcademicYear::first();
+        $allGroups = ClassGroup::all();
 
-        // ── 1. Santri Mukim Pesantren (90%) ──
-        $santriMukim = [
-            ['nis' => '2026001', 'name' => 'Ahmad Fathan Al-Ghifari', 'gender' => 'L', 'santri_id' => 101],
-            ['nis' => '2026002', 'name' => 'Muhammad Bilal Al-Habsyi', 'gender' => 'L', 'santri_id' => 102],
-            ['nis' => '2026003', 'name' => 'Zaidan Akram Mumtaz',     'gender' => 'L', 'santri_id' => 103],
-            ['nis' => '2026004', 'name' => 'Rayhan Pratama Putra',    'gender' => 'L', 'santri_id' => 104],
+        // 20 nama santri persis seperti nama-nama santri di sistem pesantren (mirip screenshot)
+        $santriNames = [
+            'ACH ROSIDI',
+            'ABD KHOLIK IRWANSYAH',
+            'AHMAD FIDHADINILLAH',
+            'ACHMAD HASAN BASRI',
+            'AHMAD KAMIL',
+            'ANDRIAN',
+            'RUDI HENDRAWAN',
+            'ARIFIN',
+            'IMAMUDDIN',
+            'KHOIRUDDIN',
+            'MASKUR JAMIL',
+            'MOH. IBNU AGEL',
+            'MOH IQBAL HAQIQI',
+            'MOH RIZKI YANTO IRAWAN',
+            'SAHRUL GUNAWAN',
+            'ZAKI AL HABZY',
+            'ACH BAHRUL WIDAD',
+            'FIQHUL Y',
+            'ACHMAD IKLIL',
+            'ALFIAN NUZULA'
         ];
 
-        foreach ($santriMukim as $s) {
-            $st = Student::updateOrCreate(
-                ['nis' => $s['nis']],
-                [
-                    'santri_id'    => $s['santri_id'],
-                    'name'         => $s['name'],
-                    'gender'       => $s['gender'],
-                    'is_mukim'     => true, // Santri Mukim
-                    'parent_name'  => 'H. Abdullah',
-                    'parent_phone' => '081399887766',
-                    'address'      => 'Asrama Al-Ghazali Kamar 04',
-                    'status'       => 'aktif',
-                ]
-            );
+        foreach ($allGroups as $group) {
+            foreach ($santriNames as $idx => $nama) {
+                $nis = 'NIS-' . $group->code . '-' . str_pad($idx + 1, 3, '0', STR_PAD_LEFT);
+                $nisn = '00' . rand(10000000, 99999999);
 
-            // Masukkan ke Rombel Formal VII-A
-            if ($rombel7A) {
-                StudentClass::firstOrCreate([
-                    'academic_year_id'           => $tahun->id,
-                    'educational_institution_id' => $rombel7A->educational_institution_id,
-                    'student_id'                 => $st->id,
-                    'class_group_id'             => $rombel7A->id,
-                ], ['status' => 'aktif', 'joined_at' => '2026-07-15']);
-            }
+                $student = Student::updateOrCreate(
+                    ['nis' => $nis],
+                    [
+                        'nisn'          => $nisn,
+                        'nik'           => '3528' . rand(100000000000, 999999999999),
+                        'name'          => $nama,
+                        'gender'        => 'L',
+                        'born_in'       => 'Pamekasan',
+                        'born_at'       => '2010-05-15',
+                        'address'       => 'Panyeppen, Palengaan, Pamekasan',
+                        'status'        => 'aktif',
+                        'is_mukim'      => true,
+                    ]
+                );
 
-            // Masukkan ke Halaqah Tahfidz Abu Bakar
-            if ($halaqahAbuBakar) {
-                StudentClass::firstOrCreate([
-                    'academic_year_id'           => $tahun->id,
-                    'educational_institution_id' => $halaqahAbuBakar->educational_institution_id,
-                    'student_id'                 => $st->id,
-                    'class_group_id'             => $halaqahAbuBakar->id,
-                ], ['status' => 'aktif', 'joined_at' => '2026-07-15']);
-            }
-        }
-
-        // ── 2. Siswa Reguler Luar / Kalong (10%) ──
-        $siswaLuar = [
-            ['nis' => '2026005', 'name' => 'Faris Dwi Nugraha (Siswa Luar)',    'gender' => 'L'],
-            ['nis' => '2026006', 'name' => 'Dicky Surya Wardhana (Siswa Luar)', 'gender' => 'L'],
-        ];
-
-        foreach ($siswaLuar as $s) {
-            $st = Student::updateOrCreate(
-                ['nis' => $s['nis']],
-                [
-                    'santri_id'    => null, // Bukan santri mukim
-                    'name'         => $s['name'],
-                    'gender'       => $s['gender'],
-                    'is_mukim'     => false, // Siswa Reguler Luar
-                    'parent_name'  => 'Bpk. Budi Santoso',
-                    'parent_phone' => '081122334455',
-                    'address'      => 'Jl. Perumahan Indah Blok C3 (Pulang-Pergi)',
-                    'status'       => 'aktif',
-                ]
-            );
-
-            if ($rombel7A) {
-                StudentClass::firstOrCreate([
-                    'academic_year_id'           => $tahun->id,
-                    'educational_institution_id' => $rombel7A->educational_institution_id,
-                    'student_id'                 => $st->id,
-                    'class_group_id'             => $rombel7A->id,
-                ], ['status' => 'aktif', 'joined_at' => '2026-07-15']);
+                StudentClass::updateOrCreate(
+                    [
+                        'academic_year_id' => $tahun->id,
+                        'class_group_id'   => $group->id,
+                        'student_id'       => $student->id,
+                    ],
+                    [
+                        'educational_institution_id' => $group->educational_institution_id,
+                        'status'    => 'aktif',
+                        'joined_at' => '2024-07-15',
+                    ]
+                );
             }
         }
     }

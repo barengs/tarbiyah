@@ -41,7 +41,7 @@ const NAVIGATION_ITEMS = [
     },
     {
         name: 'Presensi & Disiplin',
-        to: '/nilai',
+        to: '/presensi',
         icon: ClipboardCheck,
     },
     {

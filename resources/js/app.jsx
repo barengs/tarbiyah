@@ -17,6 +17,7 @@ import ClassGroupPage from './pages/ClassGroupPage';
 import TahfidzHalaqahPage from './pages/TahfidzHalaqahPage';
 import ScheduleKbmPage from './pages/ScheduleKbmPage';
 import AssessmentPage from './pages/AssessmentPage';
+import AttendancePage from './pages/AttendancePage';
 import ReportCardPage from './pages/ReportCardPage';
 
 import '../css/app.css';
@@ -38,6 +39,7 @@ const App = () => {
                             <Route path="rombel" element={<ClassGroupPage />} />
                             <Route path="tahfidz" element={<TahfidzHalaqahPage />} />
                             <Route path="kbm" element={<ScheduleKbmPage />} />
+                            <Route path="presensi" element={<AttendancePage />} />
                             <Route path="nilai" element={<AssessmentPage />} />
                             <Route path="rapor" element={<ReportCardPage />} />
                         </Route>

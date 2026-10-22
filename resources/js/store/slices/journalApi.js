@@ -13,9 +13,24 @@ export const journalApi = apiSlice.injectEndpoints({
             query: (id) => `main/journals/${id}`,
             providesTags: (result, error, id) => [{ type: 'Journal', id }],
         }),
+        getAttendanceSheet: builder.query({
+            query: (params) => ({
+                url: 'main/journals/sheet',
+                params,
+            }),
+            providesTags: ['Journal'],
+        }),
         createJournal: builder.mutation({
             query: (data) => ({
                 url: 'main/journals',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['Journal'],
+        }),
+        batchPresence: builder.mutation({
+            query: (data) => ({
+                url: 'main/journals/batch-presence',
                 method: 'POST',
                 body: data,
             }),
@@ -37,8 +52,8 @@ export const journalApi = apiSlice.injectEndpoints({
             invalidatesTags: ['Journal'],
         }),
         updatePresences: builder.mutation({
-            query: ({ journalId, ...data }) => ({
-                url: `main/journals/${journalId}/presences`,
+            query: ({ journal_id, journalId, ...data }) => ({
+                url: `main/journals/${journal_id || journalId}/presences`,
                 method: 'POST',
                 body: data,
             }),
@@ -57,7 +72,9 @@ export const journalApi = apiSlice.injectEndpoints({
 export const {
     useGetJournalsQuery,
     useGetJournalQuery,
+    useGetAttendanceSheetQuery,
     useCreateJournalMutation,
+    useBatchPresenceMutation,
     useUpdateJournalMutation,
     useDeleteJournalMutation,
     useUpdatePresencesMutation,

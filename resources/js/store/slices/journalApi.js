@@ -20,6 +20,21 @@ export const journalApi = apiSlice.injectEndpoints({
             }),
             providesTags: ['Journal'],
         }),
+        getDayGrid: builder.query({
+            query: (params) => ({
+                url: 'main/journals/day-grid',
+                params,
+            }),
+            providesTags: ['Journal'],
+        }),
+        saveDayGrid: builder.mutation({
+            query: (data) => ({
+                url: 'main/journals/save-day-grid',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['Journal'],
+        }),
         createJournal: builder.mutation({
             query: (data) => ({
                 url: 'main/journals',
@@ -73,6 +88,8 @@ export const {
     useGetJournalsQuery,
     useGetJournalQuery,
     useGetAttendanceSheetQuery,
+    useGetDayGridQuery,
+    useSaveDayGridMutation,
     useCreateJournalMutation,
     useBatchPresenceMutation,
     useUpdateJournalMutation,

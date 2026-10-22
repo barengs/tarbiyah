@@ -620,4 +620,257 @@ class TeachingJournalController extends Controller
         }
     }
 
+
+    /**
+     * Ambil Grid Presensi Harian Berdasarkan Jam Pelajaran (Jam Ke-1 s.d Jam Ke-6)
+     * Mengembalikan susunan mata pelajaran per jam untuk tanggal yang dipilih
+     * serta status kehadiran santri pada setiap jam (default: hadir).
+     */
+    public function dayGrid(Request $request)
+    {
+        $validated = $request->validate([
+            'class_group_id' => 'required|exists:class_groups,id',
+            'date'           => 'required|date',
+        ]);
+
+        try {
+            $classGroup = ClassGroup::with([
+                'program',
+                'education',
+                'educationClass',
+                'classroom',
+                'homeroomTeacher',
+                'academicYear'
+            ])->findOrFail($validated['class_group_id']);
+
+            $refDate = Carbon::parse($validated['date']);
+            $isoDay = $refDate->dayOfWeekIso; // 1=Mon .. 7=Sun
+            // Format hari: 6=Sabtu, 7=Ahad, 1=Senin, 2=Selasa, 3=Rabu, 4=Kamis
+            $dayNumber = $isoDay;
+
+            $dayNames = [
+                6 => 'Sabtu',
+                7 => 'Ahad',
+                1 => 'Senin',
+                2 => 'Selasa',
+                3 => 'Rabu',
+                4 => 'Kamis',
+                5 => 'Jumat'
+            ];
+            $dayName = $dayNames[$dayNumber] ?? 'Hari Belajar';
+
+            // Ambil seluruh jadwal aktif rombel untuk hari tersebut urut berdasarkan jam (order)
+            $schedules = LessonSchedule::with(['lessonHour', 'study', 'teacher'])
+                ->where('class_group_id', $classGroup->id)
+                ->where('day', $dayNumber)
+                ->where('is_active', true)
+                ->get()
+                ->sortBy(fn($s) => $s->lessonHour->order ?? 0)
+                ->values();
+
+            // Format daftar jam pelajaran hari ini
+            $hours = [];
+            foreach ($schedules as $sched) {
+                $hours[] = [
+                    'schedule_id'    => $sched->id,
+                    'hour_id'        => $sched->lesson_hour_id,
+                    'order'          => $sched->lessonHour->order ?? 1,
+                    'hour_name'      => $sched->lessonHour->name ?? ('Jam Ke-' . ($sched->lessonHour->order ?? 1)),
+                    'time'           => substr($sched->lessonHour->start_time ?? '07:00', 0, 5) . ' - ' . substr($sched->lessonHour->end_time ?? '08:30', 0, 5),
+                    'study_id'       => $sched->study_id,
+                    'study_name'     => $sched->study->name ?? 'Mata Pelajaran',
+                    'study_code'     => $sched->study->code ?? '',
+                    'teacher_id'     => $sched->teacher_id,
+                    'teacher_name'   => $sched->teacher->name ?? '-',
+                ];
+            }
+
+            // Ambil jurnal yang sudah ada pada tanggal & rombel ini
+            $existingJournals = TeachingJournal::with('presences')
+                ->where('class_group_id', $classGroup->id)
+                ->whereDate('date', $refDate->format('Y-m-d'))
+                ->get()
+                ->keyBy('lesson_schedule_id');
+
+            // Ambil santri aktif
+            $students = StudentClass::where('class_group_id', $classGroup->id)
+                ->where('status', 'aktif')
+                ->with('student')
+                ->get()
+                ->sortBy(fn($sc) => $sc->student->name ?? '')
+                ->values();
+
+            // Susun baris santri x jam pelajaran
+            $studentRows = [];
+            foreach ($students as $sc) {
+                $st = $sc->student;
+                $attendances = [];
+
+                foreach ($hours as $h) {
+                    $order = $h['order'];
+                    $schedId = $h['schedule_id'];
+                    $status = 'hadir'; // DEFAULT: SELALU HADIR
+                    $notes  = null;
+
+                    if ($existingJournals->has($schedId)) {
+                        $j = $existingJournals->get($schedId);
+                        $presence = $j->presences->firstWhere('student_id', $st->id);
+                        if ($presence) {
+                            $status = $presence->status;
+                            $notes  = $presence->notes;
+                        }
+                    }
+
+                    $attendances[$order] = [
+                        'schedule_id' => $schedId,
+                        'study_id'    => $h['study_id'],
+                        'status'      => $status,
+                        'notes'       => $notes,
+                    ];
+                }
+
+                $studentRows[] = [
+                    'student_id'   => $st->id,
+                    'nis'          => $st->nis,
+                    'name'         => $st->name,
+                    'gender'       => $st->gender,
+                    'attendances'  => $attendances,
+                ];
+            }
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Grid presensi harian berhasil dimuat',
+                'data'    => [
+                    'date'        => $refDate->format('Y-m-d'),
+                    'day_number'  => $dayNumber,
+                    'day_name'    => $dayName,
+                    'class_group' => [
+                        'id'               => $classGroup->id,
+                        'name'             => $classGroup->name,
+                        'academic_year'    => $classGroup->academicYear->name ?? '1446/1447 H',
+                        'program'          => $classGroup->program->name ?? '',
+                        'education'        => $classGroup->education->name ?? '',
+                        'education_class'  => $classGroup->educationClass->name ?? '',
+                        'homeroom_teacher' => $classGroup->homeroomTeacher->name ?? '',
+                    ],
+                    'hours'       => $hours,
+                    'students'    => $studentRows,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error loading day grid presence: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal memuat grid presensi harian: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Simpan Grid Presensi Harian Berdasarkan Jam Pelajaran
+     * Memproses kehadiran per jam dan per mata pelajaran secara akurat.
+     */
+    public function saveDayGrid(Request $request)
+    {
+        $validated = $request->validate([
+            'class_group_id' => 'required|exists:class_groups,id',
+            'date'           => 'required|date',
+            'grid'           => 'required|array',
+            'grid.*.student_id' => 'required|exists:students,id',
+            'grid.*.attendances' => 'required|array',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $classGroup = ClassGroup::findOrFail($validated['class_group_id']);
+            $refDate = Carbon::parse($validated['date']);
+            $academicYearId = $classGroup->academic_year_id ?? 1;
+
+            // Dapatkan seluruh jadwal aktif untuk rombel ini di hari tersebut
+            $isoDay = $refDate->dayOfWeekIso;
+            $schedules = LessonSchedule::where('class_group_id', $classGroup->id)
+                ->where('day', $isoDay)
+                ->with(['lessonHour', 'study'])
+                ->get()
+                ->keyBy('lesson_hour_id');
+
+            // Petakan jurnal per schedule
+            $journalCache = [];
+
+            foreach ($validated['grid'] as $studentRow) {
+                $studentId = $studentRow['student_id'];
+
+                foreach ($studentRow['attendances'] as $order => $att) {
+                    $schedId = $att['schedule_id'] ?? null;
+                    $status  = $att['status'] ?? 'hadir';
+                    $notes   = $att['notes'] ?? null;
+
+                    if (!$schedId) {
+                        continue;
+                    }
+
+                    // Ambil atau buat jurnal untuk sesi jadwal ini
+                    if (!isset($journalCache[$schedId])) {
+                        $sched = LessonSchedule::with('lessonHour')->find($schedId);
+                        if (!$sched) continue;
+
+                        $journal = TeachingJournal::firstOrCreate(
+                            [
+                                'class_group_id'     => $classGroup->id,
+                                'study_id'           => $sched->study_id,
+                                'date'               => $refDate->format('Y-m-d'),
+                                'lesson_schedule_id' => $sched->id,
+                            ],
+                            [
+                                'academic_year_id' => $academicYearId,
+                                'teacher_id'       => $sched->teacher_id,
+                                'meeting_number'   => (TeachingJournal::where('class_group_id', $classGroup->id)->where('study_id', $sched->study_id)->count() + 1),
+                                'topic'            => 'KBM Jam Ke-' . ($sched->lessonHour->order ?? $order),
+                                'notes'            => 'Presensi harian terintegrasi jam pelajaran',
+                                'teacher_status'   => 'hadir',
+                            ]
+                        );
+                        $journalCache[$schedId] = $journal;
+                    }
+
+                    $journal = $journalCache[$schedId];
+
+                    StudentPresence::updateOrCreate(
+                        [
+                            'teaching_journal_id' => $journal->id,
+                            'student_id'          => $studentId,
+                        ],
+                        [
+                            'status' => $status,
+                            'notes'  => $notes,
+                        ]
+                    );
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Presensi harian berdasarkan jam pelajaran berhasil disimpan!',
+                'data'    => [
+                    'date'           => $refDate->format('Y-m-d'),
+                    'class_group_id' => $classGroup->id,
+                    'journals_count' => count($journalCache),
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error saving day grid presence: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan presensi harian: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
 }

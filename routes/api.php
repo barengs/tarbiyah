@@ -100,6 +100,8 @@ Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function
     Route::apiResource('schedules', LessonScheduleController::class);
 
     // Jurnal Pembelajaran & Presensi KBM Guru
+    Route::get('journals/day-grid', [TeachingJournalController::class, 'dayGrid']);
+    Route::post('journals/save-day-grid', [TeachingJournalController::class, 'saveDayGrid']);
     Route::get('journals/sheet', [TeachingJournalController::class, 'sheet']);
     Route::post('journals/batch-presence', [TeachingJournalController::class, 'batchPresence']);
     Route::post('journals/{id}/presences', [TeachingJournalController::class, 'updatePresences']);

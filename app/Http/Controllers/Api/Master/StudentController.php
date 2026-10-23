@@ -15,8 +15,11 @@ class StudentController extends Controller
             $query = Student::query();
 
             // Filter tipe siswa: mukim (santri) vs luar (reguler kalong)
-            if ($request->has('is_mukim')) {
-                $query->where('is_mukim', filter_var($request->query('is_mukim'), FILTER_VALIDATE_BOOLEAN));
+            if ($request->has('is_mukim') && $request->query('is_mukim') !== '' && $request->query('is_mukim') !== 'all') {
+                $val = filter_var($request->query('is_mukim'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($val !== null) {
+                    $query->where('is_mukim', $val);
+                }
             }
 
             if ($request->has('status')) {

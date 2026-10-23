@@ -13,12 +13,13 @@ import { Plus, Edit2, Trash2, Users, Home, School, Search, Info } from 'lucide-r
 import { toast } from 'react-toastify';
 
 export default function StudentPage() {
-    const [mukimFilter, setMukimFilter] = useState(''); // '' (semua), 'true' (mukim), 'false' (luar)
+    const [mukimFilter, setMukimFilter] = useState('all'); // 'all', 'mukim', 'luar'
     const [statusFilter, setStatusFilter] = useState('');
     const [search, setSearch] = useState('');
 
     const queryParams = {
-        ...(mukimFilter !== '' && { is_mukim: mukimFilter === 'true' }),
+        ...(mukimFilter === 'mukim' && { is_mukim: 'true' }),
+        ...(mukimFilter === 'luar' && { is_mukim: 'false' }),
         ...(statusFilter && { status: statusFilter }),
         ...(search && { search }),
     };
@@ -247,12 +248,12 @@ export default function StudentPage() {
             <div className="space-y-2.5">
                 <FlatTabs
                     tabs={[
-                        { label: 'Semua Siswa', value: '' },
-                        { label: 'Santri Mukim (90%)', value: 'true' },
-                        { label: 'Siswa Luar (10%)', value: 'false' },
+                        { label: 'Semua Siswa', value: 'all' },
+                        { label: 'Santri Mukim (90%)', value: 'mukim' },
+                        { label: 'Siswa Luar (10%)', value: 'luar' },
                     ]}
                     activeTab={mukimFilter}
-                    onChange={setMukimFilter}
+                    onChange={(val) => setMukimFilter(val || 'all')}
                 />
 
                 {/* Table */}

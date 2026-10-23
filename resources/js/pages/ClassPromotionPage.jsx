@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     useGetClassGroupsQuery,
     useGetPromotionCandidatesQuery,
@@ -42,34 +42,49 @@ export default function ClassPromotionPage() {
         skip: !sourceGroupId,
     });
 
-    const candidates = candidatesData?.data?.candidates || [];
+    const candidates = useMemo(() => candidatesData?.data?.candidates || [], [candidatesData]);
     const sourceGroupDetail = candidatesData?.data?.class_group;
 
     // State baris santri: { [studentId]: { selected: boolean, action: 'naik_kelas' | 'tinggal_kelas' | 'lulus', note: string } }
     const [studentActions, setStudentActions] = useState({});
 
-    // Reset dan inisialisasi state santri ketika rombel asal berubah
+    // Inisialisasi state santri aman tanpa infinite loop
     useEffect(() => {
-        if (candidates.length > 0) {
-            const initial = {};
-            candidates.forEach((c) => {
-                initial[c.student_id] = {
-                    selected: true,
-                    action: 'naik_kelas',
-                    note: '',
-                };
-            });
-            setStudentActions(initial);
-        } else {
-            setStudentActions({});
+        if (!sourceGroupId) {
+            setStudentActions((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+            return;
         }
-    }, [candidates]);
+
+        if (candidates.length > 0) {
+            setStudentActions((prev) => {
+                const candidateIds = candidates.map((c) => String(c.student_id)).sort().join(',');
+                const currentIds = Object.keys(prev).sort().join(',');
+                if (candidateIds === currentIds) {
+                    return prev;
+                }
+
+                const initial = {};
+                candidates.forEach((c) => {
+                    initial[c.student_id] = {
+                        selected: true,
+                        action: 'naik_kelas',
+                        note: '',
+                    };
+                });
+                return initial;
+            });
+        } else {
+            setStudentActions((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+        }
+    }, [candidates, sourceGroupId]);
 
     const [bulkPromote, { isLoading: isPromoting }] = useBulkPromoteStudentsMutation();
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
 
     // Filter daftar rombel tujuan (tidak boleh sama dengan rombel asal)
-    const targetGroupOptions = groups.filter((g) => String(g.id) !== String(sourceGroupId));
+    const targetGroupOptions = useMemo(() => {
+        return groups.filter((g) => String(g.id) !== String(sourceGroupId));
+    }, [groups, sourceGroupId]);
 
     const toggleSelectAll = (select) => {
         setStudentActions((prev) => {
@@ -101,13 +116,17 @@ export default function ClassPromotionPage() {
         }));
     };
 
-    const selectedStudents = candidates.filter((c) => studentActions[c.student_id]?.selected);
+    const selectedStudents = useMemo(() => {
+        return candidates.filter((c) => studentActions[c.student_id]?.selected);
+    }, [candidates, studentActions]);
 
-    const counts = {
-        naik: selectedStudents.filter((c) => studentActions[c.student_id]?.action === 'naik_kelas').length,
-        tinggal: selectedStudents.filter((c) => studentActions[c.student_id]?.action === 'tinggal_kelas').length,
-        lulus: selectedStudents.filter((c) => studentActions[c.student_id]?.action === 'lulus').length,
-    };
+    const counts = useMemo(() => {
+        return {
+            naik: selectedStudents.filter((c) => studentActions[c.student_id]?.action === 'naik_kelas').length,
+            tinggal: selectedStudents.filter((c) => studentActions[c.student_id]?.action === 'tinggal_kelas').length,
+            lulus: selectedStudents.filter((c) => studentActions[c.student_id]?.action === 'lulus').length,
+        };
+    }, [selectedStudents, studentActions]);
 
     const handleExecutePromotion = async () => {
         if (selectedStudents.length === 0) {
@@ -436,7 +455,7 @@ export default function ClassPromotionPage() {
                                 type="button"
                                 disabled={selectedStudents.length === 0 || isPromoting}
                                 onClick={() => setConfirmModalOpen(true)}
-                                className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm flex items-center gap-2"
+                                className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm flex items-center gap-2 cursor-pointer"
                             >
                                 <TrendingUp className="w-4 h-4" />
                                 Proses Kenaikan Kelas ({selectedStudents.length})

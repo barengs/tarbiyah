@@ -34,14 +34,34 @@ export default function LessonHourPage() {
     const [name, setName] = useState('');
     const [startTime, setStartTime] = useState('07:30');
     const [endTime, setEndTime] = useState('08:15');
+    const [order, setOrder] = useState(1);
     const [isBreak, setIsBreak] = useState(false);
     const [institutionId, setInstitutionId] = useState('');
+
+    const formatTime = (time) => {
+        if (!time) return '-';
+        return String(time).substring(0, 5);
+    };
+
+    const calculateDuration = (start, end) => {
+        if (!start || !end) return '-';
+        try {
+            const [sh, sm] = String(start).split(':').map(Number);
+            const [eh, em] = String(end).split(':').map(Number);
+            if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return '-';
+            const diff = (eh * 60 + em) - (sh * 60 + sm);
+            return diff > 0 ? `${diff} Menit` : '-';
+        } catch {
+            return '-';
+        }
+    };
 
     const openCreateModal = () => {
         setEditingItem(null);
         setName('');
         setStartTime('07:30');
         setEndTime('08:15');
+        setOrder(lessonHours.length + 1);
         setIsBreak(false);
         setInstitutionId(instFilter || '');
         setModalOpen(true);
@@ -50,19 +70,12 @@ export default function LessonHourPage() {
     const openEditModal = (item) => {
         setEditingItem(item);
         setName(item.name || '');
-        setStartTime(item.start_time ? item.start_time.substring(0, 5) : '07:30');
-        setEndTime(item.end_time ? item.end_time.substring(0, 5) : '08:15');
+        setStartTime(formatTime(item.start_time) !== '-' ? formatTime(item.start_time) : '07:30');
+        setEndTime(formatTime(item.end_time) !== '-' ? formatTime(item.end_time) : '08:15');
+        setOrder(item.order || 1);
         setIsBreak(!!item.is_break);
         setInstitutionId(item.educational_institution_id || '');
         setModalOpen(true);
-    };
-
-    const calculateDuration = (start, end) => {
-        if (!start || !end) return '-';
-        const [sh, sm] = start.split(':').map(Number);
-        const [eh, em] = end.split(':').map(Number);
-        const diff = (eh * 60 + em) - (sh * 60 + sm);
-        return diff > 0 ? `${diff} Menit` : '-';
     };
 
     const handleSubmit = async (e) => {
@@ -71,6 +84,7 @@ export default function LessonHourPage() {
             name,
             start_time: startTime,
             end_time: endTime,
+            order: Number(order) || 1,
             is_break: isBreak,
             educational_institution_id: institutionId || null,
         };
@@ -114,7 +128,7 @@ export default function LessonHourPage() {
                     <div>
                         <span className="font-bold text-slate-800 block text-sm">{row.name}</span>
                         <span className="text-[11px] text-slate-400 font-mono">
-                            ID: {row.id ? row.id.substring(0, 8) : '-'}
+                            Urutan: Ke-{row.order ?? row.id}
                         </span>
                     </div>
                 </div>
@@ -126,7 +140,7 @@ export default function LessonHourPage() {
             render: (row) => (
                 <div className="font-mono text-xs">
                     <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
-                        {row.start_time?.substring(0, 5)} - {row.end_time?.substring(0, 5)} WIB
+                        {formatTime(row.start_time)} - {formatTime(row.end_time)} WIB
                     </span>
                 </div>
             ),
@@ -160,11 +174,11 @@ export default function LessonHourPage() {
             key: 'institution',
             label: 'Lembaga / Jenjang',
             render: (row) => {
-                const inst = institutions.find((i) => i.id === row.educational_institution_id);
+                const instName = row.educational_institution?.name || institutions.find((i) => i.id === row.educational_institution_id)?.name;
                 return (
                     <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium">
                         <School className="w-3.5 h-3.5 text-slate-400" />
-                        {inst ? inst.name : 'Umum (Semua Lembaga)'}
+                        {instName || 'Umum (Semua Lembaga)'}
                     </span>
                 );
             },
@@ -290,20 +304,34 @@ export default function LessonHourPage() {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                            Lembaga / Jenjang
-                        </label>
-                        <select
-                            value={institutionId}
-                            onChange={(e) => setInstitutionId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
-                        >
-                            <option value="">Umum (Berlaku Semua Lembaga)</option>
-                            {institutions.map((inst) => (
-                                <option key={inst.id} value={inst.id}>{inst.name}</option>
-                            ))}
-                        </select>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                                Nomor Urutan
+                            </label>
+                            <input
+                                type="number"
+                                min={1}
+                                value={order}
+                                onChange={(e) => setOrder(e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                                Lembaga / Jenjang
+                            </label>
+                            <select
+                                value={institutionId}
+                                onChange={(e) => setInstitutionId(e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                            >
+                                <option value="">Umum (Berlaku Semua Lembaga)</option>
+                                {institutions.map((inst) => (
+                                    <option key={inst.id} value={inst.id}>{inst.name}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
@@ -344,7 +372,7 @@ export default function LessonHourPage() {
             <ConfirmDialog
                 open={!!deleteTarget}
                 title="Hapus Jam Pelajaran"
-                message={`Yakin ingin menghapus ${deleteTarget?.name} (${deleteTarget?.start_time?.substring(0, 5)} - ${deleteTarget?.end_time?.substring(0, 5)})?`}
+                message={`Yakin ingin menghapus ${deleteTarget?.name} (${formatTime(deleteTarget?.start_time)} - ${formatTime(deleteTarget?.end_time)})?`}
                 onConfirm={handleDelete}
                 onCancel={() => setDeleteTarget(null)}
                 isLoading={isDeleting}

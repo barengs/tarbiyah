@@ -45,8 +45,8 @@ export default function HeroBanner({ user, academicMeta, ctaHandlers, className 
                         Ahlan wa Sahlan, {user?.name || firstName}.
                     </h1>
                     <p className="mt-2 text-sm text-slate-600 leading-relaxed max-w-2xl">
-                        Pusat monitoring dan kendali akademik dual-kurikulum: Kemenag / Kemdibud,
-                        Ma&rsquo;had Aly, dan Halaqah Tahfidz Quran terpadu.
+                        Pusat kendali dan monitoring akademik terpadu: Program Pesantren Tibyan &amp; Kubar
+                        serta kurikulum Diniyah Pesantren.
                     </p>
                 </div>
 

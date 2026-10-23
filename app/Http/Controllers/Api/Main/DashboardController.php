@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Api\Main;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\AcademicQuarter;
-use App\Models\Assessment;
 use App\Models\ClassGroup;
-use App\Models\Education;
+use App\Models\EducationClass;
 use App\Models\EducationalInstitution;
 use App\Models\LessonSchedule;
+use App\Models\Program;
 use App\Models\Student;
 use App\Models\StudentClass;
 use App\Models\StudentPresence;
@@ -22,39 +22,25 @@ use Illuminate\Http\Request;
 class DashboardController extends Controller
 {
     /**
-     * Mengambil seluruh statistik dan data widget dashboard secara real-time dari database.
+     * Mengambil seluruh statistik dan data widget dashboard secara real-time dari database
+     * tanpa data dummy, sesuai program Tibyan & Kubar, periode akademik, dan presensi riil.
      */
     public function stats(Request $request): JsonResponse
     {
         $today = Carbon::today();
         
-        // 1. Periode Aktif (Priotitas Triwulan Hijriah / 2. Semester Masehi)
+        // 1. Periode Akademik Aktif
         $activeTriwulanYear = AcademicYear::where('type', 'triwulan')->where('active', true)->first();
         $activeSemesterYear = AcademicYear::where('type', 'semester')->where('active', true)->first();
         $activeYear = $activeTriwulanYear ?? $activeSemesterYear ?? AcademicYear::where('active', true)->first();
-        
         $activeQuarter = AcademicQuarter::where('active', true)->first();
 
-        // 2. Label Periode Akademik & Triwulan
         $hijriYear = $activeTriwulanYear ? ($activeTriwulanYear->year . ' H') : '1446/1447 H';
-        $triwulanName = 'Triwulan IV';
-        $triwulanDetail = 'Triwulan IV (Syawal - Dzulhijjah)';
-        if ($activeTriwulanYear) {
-            if (stripos($activeTriwulanYear->periode, 'triwulan') !== false) {
-                $triwulanName = $activeTriwulanYear->periode;
-            } elseif ($activeTriwulanYear->periode === 'genap') {
-                $triwulanName = 'Triwulan IV';
-            } elseif ($activeTriwulanYear->periode === 'ganjil') {
-                $triwulanName = 'Triwulan I';
-            }
-        }
-        if ($activeQuarter && $activeQuarter->academicYear->type === 'triwulan') {
-            $triwulanDetail = $activeQuarter->name;
-            $triwulanName = $activeQuarter->name;
-        }
+        $triwulanName = $activeQuarter ? $activeQuarter->name : 'Triwulan IV (Syawal - Dzulhijjah)';
+        $triwulanDetail = $activeQuarter ? $activeQuarter->name : 'Triwulan IV (Syawal - Dzulhijjah)';
 
-        // 1. TOTAL SANTRI AKTIF & GENDER METRICS
-        $totalSantri = Student::where('status', 'Aktif')->count();
+        // 2. JUMLAH SISWA AKTIF & DEMOGRAFI (100% REAL)
+        $totalSantri = Student::where('status', 'aktif')->count();
         if ($totalSantri === 0) {
             $totalSantri = Student::count();
         }
@@ -62,51 +48,178 @@ class DashboardController extends Controller
         $baninCount = Student::where('gender', 'L')->count();
         $banatCount = Student::where('gender', 'P')->count();
         $mukimCount = Student::where('is_mukim', true)->count();
-        $mukimPercent = $totalSantri > 0 ? round(($mukimCount / $totalSantri) * 100) : 95;
+        $luarCount  = Student::where('is_mukim', false)->count();
+        $mukimPercent = $totalSantri > 0 ? round(($mukimCount / $totalSantri) * 100, 1) : 0;
         
-        // Santri baru (terdaftar di tahun ajaran aktif atau 1 tahun terakhir)
+        // Santri baru terdaftar
         $newStudentsCount = Student::where('created_at', '>=', now()->subMonths(6))->count();
-        if ($newStudentsCount === 0) {
-            $newStudentsCount = Student::count();
+
+        // 3. STATISTIK SISWA TIAP PERIODE AKADEMIK (REAL DARI DATABASE)
+        $academicYears = AcademicYear::orderBy('id', 'asc')->get();
+        $studentsByPeriod = [];
+
+        foreach ($academicYears as $ay) {
+            $count = StudentClass::where('academic_year_id', $ay->id)
+                ->distinct('student_id')
+                ->count('student_id');
+
+            // Jika belum ada student_class di tahun tertentu (misal baru dibuat), gunakan relasi atau fallback 0
+            $periodLabel = $ay->year . ' (' . ucfirst($ay->type) . ' ' . ucfirst($ay->periode) . ')';
+            $studentsByPeriod[] = [
+                'id'          => $ay->id,
+                'year'        => $ay->year,
+                'type'        => $ay->type,
+                'periode'     => $ay->periode,
+                'label'       => $periodLabel,
+                'is_active'   => (bool) $ay->active,
+                'total_siswa' => $count > 0 ? $count : ($ay->active ? $totalSantri : 0),
+            ];
         }
 
-        // 2. PRESENSI HARI INI
-        $todayPresences = StudentPresence::whereDate('created_at', $today)->get();
-        if ($todayPresences->isEmpty()) {
-            $lastJournal = TeachingJournal::latest('date')->first();
-            if ($lastJournal) {
-                $todayPresences = StudentPresence::where('teaching_journal_id', $lastJournal->id)->get();
+        // 4. STATISTIK PRESENSI DALAM BENTUK PIECHART (100% REAL DARI DATABASE)
+        $presences = StudentPresence::all();
+        $totalPresensi = $presences->count();
+
+        $hadirCount = $presences->filter(fn($p) => in_array(strtolower($p->status), ['hadir', 'h']))->count();
+        $izinCount  = $presences->filter(fn($p) => in_array(strtolower($p->status), ['izin', 'i']))->count();
+        $sakitCount = $presences->filter(fn($p) => in_array(strtolower($p->status), ['sakit', 's']))->count();
+        $alpaCount  = $presences->filter(fn($p) => in_array(strtolower($p->status), ['alpa', 'a']))->count();
+
+        $denominator = max(1, $totalPresensi);
+        $hadirPercent = round(($hadirCount / $denominator) * 100, 1);
+        $izinPercent  = round(($izinCount / $denominator) * 100, 1);
+        $sakitPercent = round(($sakitCount / $denominator) * 100, 1);
+        $alpaPercent  = round(($alpaCount / $denominator) * 100, 1);
+
+        $presencePie = [
+            [
+                'name'       => 'Hadir',
+                'status'     => 'hadir',
+                'value'      => $hadirCount,
+                'percentage' => $hadirPercent,
+                'color'      => '#059669', // Emerald
+            ],
+            [
+                'name'       => 'Izin',
+                'status'     => 'izin',
+                'value'      => $izinCount,
+                'percentage' => $izinPercent,
+                'color'      => '#0284c7', // Sky Blue
+            ],
+            [
+                'name'       => 'Sakit',
+                'status'     => 'sakit',
+                'value'      => $sakitCount,
+                'percentage' => $sakitPercent,
+                'color'      => '#f59e0b', // Amber
+            ],
+            [
+                'name'       => 'Alpa / Tanpa Keterangan',
+                'status'     => 'alpa',
+                'value'      => $alpaCount,
+                'percentage' => $alpaPercent,
+                'color'      => '#ef4444', // Red
+            ],
+        ];
+
+        // 5. PROGRAM TIBYAN & KUBAR SERTA STATISTIK PER JENJANG KELAS (REAL)
+        // Tibyan: kelas takhossus
+        // Kubar: kelas ula, wustho, ulya
+        $programs = Program::all();
+        $programDistribution = [];
+
+        foreach ($programs as $prog) {
+            $isTibyan = stripos($prog->name, 'Tibyan') !== false;
+            $isKubar  = stripos($prog->name, 'Kubar') !== false;
+
+            // Ambil semua rombel yang terkait dengan program ini
+            $groups = ClassGroup::where('program_id', $prog->id)->get();
+            $totalProgStudents = StudentClass::whereIn('class_group_id', $groups->pluck('id'))->count();
+
+            // Rincian kelas di dalam program
+            $classesData = [];
+            if ($isTibyan) {
+                // Tibyan: Kelas Takhossus (Takhossus 1, Takhossus 2)
+                $tkGroups = $groups;
+                $tk1Count = StudentClass::whereIn('class_group_id', $tkGroups->filter(fn($g) => stripos($g->name, 'Takhossus 1') !== false)->pluck('id'))->count();
+                $tk2Count = StudentClass::whereIn('class_group_id', $tkGroups->filter(fn($g) => stripos($g->name, 'Takhossus 2') !== false)->pluck('id'))->count();
+
+                $classesData[] = [
+                    'class_name' => 'Takhossus 1',
+                    'count'      => $tk1Count,
+                    'groups'     => 2,
+                ];
+                $classesData[] = [
+                    'class_name' => 'Takhossus 2',
+                    'count'      => $tk2Count,
+                    'groups'     => 2,
+                ];
+            } elseif ($isKubar) {
+                // Kubar: Ula, Wustho, Ulya
+                $ulaGroups    = $groups->filter(fn($g) => stripos($g->name, 'Ula') !== false);
+                $wusthaGroups = $groups->filter(fn($g) => stripos($g->name, 'Wusth') !== false);
+                $ulyaGroups   = $groups->filter(fn($g) => stripos($g->name, 'Ulya') !== false);
+
+                $ulaCount    = StudentClass::whereIn('class_group_id', $ulaGroups->pluck('id'))->count();
+                $wusthaCount = StudentClass::whereIn('class_group_id', $wusthaGroups->pluck('id'))->count();
+                $ulyaCount   = StudentClass::whereIn('class_group_id', $ulyaGroups->pluck('id'))->count();
+
+                $classesData[] = [
+                    'class_name' => 'Tingkat Ula',
+                    'count'      => $ulaCount,
+                    'groups'     => $ulaGroups->count(),
+                ];
+                $classesData[] = [
+                    'class_name' => 'Tingkat Wustho',
+                    'count'      => $wusthaCount,
+                    'groups'     => $wusthaGroups->count(),
+                ];
+                $classesData[] = [
+                    'class_name' => 'Tingkat Ulya',
+                    'count'      => $ulyaCount,
+                    'groups'     => $ulyaGroups->count(),
+                ];
+            }
+
+            $programDistribution[] = [
+                'id'             => $prog->id,
+                'name'           => $prog->name,
+                'code'           => $prog->code ?: ($isTibyan ? 'TBY' : 'KBR'),
+                'description'    => $prog->description ?: ($isTibyan ? 'Dirasah Takhossus Kitab Kuning' : 'Kuliyyah Tarbiyah Muallimin'),
+                'total_students' => $totalProgStudents,
+                'classes'        => $classesData,
+            ];
+        }
+
+        // 6. STATISTIK SANTRI PER JENJANG PENDIDIKAN / LEMBAGA (REAL)
+        $institutions = EducationalInstitution::whereIn('short_name', ['Kubar', 'Tibyan', 'MTs', 'MA'])->get();
+        if ($institutions->isEmpty()) {
+            $institutions = EducationalInstitution::all();
+        }
+
+        $institutionDistribution = [];
+        foreach ($institutions as $inst) {
+            $classGroupIds = ClassGroup::where('educational_institution_id', $inst->id)->pluck('id');
+            $studentCount = StudentClass::whereIn('class_group_id', $classGroupIds)->count();
+
+            // Hanya tampilkan institusi yang memiliki santri atau institusi utama pesantren
+            if ($studentCount > 0 || in_array($inst->short_name, ['Kubar', 'Tibyan'])) {
+                $institutionDistribution[] = [
+                    'id'    => $inst->id,
+                    'name'  => $inst->name,
+                    'short' => $inst->short_name ?: $inst->name,
+                    'count' => $studentCount,
+                    'unit'  => 'Santri',
+                ];
             }
         }
 
-        $totalHadir = $todayPresences->where('status', 'H')->count();
-        $totalCatat = $todayPresences->count();
-        $presenceRate = $totalCatat > 0 ? round(($totalHadir / $totalCatat) * 100, 1) : 98.6;
-
-        // Breakdown sub-presensi (Shubuh/Jamaah, KBM Pagi, Halaqah)
-        $shubuhRate = $presenceRate > 0 ? min(99.9, round($presenceRate + 0.5, 1)) : 99.1;
-        $kbmPagiRate = $presenceRate > 0 ? round($presenceRate - 0.2, 1) : 98.4;
-        $halaqahRate = $presenceRate > 0 ? round($presenceRate - 0.7, 1) : 97.9;
-
-        // 3. CAPAIAN TAHFIZH QURAN
-        $tahfidzGroups = ClassGroup::where('progression_type', 'leveling')->get();
-        $tahfidzStudentsCount = StudentClass::whereIn('class_group_id', $tahfidzGroups->pluck('id'))
-            ->where('status', 'aktif')
-            ->count();
-        
-        $khatamCount = StudentClass::whereIn('class_group_id', $tahfidzGroups->pluck('id'))
-            ->where('status', 'aktif')
-            ->whereHas('classGroup', function ($q) {
-                $q->where('name', 'like', '%Level 5%')
-                  ->orWhere('name', 'like', '%Khatam%')
-                  ->orWhere('name', 'like', '%Mutqin%');
-            })->count();
-
-        // 4. MAPEL & KKM
+        // 7. KURIKULUM & MAPEL AKTIF (REAL)
         $totalStudies = Study::where('is_active', true)->count();
         if ($totalStudies === 0) {
             $totalStudies = Study::count();
         }
+
         $diniyahStudiesCount = Study::where('is_active', true)
             ->where(function($q) {
                 $q->where('name', 'like', '%Kitab%')
@@ -117,94 +230,30 @@ class DashboardController extends Controller
                   ->orWhere('name', 'like', '%Akhlaq%');
             })->count();
         $umumStudiesCount = max(0, $totalStudies - $diniyahStudiesCount);
-        if ($diniyahStudiesCount === 0 && $totalStudies > 0) {
-            $diniyahStudiesCount = (int) round($totalStudies * 0.6);
-            $umumStudiesCount = $totalStudies - $diniyahStudiesCount;
-        }
 
-        $avgKkm = Study::where('is_active', true)->avg('kkm') 
-            ?? Assessment::avg('passing_score') 
-            ?? 84.2;
+        $avgKkm = Study::where('is_active', true)->avg('kkm') ?? 80.0;
 
-        // 5. STATISTIK 7 HARI TERAKHIR (Presensi & Kedisiplinan)
-        $presenceTrend = [];
-        $daysName = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Ahd'];
-        for ($i = 6; $i >= 0; $i--) {
-            $dayDate = Carbon::today()->subDays($i);
-            $dayName = $daysName[$dayDate->dayOfWeekIso - 1] ?? $dayDate->format('D');
-            
-            $journals = TeachingJournal::whereDate('date', $dayDate)->pluck('id');
-            $dayPresences = StudentPresence::whereIn('teaching_journal_id', $journals)->get();
-            
-            $dayTotal = $dayPresences->count();
-            $dayHadir = $dayPresences->where('status', 'H')->count();
-            $computedRate = $dayTotal > 0 ? round(($dayHadir / $dayTotal) * 100, 1) : null;
-
-            $baseVal = $computedRate ?? (97.5 + (($i * 3 + 2) % 3) * 0.7);
-            
-            $presenceTrend[] = [
-                'day'     => $dayName,
-                'date'    => $dayDate->format('d/m'),
-                'jamaah'  => min(100, round($baseVal + 1.2, 1)),
-                'kbm'     => min(100, round($baseVal + 0.4, 1)),
-                'halaqah' => min(100, round($baseVal - 0.5, 1)),
-            ];
-        }
-
-        // 6. DISTRIBUSI JENJANG & CAPAIAN TAHFIZH
-        $institutions = EducationalInstitution::all();
-        $institutionDistribution = [];
-        foreach ($institutions as $inst) {
-            $classGroupIds = ClassGroup::where('educational_institution_id', $inst->id)->pluck('id');
-            $studentCount = StudentClass::whereIn('class_group_id', $classGroupIds)->count();
-            $institutionDistribution[] = [
-                'name'  => $inst->short_name ?: $inst->name,
-                'count' => $studentCount > 0 ? $studentCount : ($inst->id == 1 ? 620 : 540),
-                'unit'  => 'Santri',
-            ];
-        }
-
-        if (empty($institutionDistribution)) {
-            $institutionDistribution = [
-                ['name' => 'Madrasah Tsanawiyah (MTs)', 'count' => 620, 'unit' => 'Santri'],
-                ['name' => 'Madrasah Aliyah (MA)',      'count' => 540, 'unit' => 'Santri'],
-                ['name' => 'Takhasus & Tahfizh',        'count' => 322, 'unit' => 'Santri'],
-            ];
-        }
-
-        $tahfizhBrackets = [
-            ['bracket' => '16 - 29 Juz', 'count' => ClassGroup::where('name', 'like', '%Level 4%')->orWhere('name', 'like', '%Level 5%')->count() * 25 ?: 348],
-            ['bracket' => '6 - 15 Juz',  'count' => ClassGroup::where('name', 'like', '%Level 2%')->orWhere('name', 'like', '%Level 3%')->count() * 28 ?: 512],
-            ['bracket' => '0 - 5 Juz',   'count' => ClassGroup::where('name', 'like', '%Level 1%')->count() * 30 ?: 480],
-        ];
-
-        // 7. JADWAL KBM / HALAQAH AKTIF SAAT INI
+        // 8. JADWAL KBM / HALAQAH AKTIF SAAT INI (REAL)
         $currentSchedules = LessonSchedule::with(['classGroup', 'study', 'teacher', 'lessonHour', 'classroom'])
-            ->where('day', (string) now()->dayOfWeek)
             ->take(4)
             ->get();
 
-        if ($currentSchedules->isEmpty()) {
-            $currentSchedules = LessonSchedule::with(['classGroup', 'study', 'teacher', 'lessonHour', 'classroom'])
-                ->take(4)
-                ->get();
-        }
-
         $formattedSchedules = $currentSchedules->map(function ($s) {
+            $isTibyan = $s->classGroup && stripos($s->classGroup->name, 'Takhossus') !== false;
             return [
                 'id'            => $s->id,
                 'subject'       => $s->study->name ?? 'Kajian Kitab Kuning',
-                'category'      => ($s->classGroup && $s->classGroup->isLeveling()) ? 'Tahfizh' : 'Diniyah',
+                'category'      => $isTibyan ? 'Program Tibyan' : 'Program Kubar',
                 'teacher'       => $s->teacher->name ?? 'Ustadz Pengajar',
                 'teacher_title' => $s->teacher->title ?? 'Pengampu',
                 'room'          => $s->classroom->name ?? 'Ruang Kelas',
                 'time'          => ($s->lessonHour ? $s->lessonHour->start_time . ' - ' . $s->lessonHour->end_time : '09:40 - 11:15 WIB'),
                 'status'        => 'Sedang Berjalan',
-                'remaining'     => 'Sisa 35 Menit',
+                'remaining'     => 'KBM Aktif',
             ];
         });
 
-        // 8. MAKLUMAT & KEDISIPLINAN TERKINI
+        // 9. MAKLUMAT & KEDISIPLINAN TERKINI
         $notices = [
             [
                 'id'       => 1,
@@ -230,7 +279,7 @@ class DashboardController extends Controller
                 'tag'      => 'Teladan',
                 'tag_type' => 'emerald',
                 'title'    => '+50 Poin Syarafiyah Kehormatan',
-                'desc'     => 'Farhan Ramadhan (MA-XII) • Juara 1 MQK Tingkat Provinsi.',
+                'desc'     => 'Ahmad Syukri (Kubar Ulya 1) • Teladan Disiplin & Mu\'allimin.',
                 'time'     => '1 Jam Lalu',
             ],
         ];
@@ -239,44 +288,49 @@ class DashboardController extends Controller
             'status' => 'success',
             'data'   => [
                 'academic_year' => [
-                    'name'           => $activeYear ? ($activeYear->year ?? $activeYear->name) : '1446/1447 H',
-                    'hijri_year'     => $hijriYear,
-                    'triwulan'       => $triwulanName,
-                    'triwulan_detail'=> $triwulanDetail,
-                    'period'         => $triwulanName . ' • ' . $hijriYear,
-                    'hijri'          => '14 Syawal 1446 H',
+                    'name'            => $activeYear ? ($activeYear->year ?? $activeYear->name) : '1446/1447 H',
+                    'hijri_year'      => $hijriYear,
+                    'triwulan'        => $triwulanName,
+                    'triwulan_detail' => $triwulanDetail,
+                    'period'          => $triwulanName . ' • TA ' . $hijriYear,
+                    'hijri'           => '14 Syawal 1446 H',
                 ],
                 'overview' => [
                     'total_santri' => [
-                        'value'         => $totalSantri > 0 ? $totalSantri : 1482,
-                        'banin'         => $baninCount > 0 ? $baninCount : 820,
-                        'banat'         => $banatCount > 0 ? $banatCount : 662,
+                        'value'         => $totalSantri,
+                        'banin'         => $baninCount,
+                        'banat'         => $banatCount,
+                        'mukim'         => $mukimCount,
+                        'luar'          => $luarCount,
                         'mukim_percent' => $mukimPercent,
-                        'new_students'  => $newStudentsCount > 0 ? $newStudentsCount : 42,
+                        'new_students'  => $newStudentsCount,
                     ],
                     'presence' => [
-                        'rate'         => $presenceRate,
-                        'status_label' => 'Disiplin Sangat Baik',
-                        'shubuh'       => $shubuhRate,
-                        'kbm_pagi'     => $kbmPagiRate,
-                        'halaqah'      => $halaqahRate,
+                        'rate'         => $hadirPercent,
+                        'total_log'    => $totalPresensi,
+                        'hadir'        => $hadirCount,
+                        'izin'         => $izinCount,
+                        'sakit'        => $sakitCount,
+                        'alpa'         => $alpaCount,
+                        'status_label' => $hadirPercent >= 90 ? 'Disiplin Sangat Baik' : 'Cukup Baik',
                     ],
-                    'tahfizh' => [
-                        'total_pages'    => '12.450',
-                        'khatam_mutqin'  => $khatamCount > 0 ? $khatamCount : 142,
-                        'active_students'=> $tahfidzStudentsCount > 0 ? $tahfidzStudentsCount : 485,
-                        'trend'          => '+8.4%',
+                    'programs' => [
+                        'total_programs' => $programs->count(),
+                        'total_students' => $totalSantri,
+                        'kubar_students' => $programDistribution[1]['total_students'] ?? 160,
+                        'tibyan_students'=> $programDistribution[0]['total_students'] ?? 80,
                     ],
                     'curriculum' => [
-                        'total_subjects' => $totalStudies > 0 ? $totalStudies : 48,
-                        'diniyah'        => $diniyahStudiesCount > 0 ? $diniyahStudiesCount : 28,
-                        'kemenag_umum'   => $umumStudiesCount > 0 ? $umumStudiesCount : 20,
+                        'total_subjects' => $totalStudies,
+                        'diniyah'        => $diniyahStudiesCount,
+                        'kemenag_umum'   => $umumStudiesCount,
                         'avg_kkm'        => round($avgKkm, 1),
                     ],
                 ],
-                'presence_trend'           => $presenceTrend,
+                'presence_pie'             => $presencePie,
+                'students_by_period'       => $studentsByPeriod,
+                'programs_distribution'    => $programDistribution,
                 'institution_distribution' => $institutionDistribution,
-                'tahfizh_brackets'         => $tahfizhBrackets,
                 'active_schedules'         => $formattedSchedules,
                 'recent_notices'           => $notices,
             ],

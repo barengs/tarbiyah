@@ -71,6 +71,7 @@ class ClassGroupController extends Controller
             'academic_year_id'           => 'required|exists:academic_years,id',
             'educational_institution_id' => 'required|exists:educational_institutions,id',
             'education_id'               => 'nullable|exists:educations,id',
+            'education_class_id'         => 'nullable|exists:education_classes,id',
             'classroom_id'               => 'nullable|exists:classrooms,id',
             'homeroom_teacher_id'        => 'nullable|exists:teachers,id',
             'code'                       => 'nullable|string|max:30',

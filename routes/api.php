@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Master\StudentController;
 use App\Http\Controllers\Api\Master\StudyController;
 use App\Http\Controllers\Api\Master\LessonHourController;
 use App\Http\Controllers\Api\Master\ClassGroupController;
+use App\Http\Controllers\Api\Master\EducationClassController;
 use App\Http\Controllers\Api\Master\LessonScheduleController;
 use App\Http\Controllers\Api\Main\DashboardController;
 use App\Http\Controllers\Api\Main\TeachingJournalController;
@@ -84,6 +85,10 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
 
     // Jam Pelajaran (Lesson Hours)
     Route::apiResource('lesson-hours', LessonHourController::class);
+
+    // Tingkat Kelas (Education Classes)
+    Route::apiResource('education-classes', EducationClassController::class);
+    Route::apiResource('education-class', EducationClassController::class);
 
     // Rombongan Belajar (Class Groups) & Halaqah Tahfidz
     Route::post('class-groups/{id}/students', [ClassGroupController::class, 'addStudent']);

@@ -10,11 +10,12 @@ import AuthMonitor from './components/AuthMonitor';
 import Dashboard from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';
 import InstitutionPage from './pages/master/InstitutionPage';
-import TeacherPage from './pages/master/TeacherPage';
-import StudentPage from './pages/StudentPage';
+import EducationClassPage from './pages/master/EducationClassPage';
+import ClassGroupPage from './pages/ClassGroupPage';
 import StudyPage from './pages/master/StudyPage';
 import LessonHourPage from './pages/master/LessonHourPage';
-import ClassGroupPage from './pages/ClassGroupPage';
+import TeacherPage from './pages/master/TeacherPage';
+import StudentPage from './pages/StudentPage';
 import TahfidzHalaqahPage from './pages/TahfidzHalaqahPage';
 import ScheduleKbmPage from './pages/ScheduleKbmPage';
 import AssessmentPage from './pages/AssessmentPage';
@@ -37,12 +38,18 @@ const App = () => {
                             {/* Modul Kurikulum & Sub-menu */}
                             <Route path="kurikulum" element={<Navigate to="/kurikulum/jenjang" replace />} />
                             <Route path="kurikulum/jenjang" element={<InstitutionPage />} />
+                            <Route path="kurikulum/kelas" element={<EducationClassPage />} />
+                            <Route path="kurikulum/rombel" element={<ClassGroupPage />} />
                             <Route path="kurikulum/mapel" element={<StudyPage />} />
                             <Route path="kurikulum/jam-pelajaran" element={<LessonHourPage />} />
                             
                             {/* Alias Kompatibilitas Kurikulum & Master */}
                             <Route path="master/institusi" element={<InstitutionPage />} />
                             <Route path="institusi" element={<InstitutionPage />} />
+                            <Route path="kelas" element={<EducationClassPage />} />
+                            <Route path="master/kelas" element={<EducationClassPage />} />
+                            <Route path="rombel" element={<ClassGroupPage />} />
+                            <Route path="master/rombel" element={<ClassGroupPage />} />
                             <Route path="master/mapel" element={<StudyPage />} />
                             <Route path="mapel" element={<StudyPage />} />
                             <Route path="master/jam-pelajaran" element={<LessonHourPage />} />
@@ -54,10 +61,6 @@ const App = () => {
 
                             {/* Modul Siswa & Santri */}
                             <Route path="siswa" element={<StudentPage />} />
-
-                            {/* Modul Kelas & Rombel (Mendukung path /kelas dan /rombel) */}
-                            <Route path="kelas" element={<ClassGroupPage />} />
-                            <Route path="rombel" element={<ClassGroupPage />} />
 
                             {/* Modul Tahfidz, KBM, Presensi, Nilai, Rapor */}
                             <Route path="tahfidz" element={<TahfidzHalaqahPage />} />

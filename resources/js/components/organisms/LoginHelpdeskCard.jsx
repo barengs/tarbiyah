@@ -16,7 +16,7 @@ export default function LoginHelpdeskCard({ className = '' }) {
                 </span>
                 <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                        Bantuan Portal
+                        Bantuan Helpdesk
                     </p>
                     <h3 className="text-base font-extrabold text-slate-900 tracking-tight leading-tight">
                         Sekretariat Akademik &amp; IT
@@ -85,11 +85,11 @@ export default function LoginHelpdeskCard({ className = '' }) {
                 href="#panduan"
                 onClick={(e) => {
                     e.preventDefault();
-                    alert('Panduan penggunaan portal akan diunduh.');
+                    alert('Panduan penggunaan sistem akademik akan diunduh.');
                 }}
                 className="mt-4 flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#093c30] transition-colors"
             >
-                Panduan Lengkap Penggunaan Portal
+                Panduan Lengkap Akademik
                 <ChevronRight className="w-3 h-3" />
             </a>
         </Card>

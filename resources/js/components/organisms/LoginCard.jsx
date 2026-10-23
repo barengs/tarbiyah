@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 /**
- * Organism Card Login Utama: e-Panyeppen Portal
+ * Organism Card Login Utama: e-Panyeppen Akademik
  */
 export default function LoginCard({
     onSubmit,
@@ -75,7 +75,7 @@ export default function LoginCard({
                 <div>
                     <div className="flex items-center justify-between mb-1.5">
                         <label className="block text-[13px] font-semibold text-slate-700">
-                            Kata Sandi Portal <span className="text-rose-500">*</span>
+                            Kata Sandi <span className="text-rose-500">*</span>
                         </label>
                         <a
                             href="#lupa-sandi"

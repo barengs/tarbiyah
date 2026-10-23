@@ -85,12 +85,9 @@ export default function Sidebar({
                                         <span className="text-[15px] font-extrabold text-slate-900 tracking-tight leading-none">
                                             e-Panyeppen
                                         </span>
-                                        <span className="text-[10px] font-bold text-white bg-[#093c30] px-1.5 py-0.5 rounded leading-none">
-                                            Pro
-                                        </span>
                                     </div>
                                     <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-                                        PesantrenPro &bull; SIM Akademik
+                                        Sistem Informasi Akademik
                                     </p>
                                 </div>
                             )}

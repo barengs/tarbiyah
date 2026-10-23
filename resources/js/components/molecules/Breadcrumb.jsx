@@ -9,15 +9,19 @@ import { ChevronRight, Home } from 'lucide-react';
 const ROUTE_LABELS = {
     '': 'Dashboard Utama',
     master: 'Master Data',
+    kurikulum: 'Jenjang & Kurikulum',
     institusi: 'Institusi & Jenjang',
     guru: 'Guru & Pendidik',
     mapel: 'Kurikulum & Mapel',
-    siswa: 'Data Kesiswaan',
+    siswa: 'Santri & Kenaikan Kelas',
+    kelas: 'Kelas & Rombel',
     rombel: 'Kelas & Rombel',
-    tahfidz: 'Rekap Tahfizh & Nilai',
+    tahfidz: 'Tahfidz & Halaqah',
     kbm: 'Jadwal Pelajaran & Halaqah',
+    jadwal: 'Jadwal Pelajaran & Halaqah',
+    presensi: 'Presensi & Disiplin',
     nilai: 'Penilaian & Ujian',
-    rapor: 'Cetak Buku Rapor',
+    rapor: 'Rekap Tahfizh & Nilai',
 };
 
 export default function Breadcrumb({ items, className = '' }) {

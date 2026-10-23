@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
-import { Users, ClipboardCheck, Layers, Calendar, BookOpen } from 'lucide-react';
+import { Users, ClipboardCheck, Layers, Calendar } from 'lucide-react';
 import { useGetDashboardStatsQuery } from '../store/slices/dashboardApi';
 import HeroBanner from '../components/organisms/HeroBanner';
 import MetricCard from '../components/molecules/MetricCard';
@@ -14,11 +14,11 @@ import ProgressBar from '../components/atoms/ProgressBar';
 
 /**
  * KONSOL MUDIR: e-Panyeppen Pro Dashboard
- * 100% Data Riil dari database (tanpa dummy):
+ * Menggunakan sistem kalender Triwulan Hijriah pesantren:
  * - Jumlah Siswa Aktif
  * - Statistik Presensi dalam bentuk PieChart
  * - Program Tibyan (Takhossus) & Kubar (Ula, Wustho, Ulya)
- * - Jumlah Siswa Tiap Periode Akademik
+ * - Jumlah Siswa Tiap Periode Triwulan
  */
 export default function Dashboard() {
     const { user } = useSelector((state) => state.auth);
@@ -119,15 +119,15 @@ export default function Dashboard() {
                     }
                 />
 
-                {/* 4. SISWA TIAP PERIODE AKADEMIK */}
+                {/* 4. SISWA TIAP PERIODE TRIWULAN */}
                 <MetricCard
-                    label="Santri Periode Aktif"
-                    value={studentsByPeriod.find((p) => p.is_active)?.total_siswa ?? ov.total_santri?.value ?? 0}
+                    label="Santri Periode Triwulan"
+                    value={ov.total_santri?.value ?? 0}
                     unit="Santri"
                     icon={Calendar}
                     accent="blue"
                     stats={[
-                        { dot: 'bg-sky-500', label: 'Semester Masehi & Triwulan Hijriah' },
+                        { dot: 'bg-emerald-500', label: academicMeta?.triwulan || 'Triwulan IV (Syawal - Dzulhijjah)' },
                     ]}
                     footer={
                         <div className="flex items-center justify-between text-xs text-slate-500">
@@ -159,9 +159,9 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* 4. JUMLAH SISWA TIAP PERIODE AKADEMIK & MAKLUMAT DISIPLIN */}
+            {/* 4. JUMLAH SISWA TIAP PERIODE TRIWULAN & MAKLUMAT DISIPLIN */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* 1 Kolom: Periode Akademik */}
+                {/* 1 Kolom: Periode Triwulan */}
                 <div className="lg:col-span-1">
                     <AcademicPeriodStudentsCard periods={studentsByPeriod} />
                 </div>

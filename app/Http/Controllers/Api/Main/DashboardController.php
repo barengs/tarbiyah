@@ -22,20 +22,23 @@ use Illuminate\Http\Request;
 class DashboardController extends Controller
 {
     /**
-     * Mengambil seluruh statistik dan data widget dashboard secara real-time dari database
-     * tanpa data dummy, sesuai program Tibyan & Kubar, periode akademik, dan presensi riil.
+     * Mengambil seluruh statistik dan data widget dashboard secara real-time dari database.
+     * Menggunakan sistem Triwulan Kalender Hijriah pesantren (bukan semester).
      */
     public function stats(Request $request): JsonResponse
     {
         $today = Carbon::today();
         
-        // 1. Periode Akademik Aktif
-        $activeTriwulanYear = AcademicYear::where('type', 'triwulan')->where('active', true)->first();
-        $activeSemesterYear = AcademicYear::where('type', 'semester')->where('active', true)->first();
-        $activeYear = $activeTriwulanYear ?? $activeSemesterYear ?? AcademicYear::where('active', true)->first();
-        $activeQuarter = AcademicQuarter::where('active', true)->first();
+        // 1. Periode Kalender Akademik Pesantren (Triwulan Hijriah)
+        $activeYear = AcademicYear::where('type', 'triwulan')->where('active', true)->first()
+            ?? AcademicYear::where('active', true)->first();
 
-        $hijriYear = $activeTriwulanYear ? ($activeTriwulanYear->year . ' H') : '1446/1447 H';
+        $activeQuarter = AcademicQuarter::where('academic_year_id', $activeYear ? $activeYear->id : null)
+            ->where('active', true)
+            ->first()
+            ?? AcademicQuarter::where('name', 'like', '%Triwulan%')->where('active', true)->first();
+
+        $hijriYear = $activeYear ? ($activeYear->year . ' H') : '1446/1447 H';
         $triwulanName = $activeQuarter ? $activeQuarter->name : 'Triwulan IV (Syawal - Dzulhijjah)';
         $triwulanDetail = $activeQuarter ? $activeQuarter->name : 'Triwulan IV (Syawal - Dzulhijjah)';
 
@@ -54,25 +57,31 @@ class DashboardController extends Controller
         // Santri baru terdaftar
         $newStudentsCount = Student::where('created_at', '>=', now()->subMonths(6))->count();
 
-        // 3. STATISTIK SISWA TIAP PERIODE AKADEMIK (REAL DARI DATABASE)
-        $academicYears = AcademicYear::orderBy('id', 'asc')->get();
+        // 3. STATISTIK SISWA TIAP PERIODE AKADEMIK (TRIWULAN PESANTREN)
+        // Menampilkan 4 Triwulan kalender Hijriah pesantren
+        $quarters = AcademicQuarter::where('academic_year_id', $activeYear ? $activeYear->id : 2)
+            ->orderBy('id', 'asc')
+            ->get();
+
+        if ($quarters->isEmpty()) {
+            $quarters = AcademicQuarter::where('name', 'like', '%Triwulan%')->get();
+        }
+
+        $totalClassStudents = StudentClass::distinct('student_id')->count('student_id');
+        if ($totalClassStudents === 0) {
+            $totalClassStudents = $totalSantri;
+        }
+
         $studentsByPeriod = [];
-
-        foreach ($academicYears as $ay) {
-            $count = StudentClass::where('academic_year_id', $ay->id)
-                ->distinct('student_id')
-                ->count('student_id');
-
-            // Jika belum ada student_class di tahun tertentu (misal baru dibuat), gunakan relasi atau fallback 0
-            $periodLabel = $ay->year . ' (' . ucfirst($ay->type) . ' ' . ucfirst($ay->periode) . ')';
+        foreach ($quarters as $q) {
             $studentsByPeriod[] = [
-                'id'          => $ay->id,
-                'year'        => $ay->year,
-                'type'        => $ay->type,
-                'periode'     => $ay->periode,
-                'label'       => $periodLabel,
-                'is_active'   => (bool) $ay->active,
-                'total_siswa' => $count > 0 ? $count : ($ay->active ? $totalSantri : 0),
+                'id'          => $q->id,
+                'year'        => $hijriYear,
+                'type'        => 'triwulan',
+                'periode'     => $q->name,
+                'label'       => $q->name . ' • TA ' . $hijriYear,
+                'is_active'   => (bool) $q->active,
+                'total_siswa' => $totalClassStudents,
             ];
         }
 
@@ -202,7 +211,6 @@ class DashboardController extends Controller
             $classGroupIds = ClassGroup::where('educational_institution_id', $inst->id)->pluck('id');
             $studentCount = StudentClass::whereIn('class_group_id', $classGroupIds)->count();
 
-            // Hanya tampilkan institusi yang memiliki santri atau institusi utama pesantren
             if ($studentCount > 0 || in_array($inst->short_name, ['Kubar', 'Tibyan'])) {
                 $institutionDistribution[] = [
                     'id'    => $inst->id,
@@ -288,7 +296,7 @@ class DashboardController extends Controller
             'status' => 'success',
             'data'   => [
                 'academic_year' => [
-                    'name'            => $activeYear ? ($activeYear->year ?? $activeYear->name) : '1446/1447 H',
+                    'name'            => $hijriYear,
                     'hijri_year'      => $hijriYear,
                     'triwulan'        => $triwulanName,
                     'triwulan_detail' => $triwulanDetail,

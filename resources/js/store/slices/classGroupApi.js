@@ -42,14 +42,14 @@ export const classGroupApi = apiSlice.injectEndpoints({
                 method: 'POST',
                 body: data,
             }),
-            invalidatesTags: ['ClassGroup'],
+            invalidatesTags: ['ClassGroup', 'Student'],
         }),
         removeStudentFromGroup: builder.mutation({
             query: ({ groupId, studentId }) => ({
                 url: `master/class-groups/${groupId}/students/${studentId}`,
                 method: 'DELETE',
             }),
-            invalidatesTags: ['ClassGroup'],
+            invalidatesTags: ['ClassGroup', 'Student'],
         }),
         promoteTahfidzLevel: builder.mutation({
             query: ({ groupId, ...data }) => ({
@@ -57,7 +57,7 @@ export const classGroupApi = apiSlice.injectEndpoints({
                 method: 'POST',
                 body: data,
             }),
-            invalidatesTags: ['ClassGroup'],
+            invalidatesTags: ['ClassGroup', 'Student'],
         }),
         assignSubjectToGroup: builder.mutation({
             query: ({ groupId, ...data }) => ({
@@ -66,6 +66,18 @@ export const classGroupApi = apiSlice.injectEndpoints({
                 body: data,
             }),
             invalidatesTags: ['ClassGroup'],
+        }),
+        getPromotionCandidates: builder.query({
+            query: (classGroupId) => `master/class-groups/${classGroupId}/promotion-candidates`,
+            providesTags: (result, error, id) => [{ type: 'ClassGroup', id: `candidates-${id}` }],
+        }),
+        bulkPromoteStudents: builder.mutation({
+            query: (data) => ({
+                url: 'master/class-groups/bulk-promote',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['ClassGroup', 'Student'],
         }),
     }),
 });
@@ -80,4 +92,6 @@ export const {
     useRemoveStudentFromGroupMutation,
     usePromoteTahfidzLevelMutation,
     useAssignSubjectToGroupMutation,
+    useGetPromotionCandidatesQuery,
+    useBulkPromoteStudentsMutation,
 } = classGroupApi;

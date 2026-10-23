@@ -6,6 +6,7 @@ import {
     Building2,
     GraduationCap,
     Users,
+    TrendingUp,
     UserCheck,
     CalendarCheck2,
     ClipboardCheck,
@@ -43,6 +44,11 @@ const NAVIGATION_ITEMS = [
                 icon: Users,
             },
             {
+                name: 'Kenaikan Kelas',
+                to: '/kurikulum/kenaikan-kelas',
+                icon: TrendingUp,
+            },
+            {
                 name: 'Mata Pelajaran',
                 to: '/kurikulum/mapel',
                 icon: BookOpen,
@@ -55,7 +61,7 @@ const NAVIGATION_ITEMS = [
         ],
     },
     {
-        name: 'Santri & Kenaikan Kelas',
+        name: 'Data Santri',
         to: '/siswa',
         icon: UserCheck,
     },
@@ -100,6 +106,7 @@ export default function Sidebar({
                     location.pathname.startsWith('/institusi') || 
                     location.pathname.startsWith('/kelas') ||
                     location.pathname.startsWith('/rombel') ||
+                    location.pathname.startsWith('/kenaikan-kelas') ||
                     location.pathname.startsWith('/mapel') ||
                     location.pathname.startsWith('/jam-pelajaran')
                 ) {
@@ -125,6 +132,7 @@ export default function Sidebar({
                     location.pathname.startsWith('/institusi') || 
                     location.pathname.startsWith('/kelas') ||
                     location.pathname.startsWith('/rombel') ||
+                    location.pathname.startsWith('/kenaikan-kelas') ||
                     location.pathname.startsWith('/mapel') ||
                     location.pathname.startsWith('/jam-pelajaran')
                 ) {
@@ -203,6 +211,7 @@ export default function Sidebar({
                                         (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
                                         (child.to === '/kurikulum/kelas' && (location.pathname === '/kelas' || location.pathname === '/master/kelas')) ||
                                         (child.to === '/kurikulum/rombel' && (location.pathname === '/rombel' || location.pathname === '/master/rombel')) ||
+                                        (child.to === '/kurikulum/kenaikan-kelas' && (location.pathname === '/kenaikan-kelas' || location.pathname === '/master/kenaikan-kelas')) ||
                                         (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel')) ||
                                         (child.to === '/kurikulum/jam-pelajaran' && (location.pathname === '/jam-pelajaran' || location.pathname === '/master/jam-pelajaran'))
                                 );
@@ -250,6 +259,7 @@ export default function Sidebar({
                                                         (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
                                                         (child.to === '/kurikulum/kelas' && (location.pathname === '/kelas' || location.pathname === '/master/kelas')) ||
                                                         (child.to === '/kurikulum/rombel' && (location.pathname === '/rombel' || location.pathname === '/master/rombel')) ||
+                                                        (child.to === '/kurikulum/kenaikan-kelas' && (location.pathname === '/kenaikan-kelas' || location.pathname === '/master/kenaikan-kelas')) ||
                                                         (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel')) ||
                                                         (child.to === '/kurikulum/jam-pelajaran' && (location.pathname === '/jam-pelajaran' || location.pathname === '/master/jam-pelajaran'));
 

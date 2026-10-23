@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage';
 import InstitutionPage from './pages/master/InstitutionPage';
 import EducationClassPage from './pages/master/EducationClassPage';
 import ClassGroupPage from './pages/ClassGroupPage';
+import ClassPromotionPage from './pages/ClassPromotionPage';
 import StudyPage from './pages/master/StudyPage';
 import LessonHourPage from './pages/master/LessonHourPage';
 import TeacherPage from './pages/master/TeacherPage';
@@ -40,6 +41,7 @@ const App = () => {
                             <Route path="kurikulum/jenjang" element={<InstitutionPage />} />
                             <Route path="kurikulum/kelas" element={<EducationClassPage />} />
                             <Route path="kurikulum/rombel" element={<ClassGroupPage />} />
+                            <Route path="kurikulum/kenaikan-kelas" element={<ClassPromotionPage />} />
                             <Route path="kurikulum/mapel" element={<StudyPage />} />
                             <Route path="kurikulum/jam-pelajaran" element={<LessonHourPage />} />
                             
@@ -50,17 +52,20 @@ const App = () => {
                             <Route path="master/kelas" element={<EducationClassPage />} />
                             <Route path="rombel" element={<ClassGroupPage />} />
                             <Route path="master/rombel" element={<ClassGroupPage />} />
+                            <Route path="kenaikan-kelas" element={<ClassPromotionPage />} />
+                            <Route path="master/kenaikan-kelas" element={<ClassPromotionPage />} />
                             <Route path="master/mapel" element={<StudyPage />} />
                             <Route path="mapel" element={<StudyPage />} />
                             <Route path="master/jam-pelajaran" element={<LessonHourPage />} />
                             <Route path="jam-pelajaran" element={<LessonHourPage />} />
 
+                            {/* Modul Data Siswa / Santri */}
+                            <Route path="siswa" element={<StudentPage />} />
+                            <Route path="santri" element={<StudentPage />} />
+
                             {/* Modul Guru & Pendidik */}
                             <Route path="master/guru" element={<TeacherPage />} />
                             <Route path="guru" element={<TeacherPage />} />
-
-                            {/* Modul Siswa & Santri */}
-                            <Route path="siswa" element={<StudentPage />} />
 
                             {/* Modul Tahfidz, KBM, Presensi, Nilai, Rapor */}
                             <Route path="tahfidz" element={<TahfidzHalaqahPage />} />

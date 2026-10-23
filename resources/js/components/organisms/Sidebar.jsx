@@ -1,8 +1,9 @@
-import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
     Layers,
+    Building2,
     Users,
     GraduationCap,
     CalendarCheck2,
@@ -11,6 +12,7 @@ import {
     BookOpen,
     ShieldCheck,
     ExternalLink,
+    ChevronDown,
 } from 'lucide-react';
 
 const NAVIGATION_ITEMS = [
@@ -20,9 +22,20 @@ const NAVIGATION_ITEMS = [
         icon: LayoutDashboard,
     },
     {
-        name: 'Jenjang & Kurikulum',
-        to: '/kurikulum',
+        name: 'Kurikulum',
         icon: Layers,
+        children: [
+            {
+                name: 'Jenjang Pendidikan',
+                to: '/kurikulum/jenjang',
+                icon: Building2,
+            },
+            {
+                name: 'Mata Pelajaran',
+                to: '/kurikulum/mapel',
+                icon: BookOpen,
+            },
+        ],
     },
     {
         name: 'Kelas & Rombel',
@@ -57,6 +70,49 @@ export default function Sidebar({
     onCloseMobile,
     className = '',
 }) {
+    const location = useLocation();
+
+    // Inisialisasi status terbuka menu bertingkat
+    const [openMenus, setOpenMenus] = useState(() => {
+        const initial = {};
+        NAVIGATION_ITEMS.forEach((item) => {
+            if (item.children) {
+                const isChildActive = item.children.some(
+                    (child) =>
+                        location.pathname === child.to ||
+                        location.pathname.startsWith(child.to)
+                );
+                if (isChildActive || location.pathname.startsWith('/kurikulum') || location.pathname.startsWith('/institusi') || location.pathname.startsWith('/mapel')) {
+                    initial[item.name] = true;
+                }
+            }
+        });
+        return initial;
+    });
+
+    // Otomatis buka accordion jika user mengakses URL anak
+    useEffect(() => {
+        NAVIGATION_ITEMS.forEach((item) => {
+            if (item.children) {
+                const isChildActive = item.children.some(
+                    (child) =>
+                        location.pathname === child.to ||
+                        location.pathname.startsWith(child.to)
+                );
+                if (isChildActive || location.pathname.startsWith('/kurikulum') || location.pathname.startsWith('/institusi') || location.pathname.startsWith('/mapel')) {
+                    setOpenMenus((prev) => ({ ...prev, [item.name]: true }));
+                }
+            }
+        });
+    }, [location.pathname]);
+
+    const toggleSubMenu = (menuName) => {
+        setOpenMenus((prev) => ({
+            ...prev,
+            [menuName]: !prev[menuName],
+        }));
+    };
+
     return (
         <>
             {/* Overlay untuk mobile saat sidebar terbuka */}
@@ -109,6 +165,86 @@ export default function Sidebar({
                     <nav className="px-3 space-y-1">
                         {NAVIGATION_ITEMS.map((item) => {
                             const Icon = item.icon;
+
+                            // JIKA MENU MEMILIKI SUB MENU
+                            if (item.children && item.children.length > 0) {
+                                const isChildActive = item.children.some(
+                                    (child) =>
+                                        location.pathname === child.to ||
+                                        location.pathname.startsWith(child.to) ||
+                                        (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
+                                        (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel'))
+                                );
+                                const isOpen = !!openMenus[item.name];
+
+                                return (
+                                    <div key={item.name} className="space-y-1">
+                                        {/* Tombol Menu Utama */}
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleSubMenu(item.name)}
+                                            title={collapsed ? item.name : undefined}
+                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 ${
+                                                isChildActive
+                                                    ? 'bg-emerald-50/80 text-[#093c30] font-semibold'
+                                                    : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+                                            } ${collapsed ? 'justify-center px-2' : ''}`}
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <Icon
+                                                    className={`w-4 h-4 shrink-0 transition-colors ${
+                                                        isChildActive ? 'text-[#093c30]' : 'text-slate-400'
+                                                    }`}
+                                                />
+                                                {!collapsed && (
+                                                    <span className="truncate">{item.name}</span>
+                                                )}
+                                            </div>
+                                            {!collapsed && (
+                                                <ChevronDown
+                                                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                                                        isOpen ? 'rotate-180 text-emerald-800' : ''
+                                                    }`}
+                                                />
+                                            )}
+                                        </button>
+
+                                        {/* Sub Menu Children */}
+                                        {!collapsed && isOpen && (
+                                            <div className="pl-4 ml-3 border-l-2 border-emerald-100/80 space-y-1 py-1">
+                                                {item.children.map((child) => {
+                                                    const ChildIcon = child.icon;
+                                                    const isThisActive =
+                                                        location.pathname === child.to ||
+                                                        (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
+                                                        (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel'));
+
+                                                    return (
+                                                        <Link
+                                                            key={child.to}
+                                                            to={child.to}
+                                                            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                                                                isThisActive
+                                                                    ? 'bg-[#093c30] text-white shadow-2xs font-semibold'
+                                                                    : 'text-slate-600 hover:text-[#093c30] hover:bg-slate-100/70'
+                                                            }`}
+                                                        >
+                                                            <ChildIcon
+                                                                className={`w-3.5 h-3.5 shrink-0 ${
+                                                                    isThisActive ? 'text-emerald-300' : 'text-slate-400'
+                                                                }`}
+                                                            />
+                                                            <span className="truncate">{child.name}</span>
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            // MENU TUNGGAL
                             return (
                                 <NavLink
                                     key={item.to}

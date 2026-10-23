@@ -9,7 +9,6 @@ import MainLayout from './layouts/MainLayout';
 import AuthMonitor from './components/AuthMonitor';
 import Dashboard from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';
-import KurikulumPage from './pages/master/KurikulumPage';
 import InstitutionPage from './pages/master/InstitutionPage';
 import TeacherPage from './pages/master/TeacherPage';
 import StudentPage from './pages/StudentPage';
@@ -34,8 +33,12 @@ const App = () => {
                         <Route path="/" element={<MainLayout />}>
                             <Route index element={<Dashboard />} />
                             
-                            {/* Modul Jenjang & Kurikulum */}
-                            <Route path="kurikulum" element={<KurikulumPage />} />
+                            {/* Modul Kurikulum & Sub-menu */}
+                            <Route path="kurikulum" element={<Navigate to="/kurikulum/jenjang" replace />} />
+                            <Route path="kurikulum/jenjang" element={<InstitutionPage />} />
+                            <Route path="kurikulum/mapel" element={<StudyPage />} />
+                            
+                            {/* Alias Kompatibilitas Kurikulum */}
                             <Route path="master/institusi" element={<InstitutionPage />} />
                             <Route path="institusi" element={<InstitutionPage />} />
                             <Route path="master/mapel" element={<StudyPage />} />

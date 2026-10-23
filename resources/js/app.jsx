@@ -13,6 +13,7 @@ import InstitutionPage from './pages/master/InstitutionPage';
 import TeacherPage from './pages/master/TeacherPage';
 import StudentPage from './pages/StudentPage';
 import StudyPage from './pages/master/StudyPage';
+import LessonHourPage from './pages/master/LessonHourPage';
 import ClassGroupPage from './pages/ClassGroupPage';
 import TahfidzHalaqahPage from './pages/TahfidzHalaqahPage';
 import ScheduleKbmPage from './pages/ScheduleKbmPage';
@@ -37,12 +38,15 @@ const App = () => {
                             <Route path="kurikulum" element={<Navigate to="/kurikulum/jenjang" replace />} />
                             <Route path="kurikulum/jenjang" element={<InstitutionPage />} />
                             <Route path="kurikulum/mapel" element={<StudyPage />} />
+                            <Route path="kurikulum/jam-pelajaran" element={<LessonHourPage />} />
                             
-                            {/* Alias Kompatibilitas Kurikulum */}
+                            {/* Alias Kompatibilitas Kurikulum & Master */}
                             <Route path="master/institusi" element={<InstitutionPage />} />
                             <Route path="institusi" element={<InstitutionPage />} />
                             <Route path="master/mapel" element={<StudyPage />} />
                             <Route path="mapel" element={<StudyPage />} />
+                            <Route path="master/jam-pelajaran" element={<LessonHourPage />} />
+                            <Route path="jam-pelajaran" element={<LessonHourPage />} />
 
                             {/* Modul Guru & Pendidik */}
                             <Route path="master/guru" element={<TeacherPage />} />

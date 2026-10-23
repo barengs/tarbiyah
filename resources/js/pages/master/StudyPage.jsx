@@ -6,15 +6,10 @@ import {
     useDeleteStudyMutation 
 } from '../../store/slices/studyApi';
 import { useGetInstitutionsQuery } from '../../store/slices/institutionApi';
-import { 
-    useGetLessonHoursQuery, 
-    useCreateLessonHourMutation, 
-    useDeleteLessonHourMutation 
-} from '../../store/slices/lessonHourApi';
 import DataTable from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, Clock, BookOpen, Layers } from 'lucide-react';
+import { Plus, Edit2, Trash2, BookOpen, Layers } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function StudyPage() {
@@ -41,19 +36,6 @@ export default function StudyPage() {
     const [kkm, setKkm] = useState(75);
     const [institutionId, setInstitutionId] = useState('');
     const [description, setDescription] = useState('');
-
-    // Lesson Hours Modal State
-    const [lessonHourModalOpen, setLessonHourModalOpen] = useState(false);
-    const { data: lessonHoursData, isLoading: isLoadingHours } = useGetLessonHoursQuery(
-        instFilter ? { educational_institution_id: instFilter } : undefined
-    );
-    const lessonHours = lessonHoursData?.data || [];
-    const [createLessonHour] = useCreateLessonHourMutation();
-    const [deleteLessonHour] = useDeleteLessonHourMutation();
-    const [hourName, setHourName] = useState('');
-    const [startTime, setStartTime] = useState('07:30');
-    const [endTime, setEndTime] = useState('08:15');
-    const [isBreak, setIsBreak] = useState(false);
 
     const openCreateModal = () => {
         setEditingItem(null);
@@ -110,42 +92,36 @@ export default function StudyPage() {
         }
     };
 
-    const handleAddLessonHour = async (e) => {
-        e.preventDefault();
-        try {
-            await createLessonHour({
-                name: hourName,
-                start_time: startTime,
-                end_time: endTime,
-                is_break: isBreak,
-                educational_institution_id: instFilter || null,
-            }).unwrap();
-            toast.success('Jam pelajaran ditambahkan');
-            setHourName('');
-        } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menambah jam pelajaran');
-        }
-    };
-
     const columns = [
         {
-            key: 'code',
-            label: 'Kode & Mapel',
+            key: 'name',
+            label: 'Mata Pelajaran',
             render: (row) => (
-                <div>
-                    <span className="font-semibold text-slate-900">{row.name}</span>
-                    <span className="text-xs text-slate-400 block font-mono">{row.code || 'Tanpa Kode'}</span>
+                <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                        <BookOpen className="w-4 h-4" />
+                    </span>
+                    <div>
+                        <span className="font-bold text-slate-800 block text-sm">{row.name}</span>
+                        {row.code && (
+                            <span className="text-[11px] font-mono text-slate-400">Kode: {row.code}</span>
+                        )}
+                    </div>
                 </div>
             ),
         },
         {
             key: 'institution',
             label: 'Lembaga / Jenjang',
-            render: (row) => (
-                <span className="text-xs font-medium px-2 py-1 rounded bg-slate-100 text-slate-700">
-                    {row.educational_institution?.name || 'Umum (Lintas Lembaga)'}
-                </span>
-            ),
+            render: (row) => {
+                const inst = institutions.find((i) => i.id === row.educational_institution_id);
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700">
+                        <Layers className="w-3 h-3 text-slate-400" />
+                        {inst ? inst.name : 'Umum (Semua Lembaga)'}
+                    </span>
+                );
+            },
         },
         {
             key: 'kkm',
@@ -193,19 +169,17 @@ export default function StudyPage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Kurikulum & Mata Pelajaran</h1>
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        <span className="p-2 bg-emerald-50 text-emerald-700 rounded-md">
+                            <BookOpen className="w-5 h-5" />
+                        </span>
+                        Mata Pelajaran &amp; Silabus
+                    </h1>
                     <p className="text-sm text-slate-500 mt-1">
-                        Kelola katalog mata pelajaran, standar KKM, dan konfigurasi jam pelajaran harian.
+                        Kelola katalog mata pelajaran Diniyah &amp; Umum, standar KKM minimal, dan silabus madrasah.
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setLessonHourModalOpen(true)}
-                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white text-slate-700 font-semibold text-sm rounded-md border border-slate-300 hover:bg-slate-50 transition shadow-sm"
-                    >
-                        <Clock className="w-4 h-4 text-emerald-600" />
-                        Jam Pelajaran
-                    </button>
+                <div>
                     <button
                         onClick={openCreateModal}
                         className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
@@ -218,7 +192,7 @@ export default function StudyPage() {
 
             {/* Filter Lembaga */}
             <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Lembaga:</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Filter Lembaga:</span>
                 <select
                     value={instFilter}
                     onChange={(e) => setInstFilter(e.target.value)}
@@ -265,16 +239,16 @@ export default function StudyPage() {
                                 type="text"
                                 value={code}
                                 onChange={(e) => setCode(e.target.value)}
-                                placeholder="FQH-01"
+                                placeholder="Contoh: FIQ-01"
                                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">KKM Kelulusan *</label>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">KKM Minimal *</label>
                             <input
                                 type="number"
-                                min="0"
-                                max="100"
+                                min={0}
+                                max={100}
                                 required
                                 value={kkm}
                                 onChange={(e) => setKkm(e.target.value)}
@@ -325,95 +299,6 @@ export default function StudyPage() {
                         </button>
                     </div>
                 </form>
-            </Modal>
-
-            {/* Modal Jam Pelajaran (Lesson Hours) */}
-            <Modal
-                open={lessonHourModalOpen}
-                title="Konfigurasi Jam Pelajaran (KBM)"
-                onClose={() => setLessonHourModalOpen(false)}
-            >
-                <div className="space-y-4">
-                    <form onSubmit={handleAddLessonHour} className="p-3 bg-slate-50 border border-slate-200 rounded-md space-y-3">
-                        <div className="font-semibold text-xs text-slate-700 uppercase tracking-wider">Tambah Jam Belajar / Istirahat</div>
-                        <div className="grid grid-cols-3 gap-2">
-                            <input
-                                type="text"
-                                required
-                                placeholder="Jam Ke-1 / Istirahat"
-                                value={hourName}
-                                onChange={(e) => setHourName(e.target.value)}
-                                className="px-2.5 py-1.5 border border-slate-300 rounded-md text-xs"
-                            />
-                            <input
-                                type="time"
-                                required
-                                value={startTime}
-                                onChange={(e) => setStartTime(e.target.value)}
-                                className="px-2.5 py-1.5 border border-slate-300 rounded-md text-xs"
-                            />
-                            <input
-                                type="time"
-                                required
-                                value={endTime}
-                                onChange={(e) => setEndTime(e.target.value)}
-                                className="px-2.5 py-1.5 border border-slate-300 rounded-md text-xs"
-                            />
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={isBreak}
-                                    onChange={(e) => setIsBreak(e.target.checked)}
-                                    className="rounded border-slate-300 text-emerald-600"
-                                />
-                                Sesi Istirahat (Bukan Jam KBM)
-                            </label>
-                            <button
-                                type="submit"
-                                className="px-3 py-1.5 bg-emerald-600 text-white rounded-md text-xs font-semibold hover:bg-emerald-700"
-                            >
-                                + Tambah Jam
-                            </button>
-                        </div>
-                    </form>
-
-                    <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
-                        {lessonHours.length === 0 ? (
-                            <div className="p-6 text-center text-xs text-slate-400">Belum ada jam pelajaran diset</div>
-                        ) : (
-                            lessonHours.map((hour) => (
-                                <div key={hour.id} className="p-3 flex items-center justify-between text-xs">
-                                    <div>
-                                        <span className="font-bold text-slate-800">{hour.name}</span>
-                                        <span className="text-slate-400 ml-2 font-mono">
-                                            {hour.start_time.substring(0, 5)} - {hour.end_time.substring(0, 5)}
-                                        </span>
-                                        {hour.is_break && (
-                                            <span className="ml-2 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-semibold">
-                                                Istirahat
-                                            </span>
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={async () => {
-                                            try {
-                                                await deleteLessonHour(hour.id).unwrap();
-                                                toast.success('Jam pelajaran dihapus');
-                                            } catch (err) {
-                                                toast.error('Gagal menghapus');
-                                            }
-                                        }}
-                                        className="text-slate-400 hover:text-rose-600 p-1"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
             </Modal>
 
             {/* Confirm Dialog */}

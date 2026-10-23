@@ -10,6 +10,7 @@ import {
     ClipboardCheck,
     ScrollText,
     BookOpen,
+    Clock,
     ShieldCheck,
     ExternalLink,
     ChevronDown,
@@ -34,6 +35,11 @@ const NAVIGATION_ITEMS = [
                 name: 'Mata Pelajaran',
                 to: '/kurikulum/mapel',
                 icon: BookOpen,
+            },
+            {
+                name: 'Jam Pelajaran',
+                to: '/kurikulum/jam-pelajaran',
+                icon: Clock,
             },
         ],
     },
@@ -82,7 +88,13 @@ export default function Sidebar({
                         location.pathname === child.to ||
                         location.pathname.startsWith(child.to)
                 );
-                if (isChildActive || location.pathname.startsWith('/kurikulum') || location.pathname.startsWith('/institusi') || location.pathname.startsWith('/mapel')) {
+                if (
+                    isChildActive || 
+                    location.pathname.startsWith('/kurikulum') || 
+                    location.pathname.startsWith('/institusi') || 
+                    location.pathname.startsWith('/mapel') ||
+                    location.pathname.startsWith('/jam-pelajaran')
+                ) {
                     initial[item.name] = true;
                 }
             }
@@ -99,7 +111,13 @@ export default function Sidebar({
                         location.pathname === child.to ||
                         location.pathname.startsWith(child.to)
                 );
-                if (isChildActive || location.pathname.startsWith('/kurikulum') || location.pathname.startsWith('/institusi') || location.pathname.startsWith('/mapel')) {
+                if (
+                    isChildActive || 
+                    location.pathname.startsWith('/kurikulum') || 
+                    location.pathname.startsWith('/institusi') || 
+                    location.pathname.startsWith('/mapel') ||
+                    location.pathname.startsWith('/jam-pelajaran')
+                ) {
                     setOpenMenus((prev) => ({ ...prev, [item.name]: true }));
                 }
             }
@@ -173,7 +191,8 @@ export default function Sidebar({
                                         location.pathname === child.to ||
                                         location.pathname.startsWith(child.to) ||
                                         (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
-                                        (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel'))
+                                        (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel')) ||
+                                        (child.to === '/kurikulum/jam-pelajaran' && (location.pathname === '/jam-pelajaran' || location.pathname === '/master/jam-pelajaran'))
                                 );
                                 const isOpen = !!openMenus[item.name];
 
@@ -217,7 +236,8 @@ export default function Sidebar({
                                                     const isThisActive =
                                                         location.pathname === child.to ||
                                                         (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
-                                                        (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel'));
+                                                        (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel')) ||
+                                                        (child.to === '/kurikulum/jam-pelajaran' && (location.pathname === '/jam-pelajaran' || location.pathname === '/master/jam-pelajaran'));
 
                                                     return (
                                                         <Link

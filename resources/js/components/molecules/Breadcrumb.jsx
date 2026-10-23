@@ -14,6 +14,7 @@ const ROUTE_LABELS = {
     institusi: 'Jenjang Pendidikan',
     guru: 'Guru & Pendidik',
     mapel: 'Mata Pelajaran',
+    'jam-pelajaran': 'Jam Pelajaran',
     siswa: 'Santri & Kenaikan Kelas',
     kelas: 'Kelas & Rombel',
     rombel: 'Kelas & Rombel',

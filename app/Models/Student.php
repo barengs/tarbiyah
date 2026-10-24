@@ -13,9 +13,45 @@ class Student extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
-        'born_at'  => 'date',
-        'is_mukim' => 'boolean',
+        'born_at'    => 'date',
+        'is_mukim'   => 'boolean',
+        'village_id' => 'integer',
+        'program_id' => 'integer',
+        'hostel_id'  => 'integer',
     ];
+
+    /**
+     * Accessor untuk nama lengkap santri.
+     */
+    public function getNameAttribute(): string
+    {
+        if (!empty($this->attributes['name'])) {
+            return $this->attributes['name'];
+        }
+        $full = trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+        return $full !== '' ? $full : ($this->nis ?? 'Santri');
+    }
+
+    /**
+     * Accessor NISN: Pada sistem ini, NIS merangkap sebagai NISN resmi.
+     */
+    public function getNisnAttribute(): ?string
+    {
+        return $this->nis;
+    }
+
+    /**
+     * Mutator agar penyimpanan nama otomatis mengisi first_name & last_name jika belum terisi.
+     */
+    public function setNameAttribute($value): void
+    {
+        $this->attributes['name'] = $value;
+        if (empty($this->attributes['first_name']) && !empty($value)) {
+            $parts = explode(' ', trim($value), 2);
+            $this->attributes['first_name'] = $parts[0] ?? $value;
+            $this->attributes['last_name']  = $parts[1] ?? null;
+        }
+    }
 
     public function scopeMukim($query)
     {
@@ -29,7 +65,7 @@ class Student extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('status', 'aktif');
+        return $query->whereIn('status', ['Aktif', 'aktif']);
     }
 
     public function studentClasses()
@@ -39,7 +75,7 @@ class Student extends Model
 
     public function activeClass()
     {
-        return $this->hasOne(StudentClass::class)->where('status', 'aktif');
+        return $this->hasOne(StudentClass::class)->whereIn('status', ['Aktif', 'aktif']);
     }
 
     public function classGroups()

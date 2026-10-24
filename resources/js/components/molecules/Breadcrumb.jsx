@@ -46,8 +46,9 @@ export default function Breadcrumb({ items, className = '' }) {
     if (crumbs.length <= 1) {
         return (
             <div className={`flex items-center gap-1.5 text-sm ${className}`}>
-                <Home className="w-3.5 h-3.5 text-slate-400" />
-                <span className="font-semibold text-slate-700">{crumbs[0]?.label}</span>
+                <span className="text-slate-500 font-medium">Sistem Akademik</span>
+                <span className="text-slate-300 font-normal">/</span>
+                <span className="font-semibold text-slate-800">Konsol Mudir</span>
             </div>
         );
     }

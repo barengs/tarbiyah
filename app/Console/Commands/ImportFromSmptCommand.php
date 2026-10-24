@@ -171,34 +171,34 @@ class ImportFromSmptCommand extends Command
                 $fullName = 'Santri ' . $s->nis;
             }
 
-            // Pemetaan status enum smpt -> tarbiyah
-            $statusMap = [
-                'aktif'        => 'aktif',
-                'lulus'        => 'lulus',
-                'mutasi'       => 'mutasi',
-                'keluar'       => 'keluar',
-                'tugas'        => 'aktif',
-                'dikeluarkan'  => 'keluar',
-                'tidak aktif'  => 'keluar',
-            ];
-            $rawStatus = strtolower($s->status ?? 'aktif');
-            $status = $statusMap[$rawStatus] ?? 'aktif';
-
             Student::updateOrCreate(
                 ['nis' => $s->nis],
                 [
-                    'santri_id'    => $s->id,
-                    'name'         => $fullName,
-                    'nik'          => $s->nik ?? null,
-                    'gender'       => in_array($s->gender ?? 'L', ['L', 'P']) ? $s->gender : 'L',
-                    'is_mukim'     => true, // Dari SMPT selalu Santri Mukim Pesantren
-                    'born_in'      => $s->born_in ?? null,
-                    'born_at'      => $s->born_at ?? null,
-                    'parent_name'  => null,
-                    'parent_phone' => $s->phone ?? null,
-                    'address'      => $s->address ?? null,
-                    'photo'        => $s->photo ?? null,
-                    'status'       => $status,
+                    'santri_id'      => $s->id,
+                    'parent_id'      => $s->parent_id ?? null, // NIK Wali Santri
+                    'period'         => $s->period ?? null,
+                    'nik'            => $s->nik ?? null,
+                    'kk'             => $s->kk ?? null,
+                    'first_name'     => $s->first_name ?? null,
+                    'last_name'      => $s->last_name ?? null,
+                    'name'           => $fullName,
+                    'gender'         => in_array($s->gender ?? 'L', ['L', 'P']) ? $s->gender : 'L',
+                    'is_mukim'       => true, // Dari SMPT selalu Santri Mukim Pesantren
+                    'born_in'        => $s->born_in ?? null,
+                    'born_at'        => $s->born_at ?? null,
+                    'last_education' => $s->last_education ?? null,
+                    'village_id'     => $s->village_id ?? null, // Laravolt Indonesia ID
+                    'village'        => $s->village ?? null,
+                    'district'       => $s->district ?? null,
+                    'postal_code'    => $s->postal_code ?? null,
+                    'phone'          => $s->phone ?? null,
+                    'parent_name'    => null,
+                    'parent_phone'   => null,
+                    'address'        => $s->address ?? null,
+                    'hostel_id'      => $s->hostel_id ?? null,
+                    'program_id'     => $s->program_id ?? null,
+                    'photo'          => $s->photo ?? null,
+                    'status'         => $s->status ?? 'Aktif',
                 ]
             );
             $count++;

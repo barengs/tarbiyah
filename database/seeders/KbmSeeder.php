@@ -12,6 +12,7 @@ use App\Models\Study;
 use App\Models\Teacher;
 use App\Models\LessonHour;
 use App\Models\AcademicYear;
+use App\Models\Classroom;
 
 class KbmSeeder extends Seeder
 {
@@ -163,7 +164,7 @@ class KbmSeeder extends Seeder
                     'study_id'         => $study->id,
                     'teacher_id'       => $teacher->id,
                     'lesson_hour_id'   => $h->id,
-                    'classroom_id'     => $classroom,
+                    'classroom_id'     => Classroom::where('id', $classroom)->exists() ? $classroom : ($rombel->classroom_id ?? Classroom::first()?->id),
                     'day'              => $day,
                     'is_active'        => true,
                 ]);

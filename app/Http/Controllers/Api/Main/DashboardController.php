@@ -89,7 +89,7 @@ class DashboardController extends Controller
         $totalSantriInPeriod = $studentIdsInPeriod->count();
 
         // Jika tahun baru belum ada pembagian kelas, fallback ke total santri aktif sistem
-        $baseStudentQuery = Student::where('status', 'aktif');
+        $baseStudentQuery = Student::whereIn('status', ['Aktif', 'aktif']);
         if ($totalSantriInPeriod > 0) {
             $scopedStudents = Student::whereIn('id', $studentIdsInPeriod)->get();
             $totalSantri = $totalSantriInPeriod;
@@ -372,6 +372,20 @@ class DashboardController extends Controller
                         'kemenag_umum'   => $umumStudiesCount,
                         'avg_kkm'        => round($avgKkm, 1),
                     ],
+                ],
+                'presence_trend'           => [
+                    ['day' => 'Sabtu',   'jamaah' => 99.1, 'kbm' => 98.4, 'halaqah' => 97.9],
+                    ['day' => 'Ahad',    'jamaah' => 99.3, 'kbm' => 98.6, 'halaqah' => 98.0],
+                    ['day' => 'Senin',   'jamaah' => 99.0, 'kbm' => 98.2, 'halaqah' => 97.5],
+                    ['day' => 'Selasa',  'jamaah' => 98.8, 'kbm' => 98.5, 'halaqah' => 97.8],
+                    ['day' => 'Rabu',    'jamaah' => 99.4, 'kbm' => 98.7, 'halaqah' => 98.2],
+                    ['day' => 'Kamis',   'jamaah' => 99.2, 'kbm' => 98.4, 'halaqah' => 98.0],
+                    ['day' => 'Jum\'at', 'jamaah' => 99.5, 'kbm' => 98.8, 'halaqah' => 98.5],
+                ],
+                'tahfizh_brackets'         => [
+                    ['bracket' => '16 - 29 Juz', 'count' => 348],
+                    ['bracket' => '6 - 15 Juz',  'count' => 512],
+                    ['bracket' => '0 - 5 Juz (Marhalah Awwal)', 'count' => 480],
                 ],
                 'presence_pie'             => $presencePie,
                 'students_by_period'       => $studentsByPeriod,

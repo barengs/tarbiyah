@@ -26,33 +26,18 @@ const NAVIGATION_ITEMS = [
         icon: LayoutDashboard,
     },
     {
-        name: 'Kurikulum',
-        icon: Layers,
+        name: 'Jenjang & Kurikulum',
+        icon: Building2,
         children: [
-            {
-                name: 'Tahun & Periode Triwulan',
-                to: '/kurikulum/tahun-akademik',
-                icon: Calendar,
-            },
             {
                 name: 'Jenjang Pendidikan',
                 to: '/kurikulum/jenjang',
                 icon: Building2,
             },
             {
-                name: 'Kelas',
-                to: '/kurikulum/kelas',
-                icon: GraduationCap,
-            },
-            {
-                name: 'Rombel',
-                to: '/kurikulum/rombel',
-                icon: Users,
-            },
-            {
-                name: 'Kenaikan Kelas',
-                to: '/kurikulum/kenaikan-kelas',
-                icon: TrendingUp,
+                name: 'Tahun & Periode Triwulan',
+                to: '/kurikulum/tahun-akademik',
+                icon: Calendar,
             },
             {
                 name: 'Mata Pelajaran',
@@ -64,18 +49,49 @@ const NAVIGATION_ITEMS = [
                 to: '/kurikulum/jam-pelajaran',
                 icon: Clock,
             },
+            {
+                name: 'Guru & Pendidik',
+                to: '/guru',
+                icon: GraduationCap,
+            },
         ],
     },
     {
-        name: 'Data Santri',
-        to: '/siswa',
-        icon: UserCheck,
+        name: 'Kelas & Rombel',
+        icon: Layers,
+        children: [
+            {
+                name: 'Tingkat Kelas',
+                to: '/kurikulum/kelas',
+                icon: Layers,
+            },
+            {
+                name: 'Rombongan Belajar (Rombel)',
+                to: '/kurikulum/rombel',
+                icon: Users,
+            },
+        ],
+    },
+    {
+        name: 'Santri & Kenaikan Kelas',
+        icon: Users,
+        children: [
+            {
+                name: 'Data Santri / Siswa',
+                to: '/siswa',
+                icon: UserCheck,
+            },
+            {
+                name: 'Kenaikan Kelas & Mutasi',
+                to: '/kurikulum/kenaikan-kelas',
+                icon: TrendingUp,
+            },
+        ],
     },
     {
         name: 'Jadwal Pelajaran & Halaqah',
         to: '/kbm',
-        icon: Calendar,
-    CalendarCheck2,
+        icon: Clock,
     },
     {
         name: 'Presensi & Disiplin',
@@ -184,9 +200,12 @@ export default function Sidebar({
                                         <span className="text-[15px] font-extrabold text-slate-900 tracking-tight leading-none">
                                             e-Panyeppen
                                         </span>
+                                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-300/40 leading-none">
+                                            Pro
+                                        </span>
                                     </div>
                                     <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-                                        Sistem Informasi Akademik
+                                        PesantrenPro • SIM Akademik
                                     </p>
                                 </div>
                             )}

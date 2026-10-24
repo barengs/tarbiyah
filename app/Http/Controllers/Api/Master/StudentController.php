@@ -258,18 +258,30 @@ class StudentController extends Controller
                 Student::updateOrCreate(
                     ['nis' => $item['nis']],
                     [
-                        'santri_id'    => $item['santri_id'] ?? null,
-                        'nik'          => $item['nik'] ?? null,
-                        'name'         => $item['name'],
-                        'gender'       => $item['gender'] ?? 'L',
-                        'is_mukim'     => true,
-                        'parent_name'  => $item['parent_name'] ?? null,
-                        'parent_phone' => $item['parent_phone'] ?? null,
-                        'address'      => $item['address'] ?? null,
-                        'born_in'      => $item['born_in'] ?? null,
-                        'born_at'      => $item['born_at'] ?? null,
-                        'photo'        => $item['photo'] ?? null,
-                        'status'       => 'aktif',
+                        'santri_id'      => $item['santri_id'] ?? null,
+                        'parent_id'      => $item['parent_id'] ?? null, // NIK Wali Santri
+                        'nik'            => $item['nik'] ?? null,
+                        'kk'             => $item['kk'] ?? null,
+                        'first_name'     => $item['first_name'] ?? null,
+                        'last_name'      => $item['last_name'] ?? null,
+                        'name'           => $item['name'] ?? null,
+                        'gender'         => $item['gender'] ?? 'L',
+                        'is_mukim'       => true,
+                        'village_id'     => $item['village_id'] ?? null,
+                        'village'        => $item['village'] ?? null,
+                        'district'       => $item['district'] ?? null,
+                        'postal_code'    => $item['postal_code'] ?? null,
+                        'phone'          => $item['phone'] ?? null,
+                        'parent_name'    => $item['parent_name'] ?? null,
+                        'parent_phone'   => $item['parent_phone'] ?? null,
+                        'address'        => $item['address'] ?? null,
+                        'born_in'        => $item['born_in'] ?? null,
+                        'born_at'        => $item['born_at'] ?? null,
+                        'last_education' => $item['last_education'] ?? null,
+                        'hostel_id'      => $item['hostel_id'] ?? null,
+                        'program_id'     => $item['program_id'] ?? null,
+                        'photo'          => $item['photo'] ?? null,
+                        'status'         => $item['status'] ?? 'Aktif',
                     ]
                 );
 
@@ -297,19 +309,31 @@ class StudentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nis'          => 'required|string|max:50|unique:students,nis',
-            'nisn'         => 'nullable|string|max:50',
-            'nik'          => 'nullable|string|max:30',
-            'name'         => 'required|string|max:255',
-            'gender'       => 'required|in:L,P',
-            'is_mukim'     => 'required|boolean', // false untuk siswa reguler luar
-            'santri_id'    => 'nullable|integer',
-            'born_in'      => 'nullable|string|max:255',
-            'born_at'      => 'nullable|date',
-            'parent_name'  => 'nullable|string|max:255',
-            'parent_phone' => 'nullable|string|max:30',
-            'address'      => 'nullable|string',
-            'status'       => 'nullable|in:aktif,lulus,mutasi,keluar',
+            'nis'            => 'required|string|max:50|unique:students,nis',
+            'santri_id'      => 'nullable|integer',
+            'parent_id'      => 'nullable|string|max:30', // NIK Wali Santri
+            'nik'            => 'nullable|string|max:30',
+            'kk'             => 'nullable|string|max:30',
+            'first_name'     => 'nullable|string|max:255',
+            'last_name'      => 'nullable|string|max:255',
+            'name'           => 'nullable|string|max:255',
+            'gender'         => 'required|in:L,P',
+            'is_mukim'       => 'required|boolean', // false untuk siswa reguler luar
+            'period'         => 'nullable|string|max:20',
+            'born_in'        => 'nullable|string|max:255',
+            'born_at'        => 'nullable|date',
+            'last_education' => 'nullable|string|max:255',
+            'village_id'     => 'nullable|integer',
+            'village'        => 'nullable|string|max:255',
+            'district'       => 'nullable|string|max:255',
+            'postal_code'    => 'nullable|string|max:10',
+            'phone'          => 'nullable|string|max:30',
+            'parent_name'    => 'nullable|string|max:255',
+            'parent_phone'   => 'nullable|string|max:30',
+            'address'        => 'nullable|string',
+            'hostel_id'      => 'nullable|integer',
+            'program_id'     => 'nullable|integer',
+            'status'         => 'nullable|string',
         ]);
 
         try {

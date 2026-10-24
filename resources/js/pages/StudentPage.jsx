@@ -3,13 +3,14 @@ import {
     useGetStudentsQuery, 
     useCreateStudentMutation, 
     useUpdateStudentMutation, 
-    useDeleteStudentMutation 
+    useDeleteStudentMutation,
+    usePullStudentsFromSmptMutation
 } from '../store/slices/studentApi';
 import DataTable from '../components/ui/DataTable';
 import FlatTabs from '../components/atoms/FlatTabs';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, Users, Home, School, Search, Info } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Home, School, Search, Info, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function StudentPage() {
@@ -31,6 +32,16 @@ export default function StudentPage() {
     const [createStudent, { isLoading: isCreating }] = useCreateStudentMutation();
     const [updateStudent, { isLoading: isUpdating }] = useUpdateStudentMutation();
     const [deleteStudent, { isLoading: isDeleting }] = useDeleteStudentMutation();
+    const [pullStudents, { isLoading: isPulling }] = usePullStudentsFromSmptMutation();
+
+    const handlePullFromSmpt = async () => {
+        try {
+            const res = await pullStudents().unwrap();
+            toast.success(res?.message || 'Data santri berhasil ditarik dari SMPT');
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal menarik data dari SMPT');
+        }
+    };
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
@@ -222,13 +233,24 @@ export default function StudentPage() {
                         Daftar seluruh siswa madrasah, memisahkan perlakuan santri mukim pesantren dan murid reguler luar (kalong).
                     </p>
                 </div>
-                <button
-                    onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
-                >
-                    <Plus className="w-4 h-4" />
-                    Daftar Siswa Luar
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handlePullFromSmpt}
+                        disabled={isPulling}
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold text-sm rounded-md hover:bg-slate-50 transition shadow-sm disabled:opacity-50"
+                        title="Tarik seluruh santri aktif dari sistem kepesantrenan (SMPT)"
+                    >
+                        <RefreshCw className={`w-4 h-4 text-emerald-600 ${isPulling ? "animate-spin" : ""}`} />
+                        {isPulling ? "Menarik Data..." : "Tarik Data dari SMPT"}
+                    </button>
+                    <button
+                        onClick={openCreateModal}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white font-semibold text-sm rounded-md hover:bg-emerald-800 transition shadow-sm"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Daftar Siswa Luar
+                    </button>
+                </div>
             </div>
 
             {/* Banner Penjelasan Dualitas Kesiswaan */}

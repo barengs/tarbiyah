@@ -9,6 +9,13 @@ export const studentApi = apiSlice.injectEndpoints({
             }),
             providesTags: ['Student'],
         }),
+        getUnassignedStudents: builder.query({
+            query: (params) => ({
+                url: 'master/students/unassigned',
+                params,
+            }),
+            providesTags: ['Student', 'StudentClass'],
+        }),
         createStudent: builder.mutation({
             query: (data) => ({
                 url: 'master/students',
@@ -32,12 +39,30 @@ export const studentApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: ['Student'],
         }),
+        bulkAssignStudents: builder.mutation({
+            query: (data) => ({
+                url: 'master/students/bulk-assign',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['Student', 'ClassGroup'],
+        }),
+        pullStudentsFromSmpt: builder.mutation({
+            query: () => ({
+                url: 'master/students/pull-from-smpt',
+                method: 'POST',
+            }),
+            invalidatesTags: ['Student'],
+        }),
     }),
 });
 
 export const {
     useGetStudentsQuery,
+    useGetUnassignedStudentsQuery,
     useCreateStudentMutation,
     useUpdateStudentMutation,
     useDeleteStudentMutation,
+    useBulkAssignStudentsMutation,
+    usePullStudentsFromSmptMutation,
 } = studentApi;

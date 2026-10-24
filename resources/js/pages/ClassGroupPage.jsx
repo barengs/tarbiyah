@@ -12,7 +12,8 @@ import {
 import { useGetInstitutionsQuery } from '../store/slices/institutionApi';
 import { useGetEducationClassesQuery } from '../store/slices/educationClassApi';
 import { useGetTeachersQuery } from '../store/slices/teacherApi';
-import { useGetStudentsQuery } from '../store/slices/studentApi';
+import { useGetStudentsQuery, useGetUnassignedStudentsQuery, useBulkAssignStudentsMutation } from '../store/slices/studentApi';
+import { CheckSquare, Square, Check, Filter } from 'lucide-react';
 import { useGetStudiesQuery } from '../store/slices/studyApi';
 import DataTable from '../components/ui/DataTable';
 import Modal from '../components/ui/Modal';
@@ -65,6 +66,18 @@ export default function ClassGroupPage() {
     const [addStudentToGroup] = useAddStudentToGroupMutation();
     const [removeStudentFromGroup] = useRemoveStudentFromGroupMutation();
     const [selectedStudentToAdd, setSelectedStudentToAdd] = useState('');
+    const [studentTab, setStudentTab] = useState('members'); // 'members' | 'unassigned'
+    const [unassignedGender, setUnassignedGender] = useState('');
+    const [unassignedSearch, setUnassignedSearch] = useState('');
+    const [selectedUnassignedIds, setSelectedUnassignedIds] = useState([]);
+    const [bulkAssignStudents, { isLoading: isBulkAssigning }] = useBulkAssignStudentsMutation();
+
+    const { data: unassignedData, refetch: refetchUnassigned } = useGetUnassignedStudentsQuery({
+        all: true,
+        ...(unassignedGender && { gender: unassignedGender }),
+        ...(unassignedSearch && { search: unassignedSearch }),
+    }, { skip: !selectedGroupForStudents || studentTab !== 'unassigned' });
+    const unassignedStudents = unassignedData?.data || [];
 
     const { data: allStudentsData } = useGetStudentsQuery();
     const allStudents = allStudentsData?.data || [];
@@ -464,63 +477,236 @@ export default function ClassGroupPage() {
             {/* Modal Kelola Anggota Siswa */}
             <Modal
                 open={!!selectedGroupForStudents}
-                title={`Anggota Rombel: ${selectedGroupForStudents?.name || ''}`}
-                onClose={() => setSelectedGroupForStudents(null)}
+                title={`Kelola Anggota Rombel: ${selectedGroupForStudents?.name || ''}`}
+                onClose={() => {
+                    setSelectedGroupForStudents(null);
+                    setSelectedUnassignedIds([]);
+                    setStudentTab('members');
+                }}
             >
                 <div className="space-y-4">
-                    <form onSubmit={handleAddStudent} className="flex gap-2">
-                        <select
-                            required
-                            value={selectedStudentToAdd}
-                            onChange={(e) => setSelectedStudentToAdd(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-xs bg-white"
-                        >
-                            <option value="">-- Pilih Siswa untuk Dimasukkan --</option>
-                            {allStudents.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.name} (NIS: {s.nis}) {s.is_mukim ? '[Santri Mukim]' : '[Luar]'}
-                                </option>
-                            ))}
-                        </select>
+                    {/* Sub Tab Pemilihan */}
+                    <div className="flex border-b border-slate-200">
                         <button
-                            type="submit"
-                            className="px-3.5 py-2 bg-emerald-600 text-white rounded-md text-xs font-semibold hover:bg-emerald-700 flex items-center gap-1 shrink-0"
+                            type="button"
+                            onClick={() => setStudentTab('members')}
+                            className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
+                                studentTab === 'members'
+                                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50'
+                                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
                         >
-                            <UserPlus className="w-4 h-4" /> Masukkan
+                            Anggota Aktif ({groupDetail?.student_classes?.filter((sc) => sc.status === 'aktif').length || 0})
                         </button>
-                    </form>
+                        <button
+                            type="button"
+                            onClick={() => setStudentTab('unassigned')}
+                            className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+                                studentTab === 'unassigned'
+                                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50'
+                                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
+                        >
+                            <span>+ Penempatan Santri Baru (Pool)</span>
+                            {unassignedStudents.length > 0 && (
+                                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-800">
+                                    {unassignedStudents.length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
 
-                    <div className="border border-slate-200 rounded-md divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                        {!groupDetail?.student_classes?.length ? (
-                            <div className="p-6 text-center text-xs text-slate-400">Belum ada siswa di kelas ini</div>
-                        ) : (
-                            groupDetail.student_classes.filter((sc) => sc.status === 'aktif').map((sc) => (
-                                <div key={sc.id} className="p-3 flex items-center justify-between text-xs">
-                                    <div>
-                                        <p className="font-bold text-slate-800">{sc.student?.name}</p>
-                                        <p className="text-slate-400 font-mono">NIS: {sc.student?.nis}</p>
-                                    </div>
+                    {studentTab === 'members' ? (
+                        <>
+                            <form onSubmit={handleAddStudent} className="flex gap-2">
+                                <select
+                                    required
+                                    value={selectedStudentToAdd}
+                                    onChange={(e) => setSelectedStudentToAdd(e.target.value)}
+                                    className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-xs bg-white"
+                                >
+                                    <option value="">-- Pilih Siswa Manual --</option>
+                                    {allStudents.map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.name} (NIS: {s.nis}) {s.is_mukim ? '[Santri Mukim]' : '[Luar]'}
+                                        </option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="submit"
+                                    className="px-3.5 py-2 bg-emerald-700 text-white rounded-md text-xs font-semibold hover:bg-emerald-800 flex items-center gap-1 shrink-0"
+                                >
+                                    <UserPlus className="w-4 h-4" /> Masukkan
+                                </button>
+                            </form>
+
+                            <div className="border border-slate-200 rounded-md divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                                {!groupDetail?.student_classes?.filter((sc) => sc.status === 'aktif').length ? (
+                                    <div className="p-6 text-center text-xs text-slate-400">Belum ada siswa aktif di rombel ini</div>
+                                ) : (
+                                    groupDetail.student_classes.filter((sc) => sc.status === 'aktif').map((sc) => (
+                                        <div key={sc.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition">
+                                            <div>
+                                                <p className="font-bold text-slate-800">{sc.student?.name}</p>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="text-slate-400 font-mono">NIS: {sc.student?.nis}</span>
+                                                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                                                        sc.student?.gender === 'L' ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'
+                                                    }`}>
+                                                        {sc.student?.gender === 'L' ? 'Banin' : 'Banat'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await removeStudentFromGroup({
+                                                            groupId: selectedGroupForStudents.id,
+                                                            studentId: sc.student_id,
+                                                        }).unwrap();
+                                                        toast.success('Siswa dikeluarkan dari rombel');
+                                                    } catch (err) {
+                                                        toast.error('Gagal mengeluarkan siswa');
+                                                    }
+                                                }}
+                                                className="text-slate-400 hover:text-rose-600 p-1.5 rounded hover:bg-rose-50 transition"
+                                                title="Keluarkan dari Rombel"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 flex items-center justify-between">
+                                <span>Menampilkan santri aktif yang <b>belum memiliki rombel</b> pada Tahun Akademik ini.</span>
+                                <span className="font-mono text-emerald-700 font-semibold">{unassignedStudents.length} santri</span>
+                            </div>
+
+                            {/* Filter bar */}
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Cari NIS atau Nama santri..."
+                                    value={unassignedSearch}
+                                    onChange={(e) => setUnassignedSearch(e.target.value)}
+                                    className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                                <div className="flex items-center gap-1 bg-white border border-slate-200 p-0.5 rounded">
                                     <button
-                                        onClick={async () => {
-                                            try {
-                                                await removeStudentFromGroup({
-                                                    groupId: selectedGroupForStudents.id,
-                                                    studentId: sc.student_id,
-                                                }).unwrap();
-                                                toast.success('Siswa dikeluarkan dari rombel');
-                                            } catch (err) {
-                                                toast.error('Gagal mengeluarkan siswa');
-                                            }
-                                        }}
-                                        className="text-slate-400 hover:text-rose-600 p-1"
-                                        title="Keluarkan dari Rombel"
+                                        type="button"
+                                        onClick={() => setUnassignedGender('')}
+                                        className={`px-2 py-1 text-[11px] rounded ${!unassignedGender ? 'bg-emerald-600 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
                                     >
-                                        <Trash2 className="w-4 h-4" />
+                                        Semua
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setUnassignedGender('L')}
+                                        className={`px-2 py-1 text-[11px] rounded ${unassignedGender === 'L' ? 'bg-emerald-600 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
+                                    >
+                                        Banin (L)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setUnassignedGender('P')}
+                                        className={`px-2 py-1 text-[11px] rounded ${unassignedGender === 'P' ? 'bg-emerald-600 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
+                                    >
+                                        Banat (P)
                                     </button>
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            </div>
+
+                            {/* Checklist santri */}
+                            <div className="border border-slate-200 rounded-md divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                                {unassignedStudents.length === 0 ? (
+                                    <div className="p-6 text-center text-xs text-slate-400">
+                                        Tidak ada santri yang belum memiliki rombel sesuai kriteria.
+                                    </div>
+                                ) : (
+                                    unassignedStudents.map((s) => {
+                                        const isChecked = selectedUnassignedIds.includes(s.id);
+                                        return (
+                                            <div
+                                                key={s.id}
+                                                onClick={() => {
+                                                    setSelectedUnassignedIds(prev => 
+                                                        prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                                                    );
+                                                }}
+                                                className={`p-2.5 flex items-center justify-between text-xs cursor-pointer transition ${
+                                                    isChecked ? 'bg-emerald-50/70 border-l-4 border-emerald-600' : 'hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2.5">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => {}} // handled by parent onClick
+                                                        className="rounded text-emerald-600 focus:ring-emerald-500 pointer-events-none"
+                                                    />
+                                                    <div>
+                                                        <p className="font-bold text-slate-800">{s.name}</p>
+                                                        <p className="text-slate-400 font-mono text-[11px]">NIS: {s.nis}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                                        s.gender === 'L' ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'
+                                                    }`}>
+                                                        {s.gender === 'L' ? 'Banin' : 'Banat'}
+                                                    </span>
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                                        {s.is_mukim ? 'Mukim' : 'Luar'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            {/* Action footer */}
+                            <div className="pt-2 flex items-center justify-between">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (selectedUnassignedIds.length === unassignedStudents.length) {
+                                            setSelectedUnassignedIds([]);
+                                        } else {
+                                            setSelectedUnassignedIds(unassignedStudents.map(s => s.id));
+                                        }
+                                    }}
+                                    className="text-xs text-slate-600 hover:text-emerald-700 underline font-medium"
+                                >
+                                    {selectedUnassignedIds.length === unassignedStudents.length ? 'Batalkan Pilihan Semua' : 'Pilih Semua Santri'}
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={selectedUnassignedIds.length === 0 || isBulkAssigning}
+                                    onClick={async () => {
+                                        try {
+                                            const res = await bulkAssignStudents({
+                                                class_group_id: selectedGroupForStudents.id,
+                                                student_ids: selectedUnassignedIds,
+                                            }).unwrap();
+                                            toast.success(res?.message || 'Santri berhasil ditempatkan ke rombel');
+                                            setSelectedUnassignedIds([]);
+                                            setStudentTab('members');
+                                        } catch (err) {
+                                            toast.error(err?.data?.message || 'Gagal menempatkan santri ke rombel');
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-emerald-700 text-white rounded-md text-xs font-semibold hover:bg-emerald-800 disabled:opacity-50 transition shadow-sm"
+                                >
+                                    {isBulkAssigning ? 'Memproses...' : `Tempatkan (${selectedUnassignedIds.length}) Santri Terpilih`}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </Modal>
 

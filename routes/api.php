@@ -84,6 +84,9 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
     Route::apiResource('teachers', TeacherController::class);
 
     // Data Siswa (Santri Mukim & Murid Reguler Luar)
+    Route::get('students/unassigned', [StudentController::class, 'unassigned']);
+    Route::post('students/bulk-assign', [StudentController::class, 'bulkAssign']);
+    Route::post('students/pull-from-smpt', [StudentController::class, 'pullFromSmpt']);
     Route::apiResource('students', StudentController::class);
 
     // Mata Pelajaran (Studies)

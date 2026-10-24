@@ -31,4 +31,21 @@ class Student extends Model
     {
         return $query->where('status', 'aktif');
     }
+
+    public function studentClasses()
+    {
+        return $this->hasMany(StudentClass::class);
+    }
+
+    public function activeClass()
+    {
+        return $this->hasOne(StudentClass::class)->where('status', 'aktif');
+    }
+
+    public function classGroups()
+    {
+        return $this->belongsToMany(ClassGroup::class, 'student_classes')
+            ->withPivot(['academic_year_id', 'educational_institution_id', 'joined_at', 'left_at', 'status', 'note'])
+            ->withTimestamps();
+    }
 }

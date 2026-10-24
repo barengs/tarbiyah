@@ -18,12 +18,17 @@ class InternalStudentController extends Controller
         $validated = $request->validate([
             'santri_id'    => 'required|integer',
             'nis'          => 'required|string|max:255',
+            'nik'          => 'nullable|string|max:30',
+            'nisn'         => 'nullable|string|max:50',
             'name'         => 'required|string|max:255',
             'gender'       => 'required|in:L,P',
             'status'       => 'nullable|string',
             'parent_name'  => 'nullable|string|max:255',
             'parent_phone' => 'nullable|string|max:30',
-            'address'      => 'nullable|string|max:255',
+            'address'      => 'nullable|string',
+            'born_in'      => 'nullable|string|max:255',
+            'born_at'      => 'nullable|date',
+            'photo'        => 'nullable|string',
         ]);
 
         try {
@@ -43,12 +48,17 @@ class InternalStudentController extends Controller
                 ['nis' => $validated['nis']],
                 [
                     'santri_id'    => $validated['santri_id'],
+                    'nik'          => $validated['nik'] ?? null,
+                    'nisn'         => $validated['nisn'] ?? null,
                     'name'         => $validated['name'],
                     'gender'       => $validated['gender'],
                     'is_mukim'     => true, // Santri dari SMPT selalu santri mukim
                     'parent_name'  => $validated['parent_name'] ?? null,
                     'parent_phone' => $validated['parent_phone'] ?? null,
                     'address'      => $validated['address'] ?? null,
+                    'born_in'      => $validated['born_in'] ?? null,
+                    'born_at'      => $validated['born_at'] ?? null,
+                    'photo'        => $validated['photo'] ?? null,
                     'status'       => $status,
                 ]
             );
@@ -76,15 +86,20 @@ class InternalStudentController extends Controller
     public function bulkSync(Request $request)
     {
         $validated = $request->validate([
-            'students'  => 'required|array',
+            'students'                 => 'required|array',
             'students.*.santri_id'    => 'required|integer',
             'students.*.nis'          => 'required|string|max:255',
+            'students.*.nik'          => 'nullable|string|max:30',
+            'students.*.nisn'         => 'nullable|string|max:50',
             'students.*.name'         => 'required|string|max:255',
             'students.*.gender'       => 'required|in:L,P',
             'students.*.status'       => 'nullable|string',
             'students.*.parent_name'  => 'nullable|string|max:255',
             'students.*.parent_phone' => 'nullable|string|max:30',
-            'students.*.address'      => 'nullable|string|max:255',
+            'students.*.address'      => 'nullable|string',
+            'students.*.born_in'      => 'nullable|string|max:255',
+            'students.*.born_at'      => 'nullable|date',
+            'students.*.photo'        => 'nullable|string',
         ]);
 
         $created = 0;
@@ -108,12 +123,17 @@ class InternalStudentController extends Controller
                 ['nis' => $data['nis']],
                 [
                     'santri_id'    => $data['santri_id'],
+                    'nik'          => $data['nik'] ?? null,
+                    'nisn'         => $data['nisn'] ?? null,
                     'name'         => $data['name'],
                     'gender'       => $data['gender'],
                     'is_mukim'     => true,
                     'parent_name'  => $data['parent_name'] ?? null,
                     'parent_phone' => $data['parent_phone'] ?? null,
                     'address'      => $data['address'] ?? null,
+                    'born_in'      => $data['born_in'] ?? null,
+                    'born_at'      => $data['born_at'] ?? null,
+                    'photo'        => $data['photo'] ?? null,
                     'status'       => $status,
                 ]
             );

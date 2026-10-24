@@ -1,8 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './slices/authSlice';
+import academicContextReducer from './slices/academicContextSlice';
 import { apiSlice } from './slices/apiSlice';
 
-// Import all slices for injectEndpoints registration
+// Import all API slices for injectEndpoints registration
+import './slices/academicApi';
 import './slices/institutionApi';
 import './slices/teacherApi';
 import './slices/studentApi';
@@ -17,6 +19,7 @@ import './slices/reportApi';
 export const store = configureStore({
     reducer: {
         auth: authReducer,
+        academicContext: academicContextReducer,
         [apiSlice.reducerPath]: apiSlice.reducer,
     },
     middleware: (getDefaultMiddleware) =>

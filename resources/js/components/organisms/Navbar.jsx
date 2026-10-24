@@ -1,7 +1,7 @@
 import React from 'react';
 import { PanelLeftClose, PanelLeftOpen, Menu } from 'lucide-react';
 import Breadcrumb from '../molecules/Breadcrumb';
-import HijriBadge from '../molecules/HijriBadge';
+import AcademicPeriodSelector from '../molecules/AcademicPeriodSelector';
 import NotificationBell from '../molecules/NotificationBell';
 import UserDropdown from '../molecules/UserDropdown';
 
@@ -10,7 +10,6 @@ export default function Navbar({
     onToggleCollapse,
     onOpenMobileMenu,
     breadcrumbItems,
-    academicMeta,
     notifications = [],
     className = '',
 }) {
@@ -18,9 +17,9 @@ export default function Navbar({
         <header
             className={`h-16 pl-2 sm:pl-2.5 pr-4 lg:pr-6 bg-white border-b border-slate-200/90 flex items-center justify-between gap-4 sticky top-0 z-30 shrink-0 ${className}`}
         >
-            {/* SISI KIRI: ICON TOGGLE SIDEBAR (MEPET KIRI, ICON-ONLY) & BREADCRUMB */}
+            {/* SISI KIRI: ICON TOGGLE SIDEBAR & BREADCRUMB */}
             <div className="flex items-center gap-1.5 min-w-0">
-                {/* 1. Toggle Sidebar Desktop: Icon murni tanpa border/box tebal */}
+                {/* 1. Toggle Sidebar Desktop: Icon murni */}
                 <button
                     type="button"
                     onClick={onToggleCollapse}
@@ -53,15 +52,10 @@ export default function Navbar({
                 <Breadcrumb items={breadcrumbItems} />
             </div>
 
-            {/* SISI KANAN: BADGE KALENDER HIJRIAH, NOTIFIKASI, & PROFIL */}
+            {/* SISI KANAN: SELECTOR PERIODE AKADEMIK (DROPDOWN REDUX), NOTIFIKASI, & PROFIL */}
             <div className="flex items-center gap-3 shrink-0">
-                {academicMeta && (
-                    <HijriBadge
-                        hijri={academicMeta.hijri || '14 Syawal 1446 H'}
-                        triwulan={academicMeta.triwulan_detail || academicMeta.triwulan || 'Triwulan IV (Syawal - Dzulhijjah)'}
-                        academicYear={academicMeta.hijri_year || '1446/1447 H'}
-                    />
-                )}
+                {/* DROPDOWN SELECTOR TAHUN AKADEMIK & TRIWULAN (GLOBAL SCOPE) */}
+                <AcademicPeriodSelector />
 
                 <NotificationBell items={notifications} />
 

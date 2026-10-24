@@ -1,8 +1,16 @@
 import React from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
-import { Users, ClipboardCheck, Layers, Calendar } from 'lucide-react';
+import {
+    Users,
+    ClipboardCheck,
+    Layers,
+    Calendar,
+    RotateCcw,
+    AlertCircle,
+} from 'lucide-react';
 import { useGetDashboardStatsQuery } from '../store/slices/dashboardApi';
+import { resetToSystemActive } from '../store/slices/academicContextSlice';
 import HeroBanner from '../components/organisms/HeroBanner';
 import MetricCard from '../components/molecules/MetricCard';
 import PresencePieChartCard from '../components/organisms/PresencePieChartCard';
@@ -14,15 +22,26 @@ import ProgressBar from '../components/atoms/ProgressBar';
 
 /**
  * KONSOL MUDIR: e-Panyeppen Pro Dashboard
- * Menggunakan sistem kalender Triwulan Hijriah pesantren:
- * - Jumlah Siswa Aktif
- * - Statistik Presensi dalam bentuk PieChart
- * - Program Tibyan (Takhossus) & Kubar (Ula, Wustho, Ulya)
- * - Jumlah Siswa Tiap Periode Triwulan
+ * Terhubung penuh dengan Redux Toolkit Academic Context (Navbar Dropdown)
+ * Menampilkan data spesifik sesuai Tahun Akademik & Triwulan yang dipilih
  */
 export default function Dashboard() {
+    const dispatch = useDispatch();
     const { user } = useSelector((state) => state.auth);
-    const { data: dashboardData, isLoading, isFetching } = useGetDashboardStatsQuery();
+
+    // Ambil pilihan periode akademik dari Redux Toolkit
+    const academicContext = useSelector((state) => state.academicContext);
+    const { selectedYearId, selectedQuarterId, isSystemActive } = academicContext;
+
+    // Fetch dashboard stats sesuai tahun dan triwulan yang dipilih di Navbar
+    const {
+        data: dashboardData,
+        isLoading,
+        isFetching,
+    } = useGetDashboardStatsQuery({
+        academic_year_id: selectedYearId,
+        academic_quarter_id: selectedQuarterId,
+    });
 
     const ov = dashboardData?.data?.overview || {};
     const academicMeta = dashboardData?.data?.academic_year || {};
@@ -45,8 +64,47 @@ export default function Dashboard() {
         },
     };
 
+    // Handler reset ke live
+    const handleResetLive = () => {
+        dispatch(
+            resetToSystemActive({
+                activeYearId: null,
+                activeYearName: '',
+                activeQuarterId: null,
+                activeQuarterName: '',
+            })
+        );
+        toast.success('Konteks dashboard dikembalikan ke Triwulan Aktif (Live)!');
+    };
+
     return (
         <div className="space-y-6 lg:space-y-8">
+            {/* ALERT BANNER: JIKA USER SEDANG MELIHAT ARSIP PERIODE HISTORIS */}
+            {!isSystemActive && (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-900 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+                    <div className="flex items-center gap-2.5">
+                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                        <div>
+                            <p className="text-xs sm:text-sm font-bold">
+                                Mode Tinjauan Arsip: {academicMeta?.full_label || 'Periode Sebelumnya'}
+                            </p>
+                            <p className="text-[11px] text-amber-800">
+                                Anda sedang meninjau data historis. Seluruh data di layar disaring berdasarkan periode ini.
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={handleResetLive}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-800 hover:bg-amber-900 text-white text-xs font-bold transition-colors shadow-2xs self-start sm:self-auto shrink-0"
+                    >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Kembali ke Periode Live</span>
+                    </button>
+                </div>
+            )}
+
             {/* 1. HERO BANNER MUDIR */}
             <HeroBanner
                 user={user}
@@ -59,7 +117,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                 {/* 1. TOTAL SANTRI AKTIF */}
                 <MetricCard
-                    label="Total Santri Aktif"
+                    label="Total Santri di Periode Ini"
                     value={ov.total_santri?.value?.toLocaleString() || '0'}
                     unit="Jiwa"
                     icon={Users}
@@ -119,21 +177,21 @@ export default function Dashboard() {
                     }
                 />
 
-                {/* 4. SISWA TIAP PERIODE TRIWULAN */}
+                {/* 4. PERIODE TRIWULAN TERPILIH */}
                 <MetricCard
-                    label="Santri Periode Triwulan"
+                    label="Periode Terpilih"
                     value={ov.total_santri?.value ?? 0}
                     unit="Santri"
                     icon={Calendar}
                     accent="blue"
                     stats={[
-                        { dot: 'bg-emerald-500', label: academicMeta?.triwulan || 'Triwulan IV (Syawal - Dzulhijjah)' },
+                        { dot: isSystemActive ? 'bg-emerald-500' : 'bg-amber-500', label: academicMeta?.triwulan || 'Triwulan IV' },
                     ]}
                     footer={
                         <div className="flex items-center justify-between text-xs text-slate-500">
-                            <span>Mapel Aktif (KKM {ov.curriculum?.avg_kkm ?? 80})</span>
+                            <span>Tahun Akademik</span>
                             <span className="text-slate-900 font-bold">
-                                {ov.curriculum?.total_subjects ?? 0} Mapel
+                                {academicMeta?.year || '1446-1447'}
                             </span>
                         </div>
                     }
@@ -177,7 +235,7 @@ export default function Dashboard() {
             {isFetching && (
                 <p className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Menyinkronkan data statistik riil dari server akademik...
+                    Menyinkronkan data statistik riil untuk {academicMeta?.full_label || 'periode terpilih'}...
                 </p>
             )}
         </div>

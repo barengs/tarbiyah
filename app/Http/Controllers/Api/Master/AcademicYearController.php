@@ -11,53 +11,87 @@ use Illuminate\Support\Facades\Log;
 
 class AcademicYearController extends Controller
 {
+    /**
+     * Mengambil daftar seluruh tahun akademik beserta sub-akademik triwulannya
+     */
     public function index()
     {
         try {
-            $years = AcademicYear::with('quarters')->orderBy('year', 'desc')->get();
+            $years = AcademicYear::with('quarters')
+                ->where('type', '!=', 'semester') // Fokus pada kalender triwulan pesantren
+                ->orderBy('year', 'desc')
+                ->get();
+
+            if ($years->isEmpty()) {
+                $years = AcademicYear::with('quarters')->orderBy('year', 'desc')->get();
+            }
+
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Data tahun ajaran berhasil diambil',
+                'message' => 'Data tahun akademik berhasil diambil',
                 'data'    => $years,
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error retrieving academic years: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Gagal mengambil data tahun ajaran',
+                'message' => 'Gagal mengambil data tahun akademik',
             ], 500);
         }
     }
 
+    /**
+     * Mengambil tahun akademik aktif beserta triwulan aktifnya
+     */
     public function active()
     {
-        $year = AcademicYear::with('quarters')->where('active', true)->first();
+        $year = AcademicYear::with('quarters')
+            ->where('active', true)
+            ->where('type', 'triwulan')
+            ->first();
+
+        if (!$year) {
+            $year = AcademicYear::with('quarters')->where('active', true)->first();
+        }
 
         if (!$year) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Belum ada tahun ajaran yang aktif',
+                'message' => 'Belum ada tahun akademik yang aktif',
             ], 404);
         }
 
+        $activeQuarter = AcademicQuarter::where('academic_year_id', $year->id)
+            ->where('active', true)
+            ->first();
+
         return response()->json([
             'status'  => 'success',
-            'message' => 'Tahun ajaran aktif berhasil diambil',
-            'data'    => $year,
+            'message' => 'Tahun akademik aktif berhasil diambil',
+            'data'    => [
+                'year'           => $year,
+                'active_quarter' => $activeQuarter,
+                'full_label'     => $activeQuarter ? "Tahun Akademik {$year->year} {$activeQuarter->name}" : "Tahun Akademik {$year->year}",
+            ],
         ], 200);
     }
 
+    /**
+     * Buat tahun akademik baru dan otomatis generate 4 Sub-Akademik Triwulan Pesantren
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'year'        => 'required|string|max:9|unique:academic_years,year',
-            'type'        => 'nullable|in:semester,triwulan,custom',
-            'periode'     => 'nullable|in:ganjil,genap,pendek',
+            'year'        => 'required|string|max:20|unique:academic_years,year',
+            'type'        => 'nullable|string',
+            'periode'     => 'nullable|string',
             'start_date'  => 'required|date',
-            'end_date'    => 'required|date|after:start_date',
+            'end_date'    => 'required|date|after_or_equal:start_date',
             'active'      => 'nullable|boolean',
             'description' => 'nullable|string',
         ]);
+
+        $validated['type'] = 'triwulan';
 
         try {
             DB::beginTransaction();
@@ -68,26 +102,29 @@ class AcademicYearController extends Controller
 
             $year = AcademicYear::create($validated);
 
-            // Auto-create quarters if type is semester
-            if (($validated['type'] ?? 'semester') === 'semester') {
-                $startDate = \Carbon\Carbon::parse($validated['start_date']);
-                $endDate = \Carbon\Carbon::parse($validated['end_date']);
-                $midDate = $startDate->copy()->addMonths(6);
+            // Otomatis buat 4 Sub-Akademik Triwulan Pesantren
+            $startDate = \Carbon\Carbon::parse($validated['start_date']);
+            $endDate = \Carbon\Carbon::parse($validated['end_date']);
+            $totalDays = $startDate->diffInDays($endDate);
+            $quarterDays = max(80, (int) round($totalDays / 4));
+
+            $triwulanDefinitions = [
+                ['name' => 'Triwulan I (Muharram - Rabi\'ul Awwal)', 'idx' => 0],
+                ['name' => 'Triwulan II (Rabi\'ul Akhir - Jumadil Akhir)', 'idx' => 1],
+                ['name' => 'Triwulan III (Rajab - Ramadhan)', 'idx' => 2],
+                ['name' => 'Triwulan IV (Syawal - Dzulhijjah)', 'idx' => 3],
+            ];
+
+            foreach ($triwulanDefinitions as $t) {
+                $qStart = $startDate->copy()->addDays($t['idx'] * $quarterDays);
+                $qEnd = $t['idx'] === 3 ? $endDate : $qStart->copy()->addDays($quarterDays - 1);
 
                 AcademicQuarter::create([
                     'academic_year_id' => $year->id,
-                    'name'             => 'Semester Ganjil',
-                    'start_date'       => $startDate,
-                    'end_date'         => $midDate,
-                    'active'           => true,
-                ]);
-
-                AcademicQuarter::create([
-                    'academic_year_id' => $year->id,
-                    'name'             => 'Semester Genap',
-                    'start_date'       => $midDate->copy()->addDay(),
-                    'end_date'         => $endDate,
-                    'active'           => false,
+                    'name'             => $t['name'],
+                    'start_date'       => $qStart,
+                    'end_date'         => $qEnd,
+                    'active'           => !empty($validated['active']) && $t['idx'] === 0, // Default Triwulan I aktif jika tahun aktif
                 ]);
             }
 
@@ -95,7 +132,7 @@ class AcademicYearController extends Controller
 
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Tahun ajaran berhasil dibuat beserta semesternya',
+                'message' => "Tahun akademik {$year->year} beserta 4 periode triwulan berhasil dibuat",
                 'data'    => $year->load('quarters'),
             ], 201);
         } catch (\Exception $e) {
@@ -103,11 +140,14 @@ class AcademicYearController extends Controller
             Log::error('Error creating academic year: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Gagal membuat tahun ajaran: ' . $e->getMessage(),
+                'message' => 'Gagal membuat tahun akademik: ' . $e->getMessage(),
             ], 500);
         }
     }
 
+    /**
+     * Jadikan tahun akademik aktif
+     */
     public function setActive(string $id)
     {
         $year = AcademicYear::find($id);
@@ -115,7 +155,7 @@ class AcademicYearController extends Controller
         if (!$year) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Tahun ajaran tidak ditemukan',
+                'message' => 'Tahun akademik tidak ditemukan',
             ], 404);
         }
 
@@ -123,11 +163,18 @@ class AcademicYearController extends Controller
             DB::beginTransaction();
             AcademicYear::query()->update(['active' => false]);
             $year->update(['active' => true]);
+
+            // Jika belum ada triwulan yang aktif di tahun ini, aktifkan triwulan pertama atau triwulan IV
+            $hasActiveQuarter = AcademicQuarter::where('academic_year_id', $year->id)->where('active', true)->exists();
+            if (!$hasActiveQuarter) {
+                AcademicQuarter::where('academic_year_id', $year->id)->orderBy('id', 'asc')->first()?->update(['active' => true]);
+            }
+
             DB::commit();
 
             return response()->json([
                 'status'  => 'success',
-                'message' => "Tahun ajaran {$year->year} berhasil diaktifkan",
+                'message' => "Tahun akademik {$year->year} berhasil diaktifkan",
                 'data'    => $year->fresh('quarters'),
             ], 200);
         } catch (\Exception $e) {
@@ -135,7 +182,7 @@ class AcademicYearController extends Controller
             Log::error('Error activating academic year: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Gagal mengaktifkan tahun ajaran',
+                'message' => 'Gagal mengaktifkan tahun akademik',
             ], 500);
         }
     }
@@ -147,13 +194,13 @@ class AcademicYearController extends Controller
         if (!$year) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Tahun ajaran tidak ditemukan',
+                'message' => 'Tahun akademik tidak ditemukan',
             ], 404);
         }
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Detail tahun ajaran berhasil diambil',
+            'message' => 'Detail tahun akademik berhasil diambil',
             'data'    => $year,
         ], 200);
     }
@@ -165,16 +212,16 @@ class AcademicYearController extends Controller
         if (!$year) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Tahun ajaran tidak ditemukan',
+                'message' => 'Tahun akademik tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
-            'year'        => 'sometimes|required|string|max:9|unique:academic_years,year,' . $id,
-            'type'        => 'nullable|in:semester,triwulan,custom',
-            'periode'     => 'nullable|in:ganjil,genap,pendek',
+            'year'        => 'sometimes|required|string|max:20|unique:academic_years,year,' . $id,
+            'type'        => 'nullable|string',
+            'periode'     => 'nullable|string',
             'start_date'  => 'sometimes|required|date',
-            'end_date'    => 'sometimes|required|date|after:start_date',
+            'end_date'    => 'sometimes|required|date|after_or_equal:start_date',
             'active'      => 'nullable|boolean',
             'description' => 'nullable|string',
         ]);
@@ -189,7 +236,7 @@ class AcademicYearController extends Controller
 
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Tahun ajaran berhasil diperbarui',
+                'message' => 'Tahun akademik berhasil diperbarui',
                 'data'    => $year->fresh('quarters'),
             ], 200);
         } catch (\Exception $e) {
@@ -197,7 +244,7 @@ class AcademicYearController extends Controller
             Log::error('Error updating academic year: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Gagal memperbarui tahun ajaran',
+                'message' => 'Gagal memperbarui tahun akademik',
             ], 500);
         }
     }
@@ -209,21 +256,27 @@ class AcademicYearController extends Controller
         if (!$year) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Tahun ajaran tidak ditemukan',
+                'message' => 'Tahun akademik tidak ditemukan',
             ], 404);
         }
 
         try {
+            DB::beginTransaction();
+            // Hapus juga quarters terkait
+            AcademicQuarter::where('academic_year_id', $year->id)->delete();
             $year->delete();
+            DB::commit();
+
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Tahun ajaran berhasil dihapus',
+                'message' => 'Tahun akademik beserta periode triwulannya berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Error deleting academic year: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Gagal menghapus tahun ajaran',
+                'message' => 'Gagal menghapus tahun akademik',
             ], 500);
         }
     }

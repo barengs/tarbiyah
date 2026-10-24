@@ -8,6 +8,7 @@ import {
     Users,
     TrendingUp,
     UserCheck,
+    Calendar,
     CalendarCheck2,
     ClipboardCheck,
     ScrollText,
@@ -28,6 +29,11 @@ const NAVIGATION_ITEMS = [
         name: 'Kurikulum',
         icon: Layers,
         children: [
+            {
+                name: 'Tahun & Periode Triwulan',
+                to: '/kurikulum/tahun-akademik',
+                icon: Calendar,
+            },
             {
                 name: 'Jenjang Pendidikan',
                 to: '/kurikulum/jenjang',
@@ -68,7 +74,8 @@ const NAVIGATION_ITEMS = [
     {
         name: 'Jadwal Pelajaran & Halaqah',
         to: '/kbm',
-        icon: CalendarCheck2,
+        icon: Calendar,
+    CalendarCheck2,
     },
     {
         name: 'Presensi & Disiplin',
@@ -208,7 +215,8 @@ export default function Sidebar({
                                     (child) =>
                                         location.pathname === child.to ||
                                         location.pathname.startsWith(child.to) ||
-                                        (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
+                                        (child.to === '/kurikulum/tahun-akademik' && (location.pathname === '/kurikulum/triwulan' || location.pathname === '/master/tahun-akademik' || location.pathname === '/tahun-akademik')) ||
+                                                        (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
                                         (child.to === '/kurikulum/kelas' && (location.pathname === '/kelas' || location.pathname === '/master/kelas')) ||
                                         (child.to === '/kurikulum/rombel' && (location.pathname === '/rombel' || location.pathname === '/master/rombel')) ||
                                         (child.to === '/kurikulum/kenaikan-kelas' && (location.pathname === '/kenaikan-kelas' || location.pathname === '/master/kenaikan-kelas')) ||
@@ -256,6 +264,7 @@ export default function Sidebar({
                                                     const ChildIcon = child.icon;
                                                     const isThisActive =
                                                         location.pathname === child.to ||
+                                                        (child.to === '/kurikulum/tahun-akademik' && (location.pathname === '/kurikulum/triwulan' || location.pathname === '/master/tahun-akademik' || location.pathname === '/tahun-akademik')) ||
                                                         (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
                                                         (child.to === '/kurikulum/kelas' && (location.pathname === '/kelas' || location.pathname === '/master/kelas')) ||
                                                         (child.to === '/kurikulum/rombel' && (location.pathname === '/rombel' || location.pathname === '/master/rombel')) ||

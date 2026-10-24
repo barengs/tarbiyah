@@ -10,6 +10,7 @@ import AuthMonitor from './components/AuthMonitor';
 import Dashboard from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';
 import InstitutionPage from './pages/master/InstitutionPage';
+import AcademicYearPage from './pages/master/AcademicYearPage';
 import EducationClassPage from './pages/master/EducationClassPage';
 import ClassGroupPage from './pages/ClassGroupPage';
 import ClassPromotionPage from './pages/ClassPromotionPage';
@@ -38,6 +39,10 @@ const App = () => {
                             
                             {/* Modul Kurikulum & Sub-menu */}
                             <Route path="kurikulum" element={<Navigate to="/kurikulum/jenjang" replace />} />
+                            <Route path="kurikulum/tahun-akademik" element={<AcademicYearPage />} />
+                            <Route path="kurikulum/triwulan" element={<AcademicYearPage />} />
+                            <Route path="master/tahun-akademik" element={<AcademicYearPage />} />
+                            <Route path="tahun-akademik" element={<AcademicYearPage />} />
                             <Route path="kurikulum/jenjang" element={<InstitutionPage />} />
                             <Route path="kurikulum/kelas" element={<EducationClassPage />} />
                             <Route path="kurikulum/rombel" element={<ClassGroupPage />} />

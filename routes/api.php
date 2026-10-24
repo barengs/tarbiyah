@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Master\EducationalInstitutionController;
 use App\Http\Controllers\Api\Master\EducationController;
 use App\Http\Controllers\Api\Master\AcademicYearController;
+use App\Http\Controllers\Api\Master\AcademicQuarterController;
 use App\Http\Controllers\Api\Master\TeacherController;
 use App\Http\Controllers\Api\Master\StudentController;
 use App\Http\Controllers\Api\Master\StudyController;
@@ -74,6 +75,10 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
     Route::get('academic-years/active', [AcademicYearController::class, 'active']);
     Route::patch('academic-years/{id}/set-active', [AcademicYearController::class, 'setActive']);
     Route::apiResource('academic-years', AcademicYearController::class);
+
+    // Periode Pendidikan Triwulan (Sub-Akademik Pesantren)
+    Route::patch('academic-quarters/{id}/set-active', [AcademicQuarterController::class, 'setActive']);
+    Route::apiResource('academic-quarters', AcademicQuarterController::class);
 
     // Data Guru (Guru Pesantren & Guru Luar)
     Route::apiResource('teachers', TeacherController::class);

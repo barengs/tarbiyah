@@ -1,7 +1,8 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../atoms/Card';
 import Badge from '../atoms/Badge';
-import { Calendar } from 'lucide-react';
+import { Calendar, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 /**
  * Organism Jumlah Siswa Tiap Periode Triwulan
@@ -20,10 +21,15 @@ export default function AcademicPeriodStudentsCard({
                         Monitoring santri aktif per periode Triwulan kalender Hijriah pesantren
                     </CardDescription>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-md font-semibold">
+                <Link
+                    to="/kurikulum/tahun-akademik"
+                    className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 px-2.5 py-1 rounded-md font-semibold transition-colors shrink-0"
+                    title="Buka Data Master Tahun Akademik & Periode Triwulan"
+                >
                     <Calendar className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Kalender Triwulan</span>
-                </div>
+                    <span>Kelola Triwulan</span>
+                    <ExternalLink className="w-2.5 h-2.5 text-emerald-600" />
+                </Link>
             </CardHeader>
 
             <CardContent className="pt-3 pb-5 flex-1">
@@ -38,8 +44,8 @@ export default function AcademicPeriodStudentsCard({
                                 key={period.id}
                                 className={`p-3.5 rounded-lg border transition-all flex items-center justify-between gap-3 ${
                                     period.is_active
-                                        ? 'bg-emerald-50/60 border-emerald-300 shadow-sm'
-                                        : 'bg-slate-50/60 border-slate-200/80'
+                                        ? 'bg-emerald-50/60 border-emerald-300 shadow-sm ring-1 ring-emerald-200/50'
+                                        : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-50'
                                 }`}
                             >
                                 <div className="space-y-1">
@@ -54,7 +60,7 @@ export default function AcademicPeriodStudentsCard({
                                         )}
                                     </div>
                                     <p className="text-[11px] text-slate-500">
-                                        Tahun Ajaran: {period.year} • Sistem Triwulan Pesantren
+                                        Tahun Akademik: <strong>{period.year}</strong> • Sub-Akademik Triwulan
                                     </p>
                                 </div>
 

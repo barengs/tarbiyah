@@ -223,10 +223,11 @@ class StudentController extends Controller
     }
 
     /**
-     * Tarik data santri aktif dari SMPT secara on-demand (Pull Mechanism).
-     * Menggunakan header X-Internal-Key.
+     * Pratinjau penarikan data santri dari SMPT sebelum dieksekusi.
+     * Menghitung total santri di SMPT, santri baru, santri existing,
+     * serta mengaudit data gender (santri saat ini 100% Banin / L).
      */
-    public function pullFromSmpt(Request $request)
+    public function previewPullFromSmpt(Request $request)
     {
         $smptCoreUrl = config('services.smpt.core_url', 'http://localhost:8000');
         $internalKey = config('services.smpt.internal_key', 'smpt-tarbiyah-internal-secret-2026');
@@ -245,43 +246,176 @@ class StudentController extends Controller
             }
 
             $students = $response->json('data', []);
-            $created = 0;
-            $updated = 0;
+            $totalSmpt = count($students);
+
+            // Cek santri yang sudah ada di Tarbiyah berdasarkan NIS
+            $existingNisMap = Student::pluck('id', 'nis')->all();
+            $alreadyInTarbiyah = 0;
+            $newStudentsCount = 0;
+            $femaleAnomalyCount = 0;
+            $baninCount = 0;
+
+            $previewList = [];
 
             foreach ($students as $item) {
                 if (empty($item['nis'])) {
                     continue;
                 }
 
-                $existing = Student::where('nis', $item['nis'])->first();
+                $nis = trim($item['nis']);
+                $isNew = !isset($existingNisMap[$nis]);
+                if ($isNew) {
+                    $newStudentsCount++;
+                } else {
+                    $alreadyInTarbiyah++;
+                }
+
+                // Audit jenis kelamin: Santri saat ini TIDAK ADA perempuan.
+                // Jika ada 'P' / 'Perempuan', tandai sebagai kesalahan algoritma!
+                $rawGender = strtoupper(trim($item['gender'] ?? 'L'));
+                if ($rawGender === 'P' || $rawGender === 'PEREMPUAN') {
+                    $femaleAnomalyCount++;
+                } else {
+                    $baninCount++;
+                }
+
+                // Masukkan sampel preview (maksimal 10 baris)
+                if (count($previewList) < 10) {
+                    $previewList[] = [
+                        'santri_id'   => $item['santri_id'] ?? null,
+                        'nis'         => $nis,
+                        'nik'         => !empty($item['nik']) ? ltrim(trim($item['nik']), "'\"") : null,
+                        'name'        => $item['name'] ?? 'Santri',
+                        'gender'      => 'L', // Seluruh santri dipastikan Banin (L)
+                        'raw_gender'  => $rawGender,
+                        'is_anomaly'  => ($rawGender === 'P' || $rawGender === 'PEREMPUAN'),
+                        'village'     => $item['village'] ?? $item['address'] ?? '-',
+                        'is_new'      => $isNew,
+                    ];
+                }
+            }
+
+            $hasAnomaly = $femaleAnomalyCount > 0;
+            $anomalyMessage = $hasAnomaly 
+                ? "Terdeteksi {$femaleAnomalyCount} data berindikasi jenis kelamin perempuan (kesalahan algoritma). Sesuai ketentuan pesantren saat ini seluruh santri adalah Banin (L). Sistem otomatis menstandarkan menjadi Banin (L)."
+                : null;
+
+            return response()->json([
+                'status' => 'success',
+                'data'   => [
+                    'total_smpt'           => $totalSmpt,
+                    'already_in_tarbiyah'  => $alreadyInTarbiyah,
+                    'new_students'         => $newStudentsCount,
+                    'banin_count'          => $baninCount,
+                    'female_anomaly_count' => $femaleAnomalyCount,
+                    'has_female_anomaly'   => $hasAnomaly,
+                    'anomaly_message'      => $anomalyMessage,
+                    'preview_sample'       => $previewList,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error previewing students from SMPT: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Terjadi kesalahan saat memuat pratinjau data dari SMPT: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Tarik data santri aktif dari SMPT secara on-demand (Pull Mechanism).
+     * Menggunakan header X-Internal-Key.
+     */
+    public function pullFromSmpt(Request $request)
+    {
+        $smptCoreUrl = config('services.smpt.core_url', 'http://localhost:8000');
+        $internalKey = config('services.smpt.internal_key', 'smpt-tarbiyah-internal-secret-2026');
+
+        try {
+            $response = Http::timeout(15)->withHeaders([
+                'X-Internal-Key' => $internalKey,
+                'Accept'         => 'application/json',
+            ])->get("{$smptCoreUrl}/api/internal/students/active");
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Gagal menghubungi SMPT: ' . $response->body(),
+                ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
+            }
+
+            $students = $response->json('data', []);
+            $created = 0;
+            $updated = 0;
+            $anomalyCount = 0;
+
+            foreach ($students as $item) {
+                if (empty($item['nis'])) {
+                    continue;
+                }
+
+                $nis = trim($item['nis']);
+                $existing = Student::where('nis', $nis)->first();
+
+                // Validasi & sanitasi tanggal lahir
+                $bornAt = null;
+                if (!empty($item['born_at'])) {
+                    $ts = strtotime($item['born_at']);
+                    if ($ts !== false && $ts > 0) {
+                        $parsedDate = date('Y-m-d', $ts);
+                        if ($parsedDate >= '1970-01-01' && $parsedDate <= date('Y-m-d')) {
+                            $bornAt = $parsedDate;
+                        }
+                    }
+                }
+
+                // Sanitasi NIK, KK, & Telepon
+                $nik = !empty($item['nik']) ? ltrim(trim($item['nik']), "'\"") : null;
+                $kk  = !empty($item['kk']) ? ltrim(trim($item['kk']), "'\"") : null;
+                $phone = !empty($item['parent_phone']) ? ltrim(trim($item['parent_phone']), "'\"") : null;
+                if ($phone === '0822________' || $phone === '085_________') {
+                    $phone = null;
+                }
+
+                // Validasi Gender: SANTRI 100% BANIN (L).
+                // Jika data raw tertulis P/perempuan, itu kesalahan algoritma dan distandarkan ke L.
+                $rawGender = strtoupper(trim($item['gender'] ?? 'L'));
+                if ($rawGender === 'P' || $rawGender === 'PEREMPUAN') {
+                    $anomalyCount++;
+                }
+                $gender = 'L'; // Tegakkan Laki-laki / Banin
+
+                $parts = explode(' ', trim($item['name'] ?? ''), 2);
+                $firstName = !empty($item['first_name']) ? trim($item['first_name']) : ($parts[0] ?? $nis);
+                $lastName  = !empty($item['last_name']) ? trim($item['last_name']) : ($parts[1] ?? null);
 
                 Student::updateOrCreate(
-                    ['nis' => $item['nis']],
+                    ['nis' => $nis],
                     [
                         'santri_id'      => $item['santri_id'] ?? null,
                         'parent_id'      => $item['parent_id'] ?? null, // NIK Wali Santri
-                        'nik'            => $item['nik'] ?? null,
-                        'kk'             => $item['kk'] ?? null,
-                        'first_name'     => $item['first_name'] ?? null,
-                        'last_name'      => $item['last_name'] ?? null,
-                        'name'           => $item['name'] ?? null,
-                        'gender'         => $item['gender'] ?? 'L',
+                        'nik'            => $nik,
+                        'kk'             => $kk,
+                        'first_name'     => $firstName,
+                        'last_name'      => $lastName,
+                        'name'           => trim("{$firstName} {$lastName}"),
+                        'gender'         => $gender, // 100% Banin
                         'is_mukim'       => true,
                         'village_id'     => $item['village_id'] ?? null,
                         'village'        => $item['village'] ?? null,
                         'district'       => $item['district'] ?? null,
                         'postal_code'    => $item['postal_code'] ?? null,
-                        'phone'          => $item['phone'] ?? null,
+                        'phone'          => $phone,
                         'parent_name'    => $item['parent_name'] ?? null,
-                        'parent_phone'   => $item['parent_phone'] ?? null,
+                        'parent_phone'   => $phone,
                         'address'        => $item['address'] ?? null,
                         'born_in'        => $item['born_in'] ?? null,
-                        'born_at'        => $item['born_at'] ?? null,
+                        'born_at'        => $bornAt,
                         'last_education' => $item['last_education'] ?? null,
                         'hostel_id'      => $item['hostel_id'] ?? null,
                         'program_id'     => $item['program_id'] ?? null,
                         'photo'          => $item['photo'] ?? null,
-                        'status'         => $item['status'] ?? 'Aktif',
+                        'status'         => 'Aktif',
                     ]
                 );
 
@@ -290,11 +424,13 @@ class StudentController extends Controller
 
             return response()->json([
                 'status'  => 'success',
-                'message' => "Sinkronisasi selesai: {$created} santri baru ditambahkan, {$updated} diperbarui.",
+                'message' => "Penarikan data selesai: {$created} santri baru berhasil ditambahkan, {$updated} santri diperbarui.",
                 'data'    => [
-                    'total_fetched' => count($students),
-                    'created'       => $created,
-                    'updated'       => $updated,
+                    'total_fetched'       => count($students),
+                    'created'             => $created,
+                    'updated'             => $updated,
+                    'gender_audit'        => '100% Banin (L)',
+                    'anomalies_corrected' => $anomalyCount,
                 ],
             ], 200);
         } catch (\Exception $e) {

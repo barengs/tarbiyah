@@ -9,6 +9,7 @@ import {
 import DataTable from '../components/ui/DataTable';
 import FlatTabs from '../components/atoms/FlatTabs';
 import Modal from '../components/ui/Modal';
+import PullStudentsModal from '../components/organisms/PullStudentsModal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { Plus, Edit2, Trash2, Users, Home, School, Search, Info, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -25,7 +26,7 @@ export default function StudentPage() {
         ...(search && { search }),
     };
 
-    const { data: response, isLoading } = useGetStudentsQuery(queryParams);
+    const { data: response, isLoading, refetch } = useGetStudentsQuery(queryParams);
     const students = response?.data || [];
     const meta = response?.meta || {};
 
@@ -44,6 +45,7 @@ export default function StudentPage() {
     };
 
     const [modalOpen, setModalOpen] = useState(false);
+    const [pullModalOpen, setPullModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -148,9 +150,9 @@ export default function StudentPage() {
                         <span className="text-xs text-slate-500 font-mono">NIS: {row.nis}</span>
                         {row.nisn && <span className="text-xs text-slate-400 font-mono">NISN: {row.nisn}</span>}
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                            row.gender === 'L' ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'
+                            row.gender === 'L' ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-rose-50 text-rose-700 border border-rose-300'
                         }`}>
-                            {row.gender === 'L' ? 'Laki-laki' : 'Perempuan'}
+                            {row.gender === 'L' ? 'L (Banin)' : 'P (Kesalahan Algoritma)'}
                         </span>
                     </div>
                 </div>
@@ -235,13 +237,12 @@ export default function StudentPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={handlePullFromSmpt}
-                        disabled={isPulling}
-                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold text-sm rounded-md hover:bg-slate-50 transition shadow-sm disabled:opacity-50"
-                        title="Tarik seluruh santri aktif dari sistem kepesantrenan (SMPT)"
+                        onClick={() => setPullModalOpen(true)}
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold text-sm rounded-md hover:bg-slate-50 transition shadow-xs hover:border-emerald-600"
+                        title="Pratinjau & tarik santri baru dari sistem kepesantrenan (SMPT)"
                     >
-                        <RefreshCw className={`w-4 h-4 text-emerald-600 ${isPulling ? "animate-spin" : ""}`} />
-                        {isPulling ? "Menarik Data..." : "Tarik Data dari SMPT"}
+                        <RefreshCw className="w-4 h-4 text-emerald-700" />
+                        <span>Tarik Data Santri Baru</span>
                     </button>
                     <button
                         onClick={openCreateModal}
@@ -286,6 +287,13 @@ export default function StudentPage() {
                     emptyMessage="Belum ada data siswa ditemukan"
                 />
             </div>
+
+            {/* Modal Penarikan Data Santri Baru (SMPT) */}
+            <PullStudentsModal
+                open={pullModalOpen}
+                onClose={() => setPullModalOpen(false)}
+                onFinish={() => refetch()}
+            />
 
             {/* Form Modal */}
             <Modal

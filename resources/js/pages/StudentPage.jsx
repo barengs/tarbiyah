@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     useGetStudentsQuery, 
     useCreateStudentMutation, 
@@ -18,12 +18,21 @@ export default function StudentPage() {
     const [mukimFilter, setMukimFilter] = useState('all'); // 'all', 'mukim', 'luar'
     const [statusFilter, setStatusFilter] = useState('');
     const [search, setSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [perPage, setPerPage] = useState(20);
+
+    // Auto reset page to 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [mukimFilter, statusFilter, search]);
 
     const queryParams = {
         ...(mukimFilter === 'mukim' && { is_mukim: 'true' }),
         ...(mukimFilter === 'luar' && { is_mukim: 'false' }),
         ...(statusFilter && { status: statusFilter }),
         ...(search && { search }),
+        page: currentPage,
+        per_page: perPage,
     };
 
     const { data: response, isLoading, refetch } = useGetStudentsQuery(queryParams);

@@ -44,7 +44,24 @@ class StudentController extends Controller
                 });
             }
 
-            $students = $query->orderBy('name', 'asc')->paginate($request->query('per_page', 20));
+            // Dukung pengambilan seluruh data tanpa pagination (misal untuk DataTable TanStack klien)
+            $perPage = $request->query('per_page', 20);
+            if ($request->boolean('all') || $perPage === 'all' || (int)$perPage >= 1000) {
+                $allStudents = $query->orderBy('name', 'asc')->get();
+                return response()->json([
+                    'status'  => 'success',
+                    'message' => 'Data siswa berhasil diambil',
+                    'data'    => $allStudents,
+                    'meta'    => [
+                        'current_page' => 1,
+                        'last_page'    => 1,
+                        'per_page'     => $allStudents->count(),
+                        'total'        => $allStudents->count(),
+                    ],
+                ], 200);
+            }
+
+            $students = $query->orderBy('name', 'asc')->paginate((int)$perPage);
 
             return response()->json([
                 'status'  => 'success',

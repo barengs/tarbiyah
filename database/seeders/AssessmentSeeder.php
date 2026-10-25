@@ -40,8 +40,12 @@ class AssessmentSeeder extends Seeder
             'max_score'   => 100.00,
         ]);
 
-        // ── 2. Nilai Siswa ──
+        // ── 2. Nilai Siswa (Hanya jika siswa sudah ada dari penarikan SMPT) ──
         $students = Student::all();
+        if ($students->isEmpty()) {
+            return;
+        }
+
         foreach ($students as $idx => $st) {
             $baseScore = 85 + ($idx % 3) * 5;
             AssessmentScore::firstOrCreate([

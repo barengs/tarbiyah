@@ -79,34 +79,26 @@ class DashboardController extends Controller
         $isSystemActive = ($selectedYear && $systemActiveYear && $selectedYear->id === $systemActiveYear->id) &&
             ($selectedQuarter && $systemActiveQuarter && $selectedQuarter->id === $systemActiveQuarter->id);
 
-        // 3. JUMLAH SISWA AKTIF & DEMOGRAFI
+        // 3. JUMLAH SISWA AKTIF & DEMOGRAFI (SELURUH SANTRI AKTIF SISTEM)
+        // Kartu Utama 'TOTAL SANTRI AKTIF' mencerminkan populasi seluruh santri mukim aktif pesantren
+        $totalSantri = Student::whereIn('status', ['Aktif', 'aktif'])->count();
+        if ($totalSantri === 0) {
+            $totalSantri = Student::count();
+        }
+
+        // Hitung santri yang sudah terdistribusi ke dalam rombel kelas
         $studentClassQuery = StudentClass::query();
         if ($selectedYear) {
             $studentClassQuery->where('academic_year_id', $selectedYear->id);
         }
-
         $studentIdsInPeriod = $studentClassQuery->pluck('student_id')->unique();
-        $totalSantriInPeriod = $studentIdsInPeriod->count();
-
-        // Jika tahun baru belum ada pembagian kelas, fallback ke total santri aktif sistem
-        $baseStudentQuery = Student::whereIn('status', ['Aktif', 'aktif']);
-        if ($totalSantriInPeriod > 0) {
-            $scopedStudents = Student::whereIn('id', $studentIdsInPeriod)->get();
-            $totalSantri = $totalSantriInPeriod;
-        } else {
-            $scopedStudents = $baseStudentQuery->get();
-            $totalSantri = $scopedStudents->count();
-            if ($totalSantri === 0) {
-                $scopedStudents = Student::all();
-                $totalSantri = $scopedStudents->count();
-            }
-        }
+        $assignedSantriCount = $studentIdsInPeriod->count();
 
         // Seluruh santri pesantren adalah 100% Banin (Putra), tidak ada santri putri/banat
         $baninCount = $totalSantri;
         $banatCount = 0;
-        $mukimCount = $scopedStudents->filter(fn($s) => $s->is_mukim == true)->count();
-        $luarCount  = $scopedStudents->filter(fn($s) => $s->is_mukim == false)->count();
+        $mukimCount = Student::where('is_mukim', true)->count();
+        $luarCount = Student::where('is_mukim', false)->count();
         $mukimPercent = $totalSantri > 0 ? round(($mukimCount / $totalSantri) * 100, 1) : 100;
         
         $newStudentsCount = Student::where('created_at', '>=', now()->subMonths(6))->count();
@@ -137,7 +129,7 @@ class DashboardController extends Controller
 
         // 5. STATISTIK PRESENSI DALAM BENTUK PIECHART
         $presenceQuery = StudentPresence::query();
-        if ($totalSantriInPeriod > 0) {
+        if ($assignedSantriCount > 0) {
             $presenceQuery->whereIn('student_id', $studentIdsInPeriod);
         }
         $presences = $presenceQuery->get();

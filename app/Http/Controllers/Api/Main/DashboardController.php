@@ -102,11 +102,12 @@ class DashboardController extends Controller
             }
         }
 
-        $baninCount = $scopedStudents->filter(fn($s) => $s->gender === 'L')->count();
-        $banatCount = $scopedStudents->filter(fn($s) => $s->gender === 'P')->count();
+        // Seluruh santri pesantren adalah 100% Banin (Putra), tidak ada santri putri/banat
+        $baninCount = $totalSantri;
+        $banatCount = 0;
         $mukimCount = $scopedStudents->filter(fn($s) => $s->is_mukim == true)->count();
         $luarCount  = $scopedStudents->filter(fn($s) => $s->is_mukim == false)->count();
-        $mukimPercent = $totalSantri > 0 ? round(($mukimCount / $totalSantri) * 100, 1) : 0;
+        $mukimPercent = $totalSantri > 0 ? round(($mukimCount / $totalSantri) * 100, 1) : 100;
         
         $newStudentsCount = Student::where('created_at', '>=', now()->subMonths(6))->count();
 

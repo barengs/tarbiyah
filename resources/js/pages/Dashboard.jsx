@@ -91,8 +91,8 @@ export default function Dashboard() {
                   id: 3,
                   subject: 'Nahwu & Sharaf (Al-Ajurrumiyyah)',
                   category: 'Diniyah MTs',
-                  teacher: 'Ustzh. Maryam Salsabila, S.Ag. • Santri: 68 Banat',
-                  room: 'Aula Khadijah Putri Lt. 1',
+                  teacher: 'Ust. Moh. Kholil, S.Pd.I • Santri: 68 Banin',
+                  room: 'Aula Pondok Timur Lt. 1',
                   time: '09:40 - 11:15 WIB',
                   status: 'Sedang Berjalan',
                   remaining: 'Sisa 35 Menit',
@@ -194,22 +194,22 @@ export default function Dashboard() {
 
             {/* 2. 4 KPI METRIC CARDS (PERSIS MOCKUP DESAIN) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                {/* 1. TOTAL SANTRI AKTIF */}
+                {/* 1. TOTAL SANTRI AKTIF (100% BANIN / PUTRA) */}
                 <MetricCard
                     label="Total Santri Aktif"
-                    value="1.482"
+                    value={ov.total_santri?.value ? ov.total_santri.value.toLocaleString() : "1.189"}
                     unit="Jiwa"
                     icon={Users}
                     accent="green"
                     stats={[
-                        { dot: 'bg-[#093c30]', label: '820 Banin (Putra)' },
-                        { dot: 'bg-amber-600', label: '662 Banat (Putri)' },
+                        { dot: 'bg-[#093c30]', label: `${ov.total_santri?.value ? ov.total_santri.value.toLocaleString() : "1.189"} Banin (Putra)` },
+                        { dot: 'bg-emerald-600', label: '100% Santri Banin' },
                     ]}
                     footer={
                         <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-100">
-                            <span className="text-slate-500">95% Mukim di Asrama</span>
+                            <span className="text-slate-500">{ov.total_santri?.mukim_percent ? `${ov.total_santri.mukim_percent}%` : "100%"} Mukim di Asrama</span>
                             <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded text-[11px] border border-emerald-200">
-                                +42 Baru
+                                +{ov.total_santri?.new_students || 271} Baru
                             </span>
                         </div>
                     }

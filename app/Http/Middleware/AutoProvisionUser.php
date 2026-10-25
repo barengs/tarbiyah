@@ -34,6 +34,13 @@ class AutoProvisionUser
                 $subId = $payload->get('sub');
                 $email = $payload->get('email');
                 $name  = $payload->get('name');
+                
+                // Extract role (supporting roles array or single role claim from SMPT/Tarbiyah JWTs)
+                $rolesClaim = $payload->get('roles') ?? $payload->get('role');
+                $assignedRole = is_array($rolesClaim) ? reset($rolesClaim) : $rolesClaim;
+                if (empty($assignedRole)) {
+                    $assignedRole = 'admin'; // Set default if unknown
+                }
 
                 if ($email) {
                     // 1. Try to find user by ID first (sub claim)
@@ -47,26 +54,27 @@ class AutoProvisionUser
                             // 3. Create user if doesn't exist anywhere
                             $user = User::create([
                                 'id'       => $subId,
-                                'name'     => $name ?? 'External User',
+                                'name'     => $name ?? $email,
                                 'email'    => $email,
                                 'password' => Str::random(16),
-                                'role'     => $payload->get('role') ?? 'staff',
+                                'role'     => $assignedRole,
                             ]);
-                            Log::info("Auto-provisioned new user in Tarbiyah: {$email} with ID: {$subId}");
+                            Log::info("Auto-provisioned new user in Tarbiyah: {$email} with ID: {$subId} and role: {$assignedRole}");
                         } else {
-                            Log::warning("User exists by email but ID mismatch: Token sub is {$subId}, DB ID is {$user->id}");
+                            Log::info("Found user by email in AutoProvisionUser: {$email} with ID: {$user->id}");
                         }
                     }
 
                     if ($user) {
                         auth('api')->login($user);
+                        return $next($request);
                     }
                 }
             }
         } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
             // Let the auth:api middleware handle expired tokens
         } catch (\Exception $e) {
-            Log::error("Auto-provisioning critical failure: " . $e->getMessage());
+            Log::error("Auto-provisioning critical failure: " . $e->getMessage() . " Trace: " . $e->getTraceAsString());
         }
 
         return $next($request);

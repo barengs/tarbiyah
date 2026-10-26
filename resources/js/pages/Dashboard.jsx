@@ -5,7 +5,6 @@ import {
     Users,
     ClipboardCheck,
     Layers,
-    BookOpen,
     RotateCcw,
     AlertCircle,
 } from 'lucide-react';
@@ -57,13 +56,7 @@ export default function Dashboard() {
         : [
               { name: 'Madrasah Tsanawiyah (MTs)', count: 620 },
               { name: 'Madrasah Aliyah (MA)', count: 540 },
-              { name: 'Takhasus & Tahfizh', count: 322 },
           ];
-    const tahfizhBrackets = dashboardData?.data?.tahfizh_brackets || [
-        { bracket: '16 - 29 Juz', count: 348 },
-        { bracket: '6 - 15 Juz', count: 512 },
-        { bracket: '0 - 5 Juz (Marhalah Awwal)', count: 480 },
-    ];
     const activeSchedules = dashboardData?.data?.active_schedules?.length
         ? dashboardData.data.active_schedules
         : [
@@ -235,27 +228,6 @@ export default function Dashboard() {
                     }
                 />
 
-                {/* 3. CAPAIAN TAHFIZH QURAN */}
-                <MetricCard
-                    label="Capaian Tahfizh Quran"
-                    value="12.450"
-                    unit="Halaman / Sem."
-                    icon={BookOpen}
-                    accent="terracotta"
-                    stats={[
-                        { label: 'Khatam 30 Juz:', value: '142 Santri' },
-                        { label: 'Status Setoran:', value: 'Mutqin & Sanad' },
-                    ]}
-                    footer={
-                        <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-100">
-                            <span className="text-slate-500">Target Semester:</span>
-                            <span className="font-bold text-[#b45309]">
-                                On Track (+8.4%)
-                            </span>
-                        </div>
-                    }
-                />
-
                 {/* 4. MAPEL & KKM IMTIHAN */}
                 <MetricCard
                     label="Mapel & KKM Imtihan"
@@ -283,12 +255,10 @@ export default function Dashboard() {
                     <PresenceChartCard data={presenceTrend} />
                 </div>
 
-                {/* 5/12 Kolom: Distribusi Jenjang & Capaian Tahfizh */}
+                {/* 5/12 Kolom: Distribusi Jenjang */}
                 <div className="lg:col-span-5">
                     <EducationDistributionCard
                         institutions={institutionDistribution}
-                        tahfizhBrackets={tahfizhBrackets}
-                        khatamCount={142}
                     />
                 </div>
             </div>

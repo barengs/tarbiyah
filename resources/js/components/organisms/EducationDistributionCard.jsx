@@ -4,17 +4,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../at
 const JENJANG_COLORS = [
     { bg: 'bg-[#093c30]', dot: 'bg-[#093c30]' },
     { bg: 'bg-emerald-600', dot: 'bg-emerald-600' },
-    { bg: 'bg-[#b45309]', dot: 'bg-[#b45309]' },
 ];
 
 /**
- * Organism Distribusi Jenjang & Capaian Tahfizh Santri
+ * Organism Distribusi Jenjang Santri
  * Data diterima dinamis dari database.
  */
 export default function EducationDistributionCard({
     institutions = [],
-    tahfizhBrackets = [],
-    khatamCount = 142,
     className = '',
 }) {
     const totalSantri = institutions.reduce((acc, i) => acc + (i.count || 0), 0);
@@ -25,7 +22,7 @@ export default function EducationDistributionCard({
                 <div>
                     <CardTitle>Distribusi Jenjang</CardTitle>
                     <CardDescription>
-                        Komposisi madrasah formal dan program takhasus
+                        Komposisi madrasah formal
                     </CardDescription>
                 </div>
                 {totalSantri > 0 && (
@@ -35,8 +32,7 @@ export default function EducationDistributionCard({
                 )}
             </CardHeader>
 
-            <CardContent className="space-y-5 pt-3">
-                {/* Multi-segment Bar */}
+            <CardContent className="space-y-4 pt-3">
                 {totalSantri > 0 && (
                     <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
                         {institutions.map((inst, idx) => {
@@ -54,7 +50,6 @@ export default function EducationDistributionCard({
                     </div>
                 )}
 
-                {/* List Jenjang */}
                 <div className="space-y-3">
                     {institutions.map((inst, idx) => {
                         const c = JENJANG_COLORS[idx % JENJANG_COLORS.length];
@@ -64,36 +59,14 @@ export default function EducationDistributionCard({
                                     <span className={`w-2 h-2 rounded-full shrink-0 ${c.dot}`} />
                                     <div className="min-w-0">
                                         <p className="font-bold text-slate-800 truncate">{inst.name}</p>
-                                        <p className="text-[11px] text-slate-400">Formal Salafiyah Wustha / Ulya</p>
                                     </div>
                                 </div>
                                 <span className="font-extrabold text-slate-900 text-sm shrink-0">
-                                    {inst.count}
+                                    {inst.count.toLocaleString()}
                                 </span>
                             </div>
                         );
                     })}
-                </div>
-
-                {/* Separator Tahfizh */}
-                <div className="pt-4 border-t border-slate-100">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                            Capaian Tahfizh Santri
-                        </span>
-                        <span className="text-xs font-bold text-[#b45309]">
-                            {khatamCount} Mutqin 30 Juz
-                        </span>
-                    </div>
-
-                    <div className="space-y-2">
-                        {tahfizhBrackets.map((tb) => (
-                            <div key={tb.bracket} className="flex items-center justify-between text-xs">
-                                <span className="text-slate-600 font-medium">{tb.bracket}</span>
-                                <span className="font-bold text-slate-800">{tb.count} Santri</span>
-                            </div>
-                        ))}
-                    </div>
                 </div>
             </CardContent>
         </Card>

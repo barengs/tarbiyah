@@ -186,7 +186,7 @@ export default function Dashboard() {
             />
 
             {/* 2. 4 KPI METRIC CARDS (PERSIS MOCKUP DESAIN) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                 {/* 1. TOTAL SANTRI AKTIF (100% BANIN / PUTRA) */}
                 <MetricCard
                     label="Total Santri Aktif"

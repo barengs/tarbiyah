@@ -85,7 +85,7 @@ export default function BulkAssignProgramModal({ open, onClose, selectedStudents
         }
     };
 
-    const selectClass = 'px-3 py-2.5 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500';
+    const selectClass = 'pl-3 pr-9 py-2.5 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500';
 
     return (
         <Modal

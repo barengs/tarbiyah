@@ -6,7 +6,7 @@ import { useBulkAssignProgramMutation } from '../../store/slices/studentApi';
 import { useGetClassGroupsQuery } from '../../store/slices/classGroupApi';
 import { useGetEducationsQuery } from '../../store/slices/institutionApi';
 
-export default function BulkAssignProgramModal({ open, onClose, selectedStudents, onDone }) {
+export default function BulkAssignProgramModal({ open, onClose, selectedStudents, onDone, programsFromParent }) {
     const [programId, setProgramId] = useState('');
     const [classGroupId, setClassGroupId] = useState('');
     const [note, setNote] = useState('');
@@ -48,20 +48,8 @@ export default function BulkAssignProgramModal({ open, onClose, selectedStudents
         });
     }, [filteredClassGroups, educations]);
 
-    // Program list dari meta filter_options (fallback: derive dari rombel)
-    const { data: previewRes, refetch: refetchPreview } = React.useCallback(() => null, []);
-    // Ambil program list langsung dari meta filter_options via getStudents (tidak perlu endpoint terpisah)
-    const [programFilter, setProgramFilter] = useState('');
-    React.useEffect(() => {
-        // Fetch program list sekali di mount modal
-        if (open) {
-            fetch('/api/master/students?all=true&per_page=1', {
-                headers: { Authorization: `Bearer ${localStorage.getItem('tarbiyah_token') || ''}` },
-            }).then((r) => r.json()).then((d) => setProgramFilter(JSON.stringify(d?.meta?.filter_options?.programs || null)));
-        }
-    }, [open]);
-    const programsFromApi = programFilter ? JSON.parse(programFilter) : [];
-    const availablePrograms = programsFromApi.length ? programsFromApi : programs;
+    // Program list: dari props (sudah difetch di parent) atau derive dari rombel
+    const availablePrograms = programsFromParent?.length ? programsFromParent : programs;
 
     const handleReset = () => { setProgramId(''); setClassGroupId(''); setNote(''); };
     const handleProgramChange = (v) => { setProgramId(v); setClassGroupId(''); }

@@ -461,6 +461,7 @@ export default function StudentPage() {
                 onClose={() => setBulkModalOpen(false)}
                 selectedStudents={selectedStudents}
                 onDone={() => { setSelectedIds([]); refetch(); }}
+                programsFromParent={programs}
             />
 
             {/* Modal Penarikan Data Santri Baru (SMPT) */}

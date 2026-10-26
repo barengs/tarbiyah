@@ -31,6 +31,11 @@ export default function StudentPage() {
     const students = response?.data || [];
     const meta = response?.meta || {};
 
+    // Komposisi siswa dinamis dari backend (bukan angka hardcode)
+    const summary = meta.summary || {};
+    const fmtPercent = (v) => (typeof v === 'number' ? `${String(v).replace('.', ',')}%` : null);
+    const withPercent = (label, v) => (fmtPercent(v) ? `${label} (${fmtPercent(v)})` : label);
+
     const [createStudent, { isLoading: isCreating }] = useCreateStudentMutation();
     const [updateStudent, { isLoading: isUpdating }] = useUpdateStudentMutation();
     const [deleteStudent, { isLoading: isDeleting }] = useDeleteStudentMutation();
@@ -166,12 +171,12 @@ export default function StudentPage() {
                 row.is_mukim ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <Home className="w-3.5 h-3.5 text-emerald-600" />
-                        Santri Mukim (90%)
+                        Santri Mukim
                     </span>
                 ) : (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                         <School className="w-3.5 h-3.5 text-indigo-600" />
-                        Siswa Reguler Luar (10%)
+                        Siswa Reguler Luar
                     </span>
                 )
             ),
@@ -260,10 +265,10 @@ export default function StudentPage() {
                 <Info className="w-5 h-5 text-slate-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-slate-600 leading-relaxed space-y-1">
                     <p>
-                        <span className="font-bold text-slate-800">Santri Mukim (~90%):</span> Terintegrasi otomatis melalui sinkronisasi data master santri pesantren (<code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800 font-mono">smpt</code>) dengan ID referensi santri.
+                        <span className="font-bold text-slate-800">{withPercent('Santri Mukim', summary.mukim_percent)}:</span> Terintegrasi otomatis melalui sinkronisasi data master santri pesantren (<code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800 font-mono">smpt</code>) dengan ID referensi santri.
                     </p>
                     <p>
-                        <span className="font-bold text-slate-800">Siswa Reguler Luar (~10%):</span> Siswa non-mukim yang hanya bersekolah formal/madrasah dan tidak tinggal di asrama pesantren. Pendaftaran dilakukan langsung di modul ini.
+                        <span className="font-bold text-slate-800">{withPercent('Siswa Reguler Luar', summary.luar_percent)}:</span> Siswa non-mukim yang hanya bersekolah formal/madrasah dan tidak tinggal di asrama pesantren. Pendaftaran dilakukan langsung di modul ini.
                     </p>
                 </div>
             </div>
@@ -273,8 +278,8 @@ export default function StudentPage() {
                 <FlatTabs
                     tabs={[
                         { label: 'Semua Siswa', value: 'all' },
-                        { label: 'Santri Mukim (90%)', value: 'mukim' },
-                        { label: 'Siswa Luar (10%)', value: 'luar' },
+                        { label: withPercent('Santri Mukim', summary.mukim_percent), value: 'mukim' },
+                        { label: withPercent('Siswa Luar', summary.luar_percent), value: 'luar' },
                     ]}
                     activeTab={mukimFilter}
                     onChange={(val) => setMukimFilter(val || 'all')}

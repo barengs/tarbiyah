@@ -44,6 +44,18 @@ class StudentController extends Controller
                 });
             }
 
+            // Ringkasan komposisi siswa (dinamis, dihitung dari seluruh populasi siswa)
+            $summaryTotal = Student::count();
+            $summaryMukim = Student::where('is_mukim', true)->count();
+            $summaryLuar  = $summaryTotal - $summaryMukim;
+            $summary = [
+                'total'         => $summaryTotal,
+                'mukim'         => $summaryMukim,
+                'luar'          => $summaryLuar,
+                'mukim_percent' => $summaryTotal > 0 ? round(($summaryMukim / $summaryTotal) * 100, 1) : 0,
+                'luar_percent'  => $summaryTotal > 0 ? round(($summaryLuar / $summaryTotal) * 100, 1) : 0,
+            ];
+
             // Dukung pengambilan seluruh data tanpa pagination (misal untuk DataTable TanStack klien)
             $perPage = $request->query('per_page', 20);
             if ($request->boolean('all') || $perPage === 'all' || (int)$perPage >= 1000) {
@@ -57,6 +69,7 @@ class StudentController extends Controller
                         'last_page'    => 1,
                         'per_page'     => $allStudents->count(),
                         'total'        => $allStudents->count(),
+                        'summary'      => $summary,
                     ],
                 ], 200);
             }
@@ -72,6 +85,7 @@ class StudentController extends Controller
                     'last_page'    => $students->lastPage(),
                     'per_page'     => $students->perPage(),
                     'total'        => $students->total(),
+                    'summary'      => $summary,
                 ],
             ], 200);
         } catch (\Exception $e) {

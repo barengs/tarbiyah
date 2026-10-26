@@ -10,6 +10,7 @@ import DataTable from '../components/ui/DataTable';
 import FlatTabs from '../components/atoms/FlatTabs';
 import Modal from '../components/ui/Modal';
 import PullStudentsModal from '../components/organisms/PullStudentsModal';
+import BulkAssignProgramModal from '../components/organisms/BulkAssignProgramModal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { Plus, Edit2, Trash2, Users, Home, School, Search, Info, RefreshCw, CalendarRange, GraduationCap, BookOpen, School as SchoolIcon, UsersRound } from 'lucide-react';
 import { useGetClassGroupsQuery } from '../store/slices/classGroupApi';
@@ -77,6 +78,17 @@ export default function StudentPage() {
     };
 
     const [modalOpen, setModalOpen] = useState(false);
+    const [bulkModalOpen, setBulkModalOpen] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
+
+    const toggleSelectAll = (e) => {
+        if (e.target.checked) setSelectedIds(students.map((s) => s.id));
+        else setSelectedIds([]);
+    };
+    const toggleSelect = (id) => {
+        setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    };
+    const selectedStudents = students.filter((s) => selectedIds.includes(s.id));
     const [pullModalOpen, setPullModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
@@ -176,7 +188,15 @@ export default function StudentPage() {
             key: 'nis',
             label: 'Identitas Siswa',
             render: (row) => (
-                <div>
+                <div className="flex items-start gap-2.5">
+                    <input
+                        type="checkbox"
+                        className="mt-1.5 w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500"
+                        checked={selectedIds.includes(row.id)}
+                        onChange={() => toggleSelect(row.id)}
+                        aria-label={`Pilih ${row.name}`}
+                    />
+                    <div>
                     <p className="font-semibold text-slate-900">{row.name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-slate-500 font-mono">NIS: {row.nis}</span>
@@ -187,6 +207,7 @@ export default function StudentPage() {
                             {row.gender === 'L' ? 'L (Banin)' : 'P (Kesalahan Algoritma)'}
                         </span>
                     </div>
+                </div>
                 </div>
             ),
         },
@@ -325,6 +346,14 @@ export default function StudentPage() {
                         <span>Tarik Data Santri Baru</span>
                     </button>
                     <button
+                        onClick={() => setBulkModalOpen(true)}
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-violet-600 text-white font-semibold text-sm rounded-md hover:bg-violet-700 transition shadow-sm"
+                        title="Atur program / jenjang / rombel untuk santri terpilih"
+                    >
+                        <GraduationCap className="w-4 h-4" />
+                        <span>Atur Program / Rombel ({selectedIds.length})</span>
+                    </button>
+                    <button
                         onClick={openCreateModal}
                         className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white font-semibold text-sm rounded-md hover:bg-emerald-800 transition shadow-sm"
                     >
@@ -403,6 +432,20 @@ export default function StudentPage() {
                     onChange={(val) => setMukimFilter(val || 'all')}
                 />
 
+                {/* Pilih Semua */}
+                <div className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-md text-xs">
+                    <label className="flex items-center gap-2 font-medium text-slate-700">
+                        <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500"
+                            checked={selectedIds.length === students.length && students.length > 0}
+                            onChange={toggleSelectAll}
+                        />
+                        Pilih semua santri pada tampilan ini ({students.length})
+                    </label>
+                    <span className="text-slate-500">{selectedIds.length} santri terpilih</span>
+                </div>
+
                 {/* Table */}
                 <DataTable
                     columns={columns}
@@ -411,6 +454,14 @@ export default function StudentPage() {
                     emptyMessage="Belum ada data siswa ditemukan"
                 />
             </div>
+
+            {/* Modal Pengaturan Program / Rombel Massal */}
+            <BulkAssignProgramModal
+                open={bulkModalOpen}
+                onClose={() => setBulkModalOpen(false)}
+                selectedStudents={selectedStudents}
+                onDone={() => { setSelectedIds([]); refetch(); }}
+            />
 
             {/* Modal Penarikan Data Santri Baru (SMPT) */}
             <PullStudentsModal

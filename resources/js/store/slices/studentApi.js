@@ -47,6 +47,14 @@ export const studentApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: ['Student', 'ClassGroup'],
         }),
+        bulkAssignProgram: builder.mutation({
+            query: (data) => ({
+                url: 'master/students/bulk-assign-program',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['Student', 'StudentClass', 'ClassGroup'],
+        }),
         getPullPreview: builder.query({
             query: () => ({
                 url: 'master/students/pull-preview',
@@ -73,4 +81,5 @@ export const {
     useGetPullPreviewQuery,
     useLazyGetPullPreviewQuery,
     usePullStudentsFromSmptMutation,
+    useBulkAssignProgramMutation
 } = studentApi;

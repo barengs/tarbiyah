@@ -161,6 +161,95 @@ class StudentController extends Controller
     }
 
     /**
+     * Penaturan program & jenjang & rombel secara massal.
+     * Menerima daftar student_ids + salah satu/semua: program_id, class_group_id.
+     * Satu santri dapat memiliki satu rombel aktif per tahun ajaran (single-rombel policy).
+     */
+    public function bulkAssignProgram(Request $request)
+    {
+        $validated = $request->validate([
+            'student_ids'      => 'required|array|min:1',
+            'student_ids.*'    => 'required|exists:students,id',
+            'program_id'       => 'nullable|integer',
+            'class_group_id'   => 'nullable|integer',
+            'joined_at'        => 'nullable|date',
+            'note'            => 'nullable|string|max:255',
+        ]);
+
+        $ids = $validated['student_ids'];
+        $note = $validated['note'] ?? "Penaturan program massal";
+        $joinedAt = $validated['joined_at'] ?? today();
+
+        $group = null;
+        if (!empty($validated['class_group_id'])) {
+            $group = ClassGroup::with(['academicYear', 'educationalInstitution'])->findOrFail($validated['class_group_id']);
+        }
+
+        try {
+            DB::beginTransaction();
+            $affected = 0;
+
+            foreach (Student::whereIn('id', $ids)->get() as $student) {
+                // Atur program_id (0 = kosongkan / belum diatur)
+                if (array_key_exists('program_id', $validated)) {
+                    $student->program_id = $validated['program_id'] === 0 ? null : $validated['program_id'];
+                }
+
+                // Atur keanggotaan rombel aktif (single-rombel policy)
+                if ($group) {
+                    $existingActive = StudentClass::where('student_id', $student->id)
+                        ->where('academic_year_id', $group->academic_year_id)
+                        ->where('status', 'aktif')
+                        ->first();
+
+                    if ($existingActive && $existingActive->class_group_id !== $group->id) {
+                        $existingActive->update([
+                            'status'  => 'pindah_level',
+                            'left_at' => today(),
+                            'note'    => "Pindah ke rombel {$group->name} (massal)",
+                        ]);
+                    }
+
+                    StudentClass::updateOrCreate([
+                        'student_id'     => $student->id,
+                        'class_group_id' => $group->id,
+                    ], [
+                        'academic_year_id'           => $group->academic_year_id,
+                        'educational_institution_id' => $group->educational_institution_id,
+                        'joined_at'                   => $joinedAt,
+                        'left_at'                     => null,
+                        'status'                        => 'aktif',
+                        'note'                          => $note,
+                    ]);
+                }
+
+                $student->save();
+                $affected++;
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => "Berhasil mengatur program/rombel untuk {$affected} santri.",
+                'data'    => [
+                    'affected'       => $affected,
+                    'program_id'     => $validated['program_id'] ?? null,
+                    'class_group_id' => $group?->id,
+                    'class_group'    => $group?->name,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error bulk-assigning program: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal mengatur program massal: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Mengambil daftar santri aktif yang BELUM memiliki rombel (Unassigned Pool)
      * pada tahun akademik yang ditentukan (atau tahun akademik aktif).
      */

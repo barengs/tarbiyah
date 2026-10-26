@@ -375,11 +375,6 @@ class DashboardController extends Controller
                     ['day' => 'Kamis',   'jamaah' => 99.2, 'kbm' => 98.4, 'halaqah' => 98.0],
                     ['day' => 'Jum\'at', 'jamaah' => 99.5, 'kbm' => 98.8, 'halaqah' => 98.5],
                 ],
-                'tahfizh_brackets'         => [
-                    ['bracket' => '16 - 29 Juz', 'count' => 348],
-                    ['bracket' => '6 - 15 Juz',  'count' => 512],
-                    ['bracket' => '0 - 5 Juz (Marhalah Awwal)', 'count' => 480],
-                ],
                 'presence_pie'             => $presencePie,
                 'students_by_period'       => $studentsByPeriod,
                 'programs_distribution'    => $programDistribution,

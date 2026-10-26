@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
@@ -17,9 +17,40 @@ import {
     ShieldCheck,
     ExternalLink,
     ChevronDown,
+    Settings,
+    UserCog,
+    LayoutGrid,
+    Lock,
+    Folder,
+    FileText,
 } from 'lucide-react';
+import { useGetSidebarMenusQuery } from '../../store/slices/securityApi';
 
-const NAVIGATION_ITEMS = [
+const ICON_MAP = {
+    LayoutDashboard,
+    Layers,
+    Building2,
+    GraduationCap,
+    Users,
+    TrendingUp,
+    UserCheck,
+    Calendar,
+    CalendarCheck2,
+    ClipboardCheck,
+    ScrollText,
+    BookOpen,
+    Clock,
+    ShieldCheck,
+    ExternalLink,
+    Settings,
+    UserCog,
+    LayoutGrid,
+    Lock,
+    Folder,
+    FileText,
+};
+
+const DEFAULT_NAVIGATION_ITEMS = [
     {
         name: 'Dashboard Utama',
         to: '/',
@@ -29,63 +60,27 @@ const NAVIGATION_ITEMS = [
         name: 'Jenjang & Kurikulum',
         icon: Building2,
         children: [
-            {
-                name: 'Jenjang Pendidikan',
-                to: '/kurikulum/jenjang',
-                icon: Building2,
-            },
-            {
-                name: 'Tahun & Periode Triwulan',
-                to: '/kurikulum/tahun-akademik',
-                icon: Calendar,
-            },
-            {
-                name: 'Mata Pelajaran',
-                to: '/kurikulum/mapel',
-                icon: BookOpen,
-            },
-            {
-                name: 'Jam Pelajaran',
-                to: '/kurikulum/jam-pelajaran',
-                icon: Clock,
-            },
-            {
-                name: 'Guru & Pendidik',
-                to: '/guru',
-                icon: GraduationCap,
-            },
+            { name: 'Jenjang Pendidikan', to: '/kurikulum/jenjang', icon: Building2 },
+            { name: 'Tahun & Periode Triwulan', to: '/kurikulum/tahun-akademik', icon: Calendar },
+            { name: 'Mata Pelajaran', to: '/kurikulum/mapel', icon: BookOpen },
+            { name: 'Jam Pelajaran', to: '/kurikulum/jam-pelajaran', icon: Clock },
+            { name: 'Guru & Pendidik', to: '/guru', icon: GraduationCap },
         ],
     },
     {
         name: 'Kelas & Rombel',
         icon: Layers,
         children: [
-            {
-                name: 'Tingkat Kelas',
-                to: '/kurikulum/kelas',
-                icon: Layers,
-            },
-            {
-                name: 'Rombongan Belajar (Rombel)',
-                to: '/kurikulum/rombel',
-                icon: Users,
-            },
+            { name: 'Tingkat Kelas', to: '/kurikulum/kelas', icon: Layers },
+            { name: 'Rombongan Belajar (Rombel)', to: '/kurikulum/rombel', icon: Users },
         ],
     },
     {
         name: 'Santri & Kenaikan Kelas',
         icon: Users,
         children: [
-            {
-                name: 'Data Santri / Siswa',
-                to: '/siswa',
-                icon: UserCheck,
-            },
-            {
-                name: 'Kenaikan Kelas & Mutasi',
-                to: '/kurikulum/kenaikan-kelas',
-                icon: TrendingUp,
-            },
+            { name: 'Data Santri / Siswa', to: '/siswa', icon: UserCheck },
+            { name: 'Kenaikan Kelas & Mutasi', to: '/kurikulum/kenaikan-kelas', icon: TrendingUp },
         ],
     },
     {
@@ -112,155 +107,143 @@ export default function Sidebar({
     className = '',
 }) {
     const location = useLocation();
+    const { data: sidebarRes } = useGetSidebarMenusQuery();
+
+    // Transformasi menu dinamis dari API auth/menus
+    const navigationItems = useMemo(() => {
+        const rawMenus = sidebarRes?.data;
+        if (!Array.isArray(rawMenus) || rawMenus.length === 0) {
+            return DEFAULT_NAVIGATION_ITEMS;
+        }
+
+        return rawMenus.map((item) => {
+            const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+            const ResolvedIcon = ICON_MAP[item.icon] || LayoutDashboard;
+
+            if (hasChildren) {
+                return {
+                    name: item.name,
+                    icon: ResolvedIcon,
+                    children: item.children.map((child) => ({
+                        name: child.name,
+                        to: child.path || '/',
+                        icon: ICON_MAP[child.icon] || LayoutDashboard,
+                    })),
+                };
+            }
+
+            return {
+                name: item.name,
+                to: item.path || '/',
+                icon: ResolvedIcon,
+            };
+        });
+    }, [sidebarRes]);
 
     // Inisialisasi status terbuka menu bertingkat
     const [openMenus, setOpenMenus] = useState(() => {
         const initial = {};
-        NAVIGATION_ITEMS.forEach((item) => {
+        DEFAULT_NAVIGATION_ITEMS.forEach((item) => {
             if (item.children) {
-                const isChildActive = item.children.some(
-                    (child) =>
-                        location.pathname === child.to ||
-                        location.pathname.startsWith(child.to)
-                );
-                if (
-                    isChildActive || 
-                    location.pathname.startsWith('/kurikulum') || 
-                    location.pathname.startsWith('/institusi') || 
-                    location.pathname.startsWith('/kelas') ||
-                    location.pathname.startsWith('/rombel') ||
-                    location.pathname.startsWith('/kenaikan-kelas') ||
-                    location.pathname.startsWith('/mapel') ||
-                    location.pathname.startsWith('/jam-pelajaran')
-                ) {
-                    initial[item.name] = true;
-                }
+                initial[item.name] = true;
             }
         });
         return initial;
     });
 
-    // Otomatis buka accordion jika user mengakses URL anak
+    // Otomatis buka grup jika rute anak sedang aktif
     useEffect(() => {
-        NAVIGATION_ITEMS.forEach((item) => {
+        navigationItems.forEach((item) => {
             if (item.children) {
-                const isChildActive = item.children.some(
-                    (child) =>
-                        location.pathname === child.to ||
-                        location.pathname.startsWith(child.to)
+                const isChildActive = item.children.some((c) =>
+                    location.pathname === c.to ||
+                    (c.to !== '/' && location.pathname.startsWith(c.to))
                 );
-                if (
-                    isChildActive || 
-                    location.pathname.startsWith('/kurikulum') || 
-                    location.pathname.startsWith('/institusi') || 
-                    location.pathname.startsWith('/kelas') ||
-                    location.pathname.startsWith('/rombel') ||
-                    location.pathname.startsWith('/kenaikan-kelas') ||
-                    location.pathname.startsWith('/mapel') ||
-                    location.pathname.startsWith('/jam-pelajaran')
-                ) {
+                if (isChildActive) {
                     setOpenMenus((prev) => ({ ...prev, [item.name]: true }));
                 }
             }
         });
-    }, [location.pathname]);
+    }, [location.pathname, navigationItems]);
 
-    const toggleSubMenu = (menuName) => {
+    const toggleMenu = (name) => {
         setOpenMenus((prev) => ({
             ...prev,
-            [menuName]: !prev[menuName],
+            [name]: !prev[name],
         }));
     };
 
     return (
         <>
-            {/* Overlay untuk mobile saat sidebar terbuka */}
+            {/* Mobile Backdrop */}
             {mobileOpen && (
                 <div
                     onClick={onCloseMobile}
-                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 lg:hidden"
+                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 lg:hidden transition-opacity"
+                    aria-hidden="true"
                 />
             )}
 
             <aside
-                className={`fixed lg:static top-0 bottom-0 left-0 z-50 flex flex-col justify-between bg-white border-r border-slate-200/90 transition-all duration-200 ease-in-out shrink-0 select-none ${
+                className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-200 ease-in-out ${
                     collapsed ? 'w-20' : 'w-64'
-                } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${className}`}
+                } ${
+                    mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+                } ${className}`}
             >
-                <div>
-                    {/* Header Sidebar: Logo & Nama Aplikasi Bersih */}
-                    <div className="h-16 px-4 flex items-center border-b border-slate-100">
-                        <Link to="/" className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-9 h-9 rounded-md bg-[#093c30] text-white flex items-center justify-center shrink-0 shadow-xs font-bold">
-                                <BookOpen className="w-5 h-5 text-emerald-300" />
+                {/* Header Brand */}
+                <div className="h-16 flex items-center px-4 border-b border-slate-100 bg-white">
+                    <Link to="/" className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-[#093c30] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                            P
+                        </div>
+                        {!collapsed && (
+                            <div className="min-w-0 leading-tight">
+                                <span className="text-[15px] font-bold text-[#093c30] tracking-tight block truncate">
+                                    e-Panyeppen Pro
+                                </span>
+                                <span className="text-[11px] font-medium text-slate-500 tracking-wide block truncate">
+                                    SIM Akademik
+                                </span>
                             </div>
-                            {!collapsed && (
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-[15px] font-extrabold text-slate-900 tracking-tight leading-none">
-                                            e-Panyeppen
-                                        </span>
-                                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-300/40 leading-none">
-                                            Pro
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-                                        PesantrenPro • SIM Akademik
-                                    </p>
-                                </div>
-                            )}
-                        </Link>
-                    </div>
-
-                    {/* Label Navigasi */}
-                    <div className="px-4 pt-4 pb-2">
-                        {!collapsed ? (
-                            <p className="text-[10px] font-bold tracking-[0.12em] text-slate-400 uppercase">
-                                Navigasi Akademik
-                            </p>
-                        ) : (
-                            <div className="w-6 h-px bg-slate-200 mx-auto" />
                         )}
-                    </div>
+                    </Link>
+                </div>
 
-                    {/* Daftar Menu Navigasi */}
-                    <nav className="px-3 space-y-1">
-                        {NAVIGATION_ITEMS.map((item) => {
+                {/* Navigation Body */}
+                <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+                    <nav className="space-y-1">
+                        {navigationItems.map((item) => {
                             const Icon = item.icon;
+                            const hasChildren = Boolean(item.children && item.children.length > 0);
 
-                            // JIKA MENU MEMILIKI SUB MENU (ACCORDION)
-                            if (item.children && item.children.length > 0) {
-                                const isChildActive = item.children.some(
+                            // MENU BERTINGKAT (DROPDOWN)
+                            if (hasChildren) {
+                                const isOpen = Boolean(openMenus[item.name]);
+                                const isAnyChildActive = item.children.some(
                                     (child) =>
                                         location.pathname === child.to ||
-                                        location.pathname.startsWith(child.to) ||
-                                        (child.to === '/kurikulum/tahun-akademik' && (location.pathname === '/kurikulum/triwulan' || location.pathname === '/master/tahun-akademik' || location.pathname === '/tahun-akademik')) ||
-                                                        (child.to === '/kurikulum/jenjang' && (location.pathname === '/institusi' || location.pathname === '/master/institusi')) ||
-                                        (child.to === '/kurikulum/kelas' && (location.pathname === '/kelas' || location.pathname === '/master/kelas')) ||
-                                        (child.to === '/kurikulum/rombel' && (location.pathname === '/rombel' || location.pathname === '/master/rombel')) ||
-                                        (child.to === '/kurikulum/kenaikan-kelas' && (location.pathname === '/kenaikan-kelas' || location.pathname === '/master/kenaikan-kelas')) ||
-                                        (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel')) ||
-                                        (child.to === '/kurikulum/jam-pelajaran' && (location.pathname === '/jam-pelajaran' || location.pathname === '/master/jam-pelajaran'))
+                                        (child.to !== '/' && location.pathname.startsWith(child.to))
                                 );
-                                const isOpen = !!openMenus[item.name];
 
                                 return (
                                     <div key={item.name} className="space-y-1">
-                                        {/* Tombol Menu Utama */}
                                         <button
                                             type="button"
-                                            onClick={() => toggleSubMenu(item.name)}
+                                            onClick={() => toggleMenu(item.name)}
                                             title={collapsed ? item.name : undefined}
-                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 ${
-                                                isChildActive
-                                                    ? 'bg-emerald-50/80 text-[#093c30] font-semibold'
+                                            className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 ${
+                                                isAnyChildActive
+                                                    ? 'text-[#093c30] font-semibold bg-emerald-50/70'
                                                     : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
                                             } ${collapsed ? 'justify-center px-2' : ''}`}
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <Icon
                                                     className={`w-4 h-4 shrink-0 transition-colors ${
-                                                        isChildActive ? 'text-[#093c30]' : 'text-slate-400'
+                                                        isAnyChildActive
+                                                            ? 'text-[#093c30]'
+                                                            : 'text-slate-400'
                                                     }`}
                                                 />
                                                 {!collapsed && (
@@ -269,8 +252,8 @@ export default function Sidebar({
                                             </div>
                                             {!collapsed && (
                                                 <ChevronDown
-                                                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                                                        isOpen ? 'rotate-180 text-emerald-800' : ''
+                                                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                                                        isOpen ? 'rotate-180 text-slate-600' : ''
                                                     }`}
                                                 />
                                             )}
@@ -289,7 +272,8 @@ export default function Sidebar({
                                                         (child.to === '/kurikulum/rombel' && (location.pathname === '/rombel' || location.pathname === '/master/rombel')) ||
                                                         (child.to === '/kurikulum/kenaikan-kelas' && (location.pathname === '/kenaikan-kelas' || location.pathname === '/master/kenaikan-kelas')) ||
                                                         (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel')) ||
-                                                        (child.to === '/kurikulum/jam-pelajaran' && (location.pathname === '/jam-pelajaran' || location.pathname === '/master/jam-pelajaran'));
+                                                        (child.to === '/kurikulum/jam-pelajaran' && (location.pathname === '/jam-pelajaran' || location.pathname === '/master/jam-pelajaran')) ||
+                                                        (child.to === '/admin/pengguna' && (location.pathname === '/admin/users' || location.pathname === '/admin/user'));
 
                                                     return (
                                                         <Link

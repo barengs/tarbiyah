@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\SecurityController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\Master\EducationalInstitutionController;
 use App\Http\Controllers\Api\Master\EducationController;
 use App\Http\Controllers\Api\Master\AcademicYearController;
@@ -45,6 +47,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:api')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('profile', [AuthController::class, 'me']);
+        Route::get('menus',   [AuthController::class, 'menus']);
     });
 });
 
@@ -61,6 +64,30 @@ Route::prefix('internal')->middleware('internal.key')->group(function () {
     // Endpoint sinkronisasi santri dari SMPT backend
     Route::post('students/sync', [InternalStudentController::class, 'sync']);
     Route::post('students/sync-bulk', [InternalStudentController::class, 'bulkSync']);
+});
+
+// Security & Role/Menu/User Management (Admin & Superadmin only)
+Route::prefix('security')->middleware(['autoprovision', 'auth:api'])->group(function () {
+    // Menu Management
+    Route::get('menus', [SecurityController::class, 'getMenus']);
+    Route::post('menus', [SecurityController::class, 'storeMenu']);
+    Route::put('menus/{id}', [SecurityController::class, 'updateMenu']);
+    Route::delete('menus/{id}', [SecurityController::class, 'destroyMenu']);
+
+    // Role Management & Matrix
+    Route::get('roles', [SecurityController::class, 'getRoles']);
+    Route::post('roles', [SecurityController::class, 'storeRole']);
+    Route::put('roles/{id}', [SecurityController::class, 'updateRole']);
+    Route::delete('roles/{id}', [SecurityController::class, 'destroyRole']);
+    Route::post('roles/{id}/menus', [SecurityController::class, 'syncRoleMenus']);
+    Route::post('roles/{id}/permissions', [SecurityController::class, 'syncRolePermissions']);
+
+    // Permissions List
+    Route::get('permissions', [SecurityController::class, 'getPermissions']);
+
+    // User Management
+    Route::post('users/{id}/reset-password', [UserController::class, 'resetPassword']);
+    Route::apiResource('users', UserController::class);
 });
 
 // Master Data Routes (Protected by JWT & AutoProvision)
@@ -105,7 +132,7 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
     Route::get('class-groups/{id}/promotion-candidates', [ClassPromotionController::class, 'candidates']);
     Route::post('class-groups/bulk-promote', [ClassPromotionController::class, 'bulkPromote']);
 
-    // Rombongan Belajar (Class Groups) & Halaqah Tahfidz
+    // Rombongan Belajar (Class Groups) & Halaqah
     Route::post('class-groups/{id}/students', [ClassGroupController::class, 'addStudent']);
     Route::delete('class-groups/{id}/students/{student_id}', [ClassGroupController::class, 'removeStudent']);
     Route::post('class-groups/{id}/promote-tahfidz', [ClassGroupController::class, 'promoteTahfidzLevel']);
@@ -116,6 +143,7 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
 // Main Academic, KBM & Penilaian Routes (Protected by JWT & AutoProvision)
 Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function () {
     Route::get('dashboard/stats', [DashboardController::class, 'stats']);
+    
     // Jadwal Pelajaran (Lesson Schedules)
     Route::apiResource('schedules', LessonScheduleController::class);
 

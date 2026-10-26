@@ -15,6 +15,7 @@ import './slices/scheduleApi';
 import './slices/journalApi';
 import './slices/assessmentApi';
 import './slices/reportApi';
+import './slices/securityApi';
 
 export const store = configureStore({
     reducer: {

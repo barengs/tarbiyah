@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Facades\JWTAuth;
-use App\Models\User;
-use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -24,7 +26,8 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = User::where('email', $loginInput)
+        $user = User::with('roles')
+            ->where('email', $loginInput)
             ->orWhere('name', $loginInput)
             ->first();
 
@@ -54,9 +57,14 @@ class AuthController extends Controller
 
     public function me()
     {
+        $user = auth('api')->user();
+        if ($user) {
+            $user->load(['roles.permissions', 'permissions']);
+        }
+
         return response()->json([
             'status' => 'success',
-            'data'   => auth('api')->user(),
+            'data'   => $user,
         ]);
     }
 
@@ -73,7 +81,11 @@ class AuthController extends Controller
     {
         try {
             $token = auth('api')->refresh();
-            return $this->respondWithToken($token, auth('api')->user());
+            $user = auth('api')->user();
+            if ($user) {
+                $user->load('roles');
+            }
+            return $this->respondWithToken($token, $user);
         } catch (\Exception $e) {
             return response()->json([
                 'status'  => 'error',
@@ -82,14 +94,24 @@ class AuthController extends Controller
         }
     }
 
+    public function menus(Request $request)
+    {
+        return app(SecurityController::class)->sidebar($request);
+    }
+
     protected function respondWithToken($token, $user = null)
     {
+        $userData = $user ?? auth('api')->user();
+        if ($userData && !$userData->relationLoaded('roles')) {
+            $userData->load('roles');
+        }
+
         return response()->json([
             'status'       => 'success',
             'access_token' => $token,
             'token_type'   => 'bearer',
             'expires_in'   => auth('api')->factory()->getTTL() * 60,
-            'user'         => $user ?? auth('api')->user(),
+            'user'         => $userData,
         ]);
     }
 
@@ -120,13 +142,39 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $user = User::updateOrCreate(
-            ['email' => $email],
-            [
+        // Petakan role smpt ke 5 role familiar Tarbiyah
+        $rawRole = $smptUser['role'] ?? ($smptUser['roles'][0] ?? 'staf');
+        $roleMap = [
+            'superadmin' => 'superadmin',
+            'admin'      => 'admin',
+            'asatidz'    => 'asatidz',
+            'guru'       => 'asatidz',
+            'staf'       => 'staf',
+            'staff'      => 'staf',
+            'walikelas'  => 'walikelas',
+        ];
+        $tarbiyahRole = $roleMap[strtolower((string) $rawRole)] ?? 'staf';
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            $user = User::create([
+                'name'     => $smptUser['name'] ?? ($smptUser['sub_name'] ?? $email),
+                'email'    => $email,
+                'password' => Hash::make(Str::random(32)),
+                'role'     => $tarbiyahRole,
+            ]);
+        } else {
+            $user->update([
                 'name' => $smptUser['name'] ?? ($smptUser['sub_name'] ?? $email),
-                'role' => 'guru',
-            ]
-        );
+                'role' => $tarbiyahRole,
+            ]);
+        }
+
+        // Pastikan role Spatie tersinkronisasi
+        $roleModel = Role::where('name', $tarbiyahRole)->where('guard_name', 'api')->first();
+        if ($roleModel) {
+            $user->syncRoles([$roleModel]);
+        }
 
         try {
             $token = JWTAuth::fromUser($user);
@@ -137,8 +185,8 @@ class AuthController extends Controller
             ], 500);
         }
 
-        Log::info("SSO Handover dari smpt: {$user->email} masuk ke tarbiyah.");
+        Log::info("SSO Handover dari smpt: {$user->email} (role: {$tarbiyahRole}) berhasil masuk ke tarbiyah.");
 
-        return $this->respondWithToken($token, $user);
+        return $this->respondWithToken($token, $user->fresh()->load('roles'));
     }
 }

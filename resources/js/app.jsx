@@ -23,6 +23,9 @@ import ScheduleKbmPage from './pages/ScheduleKbmPage';
 import AssessmentPage from './pages/AssessmentPage';
 import AttendancePage from './pages/AttendancePage';
 import ReportCardPage from './pages/ReportCardPage';
+import MenuManagementPage from './pages/security/MenuManagementPage';
+import RoleManagementPage from './pages/security/RoleManagementPage';
+import UserManagementPage from './pages/security/UserManagementPage';
 
 import '../css/app.css';
 
@@ -79,6 +82,13 @@ const App = () => {
                             <Route path="presensi" element={<AttendancePage />} />
                             <Route path="nilai" element={<AssessmentPage />} />
                             <Route path="rapor" element={<ReportCardPage />} />
+
+                            {/* Modul Keamanan & Manajemen Akses (Admin / Superadmin) */}
+                            <Route path="admin/menu" element={<MenuManagementPage />} />
+                            <Route path="admin/role" element={<RoleManagementPage />} />
+                            <Route path="admin/pengguna" element={<UserManagementPage />} />
+                            <Route path="admin/users" element={<UserManagementPage />} />
+                            <Route path="admin/user" element={<UserManagementPage />} />
 
                             {/* Fallback route */}
                             <Route path="*" element={<Navigate to="/" replace />} />

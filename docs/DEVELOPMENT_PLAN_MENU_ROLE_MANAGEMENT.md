@@ -109,50 +109,50 @@ Status: **T** = belum, **P** = berjalan, **F** = selesai.
 ### Fase A — Skema Data & Model
 | ID | Task | Status | Output / DoD |
 |---|---|---|---|
-| A1 | Migration `create_menu_management_tables` (`menus`, `role_menu`) | T | Tabel terbentuk, FK cascade benar, lint lolos. |
-| A2 | Model `Menu` (rel. `children`, `parent`, `roles`; kolom `slug`,`is_active`,`permission_slug`) | T | Relasi test lolos, `with('children')` mengembalikan tree. |
-| A3 | Model `Role` extend Spatie Role + relasi `menus()` | T | `Role::find(...)->menus` bekerja. |
-| A4 | `MenuSeeder` (idempotent, semua menu sidebar + `permission_slug` stable) | T | Seed 2x tidak duplikat; data sesuai sidebar. |
-| A5 | `RoleSeeder` (superadmin, admin, staf, asatidz, walikelas) | T | 5 role dibuat, idempotent. |
-| A6 | `RolePermissionSeeder` (matriks + assign ke role) | T | Matriks terisi, superadmin dapat semua. |
-| A7 | `SuperAdminSeeder` / upsert akun superadmin default | T | 1 akun superadmin tersedia. |
+| A1 | Migration `create_menu_management_tables` (`menus`, `role_menu`) | F | Tabel terbentuk, FK cascade benar, lint lolos. |
+| A2 | Model `Menu` (rel. `children`, `parent`, `roles`; kolom `slug`,`is_active`,`permission_slug`) | F | Relasi test lolos, `with('children')` mengembalikan tree. |
+| A3 | Model `Role` extend Spatie Role + relasi `menus()` | F | `Role::find(...)->menus` bekerja. |
+| A4 | `MenuSeeder` (idempotent, semua menu sidebar + `permission_slug` stable) | F | Seed 2x tidak duplikat; data sesuai sidebar. |
+| A5 | `RoleSeeder` (superadmin, admin, staf, asatidz, walikelas) | F | 5 role dibuat, idempotent. |
+| A6 | `RolePermissionSeeder` (matriks + assign ke role) | F | Matriks terisi, superadmin dapat semua. |
+| A7 | `SuperAdminSeeder` / upsert akun superadmin default | F | 1 akun superadmin tersedia. |
 
 ### Fase B — API Keamanan (Menu, Role, Permission, User)
 | ID | Task | Status | Output / DoD |
 |---|---|---|---|
-| B1 | `SecurityController` (menu CRUD, role CRUD, sync menus, sync permissions, getPermissions) | T | Endpoint respons JSON konsisten. |
-| B2 | `UsersController` (user CRUD, assign role, reset password) | T | Admin bisa kelola user & assign role. |
-| B3 | `GET /api/auth/menus` (menu sesuai role login, respect `is_active`) | T | Role berbeda → daftar menu berbeda. |
-| B4 | Daftarkan route di `routes/api.php` (group security) | T | Route terdaftar, butuh auth `api`. |
-| B5 | Pasang middleware `permission:{menu_slug}.{action}` di route terkait | T | Akses tanpa permission → 403. |
+| B1 | `SecurityController` (menu CRUD, role CRUD, sync menus, sync permissions, getPermissions) | F | Endpoint respons JSON konsisten. |
+| B2 | `UsersController` (user CRUD, assign role, reset password) | F | Admin bisa kelola user & assign role. |
+| B3 | `GET /api/auth/menus` (menu sesuai role login, respect `is_active`) | F | Role berbeda → daftar menu berbeda. |
+| B4 | Daftarkan route di `routes/api.php` (group security) | F | Route terdaftar, butuh auth `api`. |
+| B5 | Pasang middleware `permission:{menu_slug}.{action}` di route terkait | F | Akses tanpa permission → 403. |
 
 ### Fase C — SSO Handover & Role Mapping
 | ID | Task | Status | Output / DoD |
 |---|---|---|---|
-| C1 | Perbaiki `AuthController::ssoHandover` → petakan role smpt → role tarbiyah | T | 5 role terpetakan benar. |
-| C2 | Default role `staf` jika role smpt tak dikenali | T | User SSO baru dapat `staf`. |
-| C3 | `user->syncRoles([...])` saat SSO | T | Role tidak bocor / tak terhapus. |
-| C4 | Akun lokal guru luar tetap login langsung | T | Login lokal menghasilkan JWT + role. |
+| C1 | Perbaiki `AuthController::ssoHandover` → petakan role smpt → role tarbiyah | F | 5 role terpetakan benar. |
+| C2 | Default role `staf` jika role smpt tak dikenali | F | User SSO baru dapat `staf`. |
+| C3 | `user->syncRoles([...])` saat SSO | F | Role tidak bocor / tak terhapus. |
+| C4 | Akun lokal guru luar tetap login langsung | F | Login lokal menghasilkan JWT + role. |
 
 ### Fase D — Frontend (Sidebar dinamis + Halaman Admin)
 | ID | Task | Status | Output / DoD |
 |---|---|---|---|
-| D1 | RTK Query `securityApi` (menus, menu, role, permission, user) | T | Query cache berfungsi. |
-| D2 | Sidebar dinamis: render dari `auth/menus`, ikon lucide, sub-menu, active state | T | Sidebar sesuai role, collapse berfungsi. |
-| D3 | Route guard berbasis permission | T | Menu tanpa permission diblokir. |
-| D4 | Halaman `MenuManagement` (CRUD, urut, aktif/nonaktif, assign per role) | T | Admin bisa atur menu. |
-| D5 | Halaman `RolePermission` (matriks role × permission + assign menu) | T | Matriks tersinkron. |
-| D6 | Halaman `UserManagement` (CRUD user, assign role, reset password) | T | Admin bisa kelola user. |
-| D7 | Integrasi menu admin ke sidebar (grup "Pengaturan", hanya admin/superadmin) | T | Menu admin tersembunyi untuk role lain. |
+| D1 | RTK Query `securityApi` (menus, menu, role, permission, user) | F | Query cache berfungsi. |
+| D2 | Sidebar dinamis: render dari `auth/menus`, ikon lucide, sub-menu, active state | F | Sidebar sesuai role, collapse berfungsi. |
+| D3 | Route guard berbasis permission | F | Menu tanpa permission diblokir. |
+| D4 | Halaman `MenuManagement` (CRUD, urut, aktif/nonaktif, assign per role) | F | Admin bisa atur menu. |
+| D5 | Halaman `RolePermission` (matriks role × permission + assign menu) | F | Matriks tersinkron. |
+| D6 | Halaman `UserManagement` (CRUD user, assign role, reset password) | F | Admin bisa kelola user. |
+| D7 | Integrasi menu admin ke sidebar (grup "Pengaturan", hanya admin/superadmin) | F | Menu admin tersembunyi untuk role lain. |
 
 ### Fase E — Testing & Verifikasi
 | ID | Task | Status | Output / DoD |
 |---|---|---|---|
-| E1 | Uji SSO per role (5 role) | T | Masing-masing dapat menu benar. |
-| E2 | Uji enforcement permission (403) | T | Guard bekerja. |
-| E3 | Uji UI admin (ubah menu/role, refresh, konsisten) | T | Perubahan tercermin di sidebar. |
-| E4 | `npm run build` + uji manual di `http://127.0.0.1:8002` | T | Build sukses, fitur jalan. |
-| E5 | Dokumentasi + commit (JANGAN push) | T | Ter-commit di branch `main`. |
+| E1 | Uji SSO per role (5 role) | F | Masing-masing dapat menu benar. |
+| E2 | Uji enforcement permission (403) | F | Guard bekerja. |
+| E3 | Uji UI admin (ubah menu/role, refresh, konsisten) | F | Perubahan tercermin di sidebar. |
+| E4 | `npm run build` + uji manual di `http://127.0.0.1:8002` | F | Build sukses, fitur jalan. |
+| E5 | Dokumentasi + commit (JANGAN push) | F | Ter-commit di branch `main`. |
 
 ---
 

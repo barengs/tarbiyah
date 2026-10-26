@@ -14,8 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'internal.key'  => \App\Http\Middleware\InternalApiKey::class,
-            'autoprovision' => \App\Http\Middleware\AutoProvisionUser::class,
+            'internal.key'       => \App\Http\Middleware\InternalApiKey::class,
+            'autoprovision'      => \App\Http\Middleware\AutoProvisionUser::class,
+            'role'               => \Spatie\Permission\Middleware\RoleMiddleware::class,
+            'permission'         => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -26,6 +29,13 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => 'Unauthenticated.',
                 ], 401);
             }
+        });
+
+        $exceptions->render(function (\Spatie\Permission\Exceptions\UnauthorizedException $e, Request $request) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Anda tidak memiliki hak akses untuk tindakan ini (403 Forbidden).',
+            ], 403);
         });
 
         $exceptions->shouldRenderJsonWhen(

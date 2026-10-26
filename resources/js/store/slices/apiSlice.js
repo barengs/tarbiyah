@@ -48,6 +48,11 @@ export const apiSlice = createApi({
         'Presence',
         'Assessment',
         'ReportCard',
+        'SecurityMenu',
+        'SecurityRole',
+        'SecurityPermission',
+        'SecurityUser',
+        'SidebarMenu',
     ],
     endpoints: () => ({}),
 });

@@ -59,7 +59,7 @@ export default function StudentPage() {
     const handleProgramChange = (v) => { setProgramFilter(v); setEducationFilter(''); setClassGroupFilter(''); };
     const handleEducationChange = (v) => { setEducationFilter(v); setClassGroupFilter(''); };
 
-    const filterSelect = 'px-3 py-2.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white';
+    const filterSelect = 'pl-3 pr-9 py-2.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white';
     const fmtPercent = (v) => (typeof v === 'number' ? `${String(v).replace('.', ',')}%` : null);
     const withPercent = (label, v) => (fmtPercent(v) ? `${label} (${fmtPercent(v)})` : label);
 

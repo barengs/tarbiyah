@@ -11,19 +11,30 @@ import FlatTabs from '../components/atoms/FlatTabs';
 import Modal from '../components/ui/Modal';
 import PullStudentsModal from '../components/organisms/PullStudentsModal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, Users, Home, School, Search, Info, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Home, School, Search, Info, RefreshCw, CalendarRange, GraduationCap, BookOpen, School as SchoolIcon, UsersRound } from 'lucide-react';
+import { useGetClassGroupsQuery } from '../store/slices/classGroupApi';
+import { useGetEducationsQuery } from '../store/slices/institutionApi';
 import { toast } from 'react-toastify';
 
 export default function StudentPage() {
     const [mukimFilter, setMukimFilter] = useState('all'); // 'all', 'mukim', 'luar'
     const [statusFilter, setStatusFilter] = useState('');
     const [search, setSearch] = useState('');
+    // Filter lanjutan dinamis
+    const [periodFilter, setPeriodFilter] = useState('');
+    const [programFilter, setProgramFilter] = useState('');
+    const [educationFilter, setEducationFilter] = useState('');
+    const [classGroupFilter, setClassGroupFilter] = useState('');
 
     const queryParams = {
         ...(mukimFilter === 'mukim' && { is_mukim: 'true' }),
         ...(mukimFilter === 'luar' && { is_mukim: 'false' }),
         ...(statusFilter && { status: statusFilter }),
         ...(search && { search }),
+        ...(periodFilter && { period: periodFilter }),
+        ...(programFilter !== '' && { program_id: programFilter }),
+        ...(educationFilter && { education_id: educationFilter }),
+        ...(classGroupFilter && { class_group_id: classGroupFilter }),
         all: 'true',
     };
 
@@ -33,6 +44,21 @@ export default function StudentPage() {
 
     // Komposisi siswa dinamis dari backend (bukan angka hardcode)
     const summary = meta.summary || {};
+    const filterOptions = meta.filter_options || {};
+    const periods = filterOptions.periods || [];
+    const programs = filterOptions.programs || [];
+
+    // Master data untuk filter lanjutan
+    const { data: classGroupsData } = useGetClassGroupsQuery({ all: 'true' });
+    const classGroups = classGroupsData?.data || classGroupsData || [];
+    const { data: educationsData } = useGetEducationsQuery();
+    const educations = educationsData?.data || educationsData || [];
+
+    // Reset filter turunan saat filter induk berubah
+    const handleProgramChange = (v) => { setProgramFilter(v); setEducationFilter(''); setClassGroupFilter(''); };
+    const handleEducationChange = (v) => { setEducationFilter(v); setClassGroupFilter(''); };
+
+    const filterSelect = 'px-3 py-2.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white';
     const fmtPercent = (v) => (typeof v === 'number' ? `${String(v).replace('.', ',')}%` : null);
     const withPercent = (label, v) => (fmtPercent(v) ? `${label} (${fmtPercent(v)})` : label);
 
@@ -182,6 +208,54 @@ export default function StudentPage() {
             ),
         },
         {
+            key: 'period',
+            label: 'Angkatan',
+            render: (row) => (
+                row.period ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                        <CalendarRange className="w-3.5 h-3.5 text-violet-600" />
+                        {row.period}
+                    </span>
+                ) : (
+                    <span className="text-xs text-slate-400 italic">Belum diatur</span>
+                )
+            ),
+        },
+        {
+            key: 'program_education',
+            label: 'Program / Pendidikan',
+            render: (row) => (
+                <div className="text-xs space-y-0.5">
+                    <p className="font-medium text-slate-800">
+                        {row.program?.name
+                            ? <>{row.program.name} <span className="text-slate-400">({row.program.code})</span></>
+                            : <span className="text-slate-400 italic">Belum diatur</span>}
+                    </p>
+                    <p className="text-slate-500">
+                        {row.active_class?.class_group?.education?.name
+                            ? `Jenjang: ${row.active_class.class_group.education.name}`
+                            : 'Jenjang belum diatur'}
+                    </p>
+                </div>
+            ),
+        },
+        {
+            key: 'class_rombel',
+            label: 'Kelas / Rombel',
+            render: (row) => (
+                row.active_class?.class_group ? (
+                    <div>
+                        <p className="font-semibold text-slate-800 text-sm">{row.active_class.class_group.name}</p>
+                        <p className="text-xs text-slate-500">
+                            {row.active_class.class_group.academic_year?.year || 'TA belum diatur'}
+                        </p>
+                    </div>
+                ) : (
+                    <span className="text-xs text-slate-400 italic">Belum diatur</span>
+                )
+            ),
+        },
+        {
             key: 'parent',
             label: 'Wali / Orang Tua',
             render: (row) => (
@@ -270,6 +344,50 @@ export default function StudentPage() {
                     <p>
                         <span className="font-bold text-slate-800">{withPercent('Siswa Reguler Luar', summary.luar_percent)}:</span> Siswa non-mukim yang hanya bersekolah formal/madrasah dan tidak tinggal di asrama pesantren. Pendaftaran dilakukan langsung di modul ini.
                     </p>
+                </div>
+            </div>
+
+            {/* Filter Lanjutan Dinamis */}
+            <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        <GraduationCap className="w-4 h-4 text-emerald-600" />
+                        Filter Lanjutan
+                    </div>
+
+                    <select value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value)} className={filterSelect}>
+                        <option value="">Semua Angkatan</option>
+                        {periods.map((p) => (<option key={p} value={p}>Angkatan {p}</option>))}
+                    </select>
+
+                    <select value={programFilter} onChange={(e) => handleProgramChange(e.target.value)} className={filterSelect}>
+                        <option value="">Semua Program</option>
+                        <option value="0">Belum diatur</option>
+                        {programs.map((pg) => (<option key={pg.id} value={pg.id}>{pg.name}</option>))}
+                    </select>
+
+                    <select value={educationFilter} onChange={(e) => handleEducationChange(e.target.value)} className={filterSelect}>
+                        <option value="">Semua Jenjang Pendidikan</option>
+                        {educations.map((ed) => (<option key={ed.id} value={ed.id}>{ed.name}</option>))}
+                    </select>
+
+                    <select value={classGroupFilter} onChange={(e) => setClassGroupFilter(e.target.value)} className={filterSelect}>
+                        <option value="">Semua Kelas / Rombel</option>
+                        {classGroups.map((cg) => (
+                            <option key={cg.id} value={cg.id}>
+                                {cg.name} {cg.academic_year?.year ? `(TA ${cg.academic_year.year})` : ''}
+                            </option>
+                        ))}
+                    </select>
+
+                    {(periodFilter || programFilter !== '' || educationFilter || classGroupFilter) && (
+                        <button
+                            onClick={() => { setPeriodFilter(''); setProgramFilter(''); setEducationFilter(''); setClassGroupFilter(''); }}
+                            className="text-xs font-medium text-slate-500 underline hover:text-emerald-600 transition"
+                        >
+                            Hapus semua filter lanjutan
+                        </button>
+                    )}
                 </div>
             </div>
 

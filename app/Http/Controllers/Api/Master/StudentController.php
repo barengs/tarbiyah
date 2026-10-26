@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Master;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\ClassGroup;
+use App\Models\Program;
 use App\Models\Student;
 use App\Models\StudentClass;
 use Illuminate\Http\Request;
@@ -44,6 +45,59 @@ class StudentController extends Controller
                 });
             }
 
+            // Filter berdasarkan angkatan (period, mis. 1445-1446)
+            if ($request->has('period')) {
+                $query->where('period', $request->query('period'));
+            }
+
+            // Filter berdasarkan Program (Kubar / Tibyan)
+            if ($request->has('program_id')) {
+                $programId = (int) $request->query('program_id');
+                if ($programId > 0) {
+                    $query->where('program_id', $programId);
+                } else {
+                    $query->whereNull('program_id');
+                }
+            }
+
+            // Filter berdasarkan jenjang pendidikan (melalui rombel aktif: class_group -> education_id)
+            if ($request->has('education_id')) {
+                $query->whereHas('studentClasses', function ($q) use ($request) {
+                    $q->where('status', 'aktif')
+                      ->whereHas('classGroup', function ($cg) use ($request) {
+                          $cg->where('education_id', $request->query('education_id'));
+                      });
+                });
+            }
+
+            // Filter berdasarkan kelas (melalui rombel aktif: class_group -> education_class_id)
+            if ($request->has('education_class_id')) {
+                $query->whereHas('studentClasses', function ($q) use ($request) {
+                    $q->where('status', 'aktif')
+                      ->whereHas('classGroup', function ($cg) use ($request) {
+                          $cg->where('education_class_id', $request->query('education_class_id'));
+                      });
+                });
+            }
+
+            // Filter berdasarkan rombel (class_group)
+            if ($request->has('class_group_id')) {
+                $query->whereHas('studentClasses', function ($q) use ($request) {
+                    $q->where('status', 'aktif')
+                      ->where('class_group_id', $request->query('class_group_id'));
+                });
+            }
+
+            // Eager load rombel aktif untuk kolom Kelas/Rombel di frontend
+            $query->with([
+                'activeClass',
+                'activeClass.classGroup',
+                'activeClass.classGroup.education',
+                'activeClass.classGroup.program',
+                'activeClass.classGroup.educationClass',
+                'program',
+            ]);
+
             // Ringkasan komposisi siswa (dinamis, dihitung dari seluruh populasi siswa)
             $summaryTotal = Student::count();
             $summaryMukim = Student::where('is_mukim', true)->count();
@@ -54,6 +108,13 @@ class StudentController extends Controller
                 'luar'          => $summaryLuar,
                 'mukim_percent' => $summaryTotal > 0 ? round(($summaryMukim / $summaryTotal) * 100, 1) : 0,
                 'luar_percent'  => $summaryTotal > 0 ? round(($summaryLuar / $summaryTotal) * 100, 1) : 0,
+            ];
+
+            // Opsi filter: angkatan yang tersedia (dinamis dari data)
+            $periodOptions = DB::table('students')->select('period')->whereNotNull('period')->distinct()->orderBy('period')->pluck('period')->all();
+            $filterOptions = [
+                'periods' => $periodOptions,
+                'programs' => \App\Models\Program::query()->orderBy('name')->get(['id', 'name', 'code']),
             ];
 
             // Dukung pengambilan seluruh data tanpa pagination (misal untuk DataTable TanStack klien)
@@ -70,6 +131,7 @@ class StudentController extends Controller
                         'per_page'     => $allStudents->count(),
                         'total'        => $allStudents->count(),
                         'summary'      => $summary,
+                        'filter_options' => $filterOptions,
                     ],
                 ], 200);
             }
@@ -86,6 +148,7 @@ class StudentController extends Controller
                     'per_page'     => $students->perPage(),
                     'total'        => $students->total(),
                     'summary'      => $summary,
+                    'filter_options' => $filterOptions,
                 ],
             ], 200);
         } catch (\Exception $e) {
@@ -425,6 +488,7 @@ class StudentController extends Controller
                     [
                         'santri_id'      => $item['santri_id'] ?? null,
                         'parent_id'      => $item['parent_id'] ?? null, // NIK Wali Santri
+                        'period'         => $item['period'] ?? null, // Angkatan (Hijriah)
                         'nik'            => $nik,
                         'kk'             => $kk,
                         'first_name'     => $firstName,

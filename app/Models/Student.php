@@ -84,4 +84,9 @@ class Student extends Model
             ->withPivot(['academic_year_id', 'educational_institution_id', 'joined_at', 'left_at', 'status', 'note'])
             ->withTimestamps();
     }
+
+    public function program()
+    {
+        return $this->belongsTo(Program::class, 'program_id');
+    }
 }

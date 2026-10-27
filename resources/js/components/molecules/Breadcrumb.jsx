@@ -26,6 +26,12 @@ const ROUTE_LABELS = {
     presensi: 'Presensi & Disiplin',
     nilai: 'Penilaian & Ujian',
     rapor: 'Rekap Tahfizh & Nilai',
+    admin: 'Pengaturan & Akses',
+    pengguna: 'Manajemen Pengguna',
+    users: 'Manajemen Pengguna',
+    user: 'Manajemen Pengguna',
+    role: 'Role & Hak Akses',
+    menu: 'Manajemen Menu',
 };
 
 export default function Breadcrumb({ items, className = '' }) {

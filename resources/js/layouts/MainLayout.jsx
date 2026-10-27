@@ -7,17 +7,23 @@ import Footer from '../components/organisms/Footer';
 import { useGetDashboardStatsQuery } from '../store/slices/dashboardApi';
 
 /**
- * LAYOUT UTAMA DYNAMIK: SIM Akademik (e-Panyeppen Pro)
+ * LAYOUT UTAMA DINAMIS: SIM Akademik (e-Panyeppen Pro)
  *
- * 1. Tombol Toggle Sidebar ditempatkan di Navbar sisi paling kiri (desktop: collapse, mobile: slide-in).
- * 2. SearchBar pada navbar telah dihilangkan sesuai kebutuhan sistem.
- * 3. Header Sidebar tampil rapi dan fokus pada logo & nama sistem.
+ * 1. Sidebar responsif (Desktop: static flex item w-64/w-20, Mobile: slide-in drawer dengan overlay).
+ * 2. Main content flex-1 column, Navbar di atas, Outlet scrollable di tengah, Footer di bawah.
+ * 3. Tidak ada overlap antara Sidebar, Navbar, dan Konten.
  */
 export default function MainLayout() {
     const location = useLocation();
     const { user } = useSelector((state) => state.auth);
 
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        try {
+            return localStorage.getItem('tarbiyah_sidebar_collapsed') === 'true';
+        } catch {
+            return false;
+        }
+    });
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     // Get academic meta & notifications feed dari database
@@ -31,7 +37,13 @@ export default function MainLayout() {
     }, [location.pathname]);
 
     const handleToggleCollapse = useCallback(() => {
-        setIsCollapsed((prev) => !prev);
+        setIsCollapsed((prev) => {
+            const next = !prev;
+            try {
+                localStorage.setItem('tarbiyah_sidebar_collapsed', String(next));
+            } catch {}
+            return next;
+        });
     }, []);
 
     const handleOpenMobileMenu = useCallback(() => {
@@ -55,7 +67,7 @@ export default function MainLayout() {
     }));
 
     return (
-        <div className="flex h-screen bg-[#f1f5f9] text-slate-800 overflow-hidden font-sans">
+        <div className="flex h-screen w-full bg-[#f1f5f9] text-slate-800 overflow-hidden font-sans">
             {/* 1. SIDEBAR AREA */}
             <Sidebar
                 collapsed={isCollapsed}
@@ -64,7 +76,7 @@ export default function MainLayout() {
             />
 
             {/* 2. MAIN COLUMN (Navbar + Dynamic Content + Footer) */}
-            <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
                 {/* NAVBAR AREA (Dengan Toggle Sidebar di paling kiri, tanpa SearchBar) */}
                 <Navbar
                     isCollapsed={isCollapsed}
@@ -75,7 +87,7 @@ export default function MainLayout() {
                 />
 
                 {/* DYNAMIC CONTENT AREA */}
-                <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
                     <div className="max-w-[1600px] mx-auto">
                         <Outlet />
                     </div>

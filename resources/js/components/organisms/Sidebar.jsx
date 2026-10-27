@@ -23,6 +23,7 @@ import {
     Lock,
     Folder,
     FileText,
+    X,
 } from 'lucide-react';
 import { useGetSidebarMenusQuery } from '../../store/slices/securityApi';
 
@@ -48,7 +49,19 @@ const ICON_MAP = {
     Lock,
     Folder,
     FileText,
+    X,
 };
+
+function resolveIcon(iconName) {
+    if (!iconName) return LayoutDashboard;
+    if (typeof iconName !== 'string') return iconName;
+    if (ICON_MAP[iconName]) return ICON_MAP[iconName];
+    const normalized = iconName.replace(/[-_ ]/g, '').toLowerCase();
+    const foundKey = Object.keys(ICON_MAP).find(
+        (k) => k.toLowerCase() === normalized
+    );
+    return foundKey ? ICON_MAP[foundKey] : LayoutDashboard;
+}
 
 const DEFAULT_NAVIGATION_ITEMS = [
     {
@@ -98,6 +111,15 @@ const DEFAULT_NAVIGATION_ITEMS = [
         to: '/rapor',
         icon: ScrollText,
     },
+    {
+        name: 'Pengaturan & Akses',
+        icon: Settings,
+        children: [
+            { name: 'Manajemen Pengguna', to: '/admin/pengguna', icon: UserCog },
+            { name: 'Role & Hak Akses', to: '/admin/role', icon: ShieldCheck },
+            { name: 'Manajemen Menu', to: '/admin/menu', icon: LayoutGrid },
+        ],
+    },
 ];
 
 export default function Sidebar({
@@ -118,7 +140,7 @@ export default function Sidebar({
 
         return rawMenus.map((item) => {
             const hasChildren = Array.isArray(item.children) && item.children.length > 0;
-            const ResolvedIcon = ICON_MAP[item.icon] || LayoutDashboard;
+            const ResolvedIcon = resolveIcon(item.icon);
 
             if (hasChildren) {
                 return {
@@ -127,7 +149,7 @@ export default function Sidebar({
                     children: item.children.map((child) => ({
                         name: child.name,
                         to: child.path || '/',
-                        icon: ICON_MAP[child.icon] || LayoutDashboard,
+                        icon: resolveIcon(child.icon),
                     })),
                 };
             }
@@ -173,27 +195,33 @@ export default function Sidebar({
         }));
     };
 
+    const handleItemClick = () => {
+        if (mobileOpen && onCloseMobile) {
+            onCloseMobile();
+        }
+    };
+
     return (
         <>
             {/* Mobile Backdrop */}
             {mobileOpen && (
                 <div
                     onClick={onCloseMobile}
-                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 lg:hidden transition-opacity"
+                    className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 lg:hidden transition-opacity"
                     aria-hidden="true"
                 />
             )}
 
             <aside
-                className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-200 ease-in-out ${
+                className={`fixed inset-y-0 left-0 z-50 lg:static lg:z-30 flex flex-col bg-white border-r border-slate-200 transition-all duration-200 ease-in-out shrink-0 h-screen ${
                     collapsed ? 'w-20' : 'w-64'
                 } ${
-                    mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+                    mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
                 } ${className}`}
             >
                 {/* Header Brand */}
-                <div className="h-16 flex items-center px-4 border-b border-slate-100 bg-white">
-                    <Link to="/" className="flex items-center gap-3 min-w-0">
+                <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 bg-white shrink-0">
+                    <Link to="/" onClick={handleItemClick} className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-lg bg-[#093c30] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
                             P
                         </div>
@@ -208,6 +236,16 @@ export default function Sidebar({
                             </div>
                         )}
                     </Link>
+
+                    {/* Tombol Tutup Mobile (X) */}
+                    <button
+                        type="button"
+                        onClick={onCloseMobile}
+                        aria-label="Tutup Menu"
+                        className="lg:hidden p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </div>
 
                 {/* Navigation Body */}
@@ -273,12 +311,15 @@ export default function Sidebar({
                                                         (child.to === '/kurikulum/kenaikan-kelas' && (location.pathname === '/kenaikan-kelas' || location.pathname === '/master/kenaikan-kelas')) ||
                                                         (child.to === '/kurikulum/mapel' && (location.pathname === '/mapel' || location.pathname === '/master/mapel')) ||
                                                         (child.to === '/kurikulum/jam-pelajaran' && (location.pathname === '/jam-pelajaran' || location.pathname === '/master/jam-pelajaran')) ||
-                                                        (child.to === '/admin/pengguna' && (location.pathname === '/admin/users' || location.pathname === '/admin/user'));
+                                                        (child.to === '/admin/pengguna' && (location.pathname === '/admin/users' || location.pathname === '/admin/user' || location.pathname === '/admin/pengguna')) ||
+                                                        (child.to === '/admin/role' && location.pathname.startsWith('/admin/role')) ||
+                                                        (child.to === '/admin/menu' && location.pathname.startsWith('/admin/menu'));
 
                                                     return (
                                                         <Link
                                                             key={child.to}
                                                             to={child.to}
+                                                            onClick={handleItemClick}
                                                             className={`flex items-center gap-2.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                                                                 isThisActive
                                                                     ? 'bg-[#093c30] text-white shadow-2xs font-semibold'
@@ -306,6 +347,7 @@ export default function Sidebar({
                                     key={item.to}
                                     to={item.to}
                                     end={item.to === '/'}
+                                    onClick={handleItemClick}
                                     title={collapsed ? item.name : undefined}
                                     className={({ isActive }) =>
                                         `flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 ${
@@ -334,7 +376,7 @@ export default function Sidebar({
                 </div>
 
                 {/* Footer Sidebar: Status Sinkronisasi EMIS */}
-                <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+                <div className="p-3 border-t border-slate-100 bg-slate-50/50 shrink-0">
                     {!collapsed ? (
                         <div className="p-2.5 rounded-md border border-slate-200 bg-white shadow-2xs flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">

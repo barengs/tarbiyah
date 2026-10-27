@@ -22,8 +22,12 @@ class SecurityController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthenticated', 'data' => []], 401);
         }
 
-        // Superadmin melihat semua menu aktif
-        if ($user->hasRole('superadmin')) {
+        // Superadmin, Admin, & Mudir melihat seluruh menu aktif sistem
+        if (
+            $user->hasRole('superadmin') ||
+            $user->hasRole('admin') ||
+            in_array($user->role, ['superadmin', 'admin', 'mudir'])
+        ) {
             $menus = Menu::whereNull('parent_id')
                 ->where('is_active', true)
                 ->with(['children' => function ($q) {
@@ -39,6 +43,12 @@ class SecurityController extends Controller
         }
 
         $roleIds = $user->roles->pluck('id')->toArray();
+        if (empty($roleIds) && !empty($user->role)) {
+            $fallbackRole = Role::where('name', $user->role)->where('guard_name', 'api')->first();
+            if ($fallbackRole) {
+                $roleIds = [$fallbackRole->id];
+            }
+        }
 
         // Menu top level yang berelasi dengan role user ATAU memiliki child yang berelasi
         $menus = Menu::whereNull('parent_id')

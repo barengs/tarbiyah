@@ -36,6 +36,14 @@ export const securityApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: ['SecurityMenu', 'SidebarMenu'],
         }),
+        reorderMenus: builder.mutation({
+            query: (items) => ({
+                url: 'security/menus/reorder',
+                method: 'POST',
+                body: { items },
+            }),
+            invalidatesTags: ['SecurityMenu', 'SidebarMenu'],
+        }),
 
         // Manajemen Role & Matrix
         getRoles: builder.query({
@@ -136,6 +144,7 @@ export const {
     useCreateMenuMutation,
     useUpdateMenuMutation,
     useDeleteMenuMutation,
+    useReorderMenusMutation,
     useGetRolesQuery,
     useCreateRoleMutation,
     useUpdateRoleMutation,

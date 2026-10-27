@@ -70,6 +70,7 @@ Route::prefix('internal')->middleware('internal.key')->group(function () {
 Route::prefix('security')->middleware(['autoprovision', 'auth:api'])->group(function () {
     // Menu Management
     Route::get('menus', [SecurityController::class, 'getMenus']);
+    Route::post('menus/reorder', [SecurityController::class, 'reorderMenus']);
     Route::post('menus', [SecurityController::class, 'storeMenu']);
     Route::put('menus/{id}', [SecurityController::class, 'updateMenu']);
     Route::delete('menus/{id}', [SecurityController::class, 'destroyMenu']);

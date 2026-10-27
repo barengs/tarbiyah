@@ -1,17 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-    UserCog,
     Plus,
     Edit2,
     Trash2,
     KeyRound,
-    Search,
-    Shield,
-    Loader2,
     Mail,
-    User as UserIcon,
+    Shield,
     Save,
-    X,
+    Loader2,
     Filter,
 } from 'lucide-react';
 import {
@@ -22,18 +18,17 @@ import {
     useDeleteUserMutation,
     useResetUserPasswordMutation,
 } from '../../store/slices/securityApi';
+import DataTable from '../../components/ui/DataTable';
+import Modal from '../../components/ui/Modal';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { toast } from 'react-toastify';
 
 export default function UserManagementPage() {
-    const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
-    const [page, setPage] = useState(1);
 
     const { data: usersRes, isLoading: usersLoading } = useGetUsersQuery({
-        search,
         role: roleFilter,
-        page,
-        per_page: 15,
+        all: 'true',
     });
     const { data: rolesRes } = useGetRolesQuery();
 
@@ -42,8 +37,7 @@ export default function UserManagementPage() {
     const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
     const [resetPassword, { isLoading: isResetting }] = useResetUserPasswordMutation();
 
-    const usersData = usersRes?.data?.data || [];
-    const totalUsers = usersRes?.data?.total || 0;
+    const usersData = usersRes?.data?.data || usersRes?.data || [];
     const roles = rolesRes?.data || [];
 
     // Modal Add / Edit User
@@ -60,6 +54,9 @@ export default function UserManagementPage() {
     const [resetModalOpen, setResetModalOpen] = useState(false);
     const [resetTargetUser, setResetTargetUser] = useState(null);
     const [newPassword, setNewPassword] = useState('');
+
+    // Confirm Delete
+    const [deleteTargetUser, setDeleteTargetUser] = useState(null);
 
     const handleOpenUserModal = (user = null) => {
         if (user) {
@@ -97,7 +94,7 @@ export default function UserManagementPage() {
                     payload.password = userForm.password;
                 }
                 await updateUser(payload).unwrap();
-                toast.success('Pengguna berhasil diperbarui.');
+                toast.success('Pengguna berhasil diperbarui');
             } else {
                 await createUser({
                     name: userForm.name,
@@ -106,22 +103,22 @@ export default function UserManagementPage() {
                     roles: userForm.roles,
                     role: userForm.roles[0] || 'staf',
                 }).unwrap();
-                toast.success('Pengguna baru berhasil ditambahkan.');
+                toast.success('Pengguna baru berhasil ditambahkan');
             }
             setUserModalOpen(false);
         } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menyimpan pengguna.');
+            toast.error(err?.data?.message || 'Gagal menyimpan data pengguna');
         }
     };
 
-    const handleDeleteUser = async (user) => {
-        if (window.confirm(`Yakin ingin menghapus pengguna "${user.name}" (${user.email})?`)) {
-            try {
-                await deleteUser(user.id).unwrap();
-                toast.success('Pengguna berhasil dihapus.');
-            } catch (err) {
-                toast.error(err?.data?.message || 'Gagal menghapus pengguna.');
-            }
+    const handleDeleteUser = async () => {
+        if (!deleteTargetUser) return;
+        try {
+            await deleteUser(deleteTargetUser.id).unwrap();
+            toast.success(`Pengguna ${deleteTargetUser.name} berhasil dihapus`);
+            setDeleteTargetUser(null);
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal menghapus pengguna');
         }
     };
 
@@ -137,10 +134,10 @@ export default function UserManagementPage() {
 
         try {
             await resetPassword({ id: resetTargetUser.id, password: newPassword }).unwrap();
-            toast.success(`Password untuk ${resetTargetUser.name} berhasil diubah.`);
+            toast.success(`Kata sandi untuk ${resetTargetUser.name} berhasil diubah`);
             setResetModalOpen(false);
         } catch (err) {
-            toast.error(err?.data?.message || 'Gagal me-reset password.');
+            toast.error(err?.data?.message || 'Gagal memperbarui kata sandi');
         }
     };
 
@@ -155,49 +152,142 @@ export default function UserManagementPage() {
         });
     };
 
+    const getRoleBadgeClass = (roleName) => {
+        switch (roleName?.toLowerCase()) {
+            case 'superadmin':
+                return 'bg-purple-50 text-purple-700 border-purple-200';
+            case 'admin':
+                return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+            case 'asatidz':
+            case 'guru':
+                return 'bg-amber-50 text-amber-800 border-amber-200';
+            case 'walikelas':
+                return 'bg-blue-50 text-blue-700 border-blue-200';
+            default:
+                return 'bg-slate-100 text-slate-700 border-slate-200';
+        }
+    };
+
+    const columns = useMemo(
+        () => [
+            {
+                key: 'name',
+                label: 'Nama & Kontak Pengguna',
+                render: (row) => (
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-50 text-[#093c30] font-bold text-xs flex items-center justify-center border border-emerald-200 shrink-0">
+                            {row.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </div>
+                        <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 leading-tight">{row.name}</p>
+                            <p className="text-xs text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+                                <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span>{row.email}</span>
+                            </p>
+                        </div>
+                    </div>
+                ),
+            },
+            {
+                key: 'roles',
+                label: 'Peran (Role)',
+                render: (row) => {
+                    const userRoles = row.roles || [];
+                    const displayRoles = userRoles.length > 0 ? userRoles : [{ id: 0, name: row.role || 'staf' }];
+                    return (
+                        <div className="flex flex-wrap gap-1">
+                            {displayRoles.map((r) => (
+                                <span
+                                    key={r.id || r.name}
+                                    className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border uppercase tracking-wider ${getRoleBadgeClass(
+                                        r.name
+                                    )}`}
+                                >
+                                    {r.name}
+                                </span>
+                            ))}
+                        </div>
+                    );
+                },
+            },
+            {
+                key: 'status',
+                label: 'Status Akun',
+                render: () => (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Akun Aktif
+                    </span>
+                ),
+            },
+            {
+                key: 'actions',
+                label: 'Aksi',
+                render: (row) => (
+                    <div className="flex items-center justify-end gap-1">
+                        <button
+                            type="button"
+                            onClick={() => handleOpenResetModal(row)}
+                            title="Reset Kata Sandi"
+                            className="p-1.5 rounded-md text-slate-400 hover:text-amber-600 hover:bg-slate-100 transition-colors"
+                        >
+                            <KeyRound className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleOpenUserModal(row)}
+                            title="Edit Pengguna"
+                            className="p-1.5 rounded-md text-slate-400 hover:text-[#093c30] hover:bg-slate-100 transition-colors"
+                        >
+                            <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setDeleteTargetUser(row)}
+                            title="Hapus Pengguna"
+                            className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-slate-100 transition-colors"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                ),
+            },
+        ],
+        []
+    );
+
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
+            {/* Header info konsisten dengan modul lainnya */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        <UserCog className="w-5 h-5 text-[#093c30]" />
-                        Manajemen Pengguna (User Management)
-                    </h1>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Manajemen Pengguna</h1>
+                    <p className="text-sm text-slate-500 mt-1">
                         Kelola akun pengguna, hak akses peran sistem pesantren, dan pengaturan kata sandi.
                     </p>
                 </div>
-                <button
-                    onClick={() => handleOpenUserModal(null)}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#093c30] hover:bg-[#072d24] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors shrink-0"
-                >
-                    <Plus className="w-4 h-4" />
-                    Tambah Pengguna
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => handleOpenUserModal(null)}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#093c30] text-white font-semibold text-sm rounded-md hover:bg-[#072d24] transition shadow-xs"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Tambah Pengguna
+                    </button>
+                </div>
             </div>
 
-            {/* Filter & Search Bar */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-80">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Cari nama atau email pengguna..."
-                        className="w-full text-xs pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-[#093c30]"
-                    />
-                </div>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+            {/* Filter Lanjutan */}
+            <div className="p-3 bg-white border border-slate-200 rounded-md shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                    <Filter className="w-4 h-4 text-emerald-700" />
+                    <span>Filter Peran:</span>
                     <select
                         value={roleFilter}
                         onChange={(e) => setRoleFilter(e.target.value)}
-                        className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-[#093c30] bg-white w-full sm:w-48"
+                        className="px-3 py-1.5 border border-slate-300 rounded-md text-xs font-normal focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                     >
-                        <option value="">Semua Role ({roles.length})</option>
+                        <option value="">Semua Peran ({roles.length})</option>
                         {roles.map((r) => (
                             <option key={r.id} value={r.name}>
                                 {r.name.toUpperCase()}
@@ -205,297 +295,184 @@ export default function UserManagementPage() {
                         ))}
                     </select>
                 </div>
+                <span className="text-xs text-slate-500 font-medium">
+                    Total: <strong className="text-slate-800">{usersData.length}</strong> pengguna
+                </span>
             </div>
 
-            {/* Table Users */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
-                        <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                            <tr>
-                                <th className="px-5 py-3">Nama & Kontak</th>
-                                <th className="px-4 py-3">Peran (Role)</th>
-                                <th className="px-4 py-3">Status Autentikasi</th>
-                                <th className="px-5 py-3 text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {usersLoading ? (
-                                <tr>
-                                    <td colSpan={4} className="py-12 text-center text-slate-400">
-                                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#093c30] mb-2" />
-                                        Memuat daftar pengguna...
-                                    </td>
-                                </tr>
-                            ) : usersData.length === 0 ? (
-                                <tr>
-                                    <td colSpan={4} className="py-12 text-center text-slate-400">
-                                        Tidak ada pengguna yang cocok dengan kriteria pencarian.
-                                    </td>
-                                </tr>
-                            ) : (
-                                usersData.map((u) => {
-                                    const userRoles = u.roles || [];
-                                    const isSuper = userRoles.some((r) => r.name === 'superadmin');
+            {/* Tabel Data Konsisten TanStack */}
+            <DataTable
+                columns={columns}
+                data={usersData}
+                isLoading={usersLoading}
+                searchPlaceholder="Cari nama atau email pengguna..."
+                emptyMessage="Tidak ada data pengguna yang cocok"
+            />
 
-                                    return (
-                                        <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
-                                            <td className="px-5 py-3.5">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-emerald-50 text-[#093c30] font-bold text-xs flex items-center justify-center border border-emerald-200 shrink-0">
-                                                        {u.name?.charAt(0)?.toUpperCase() || 'U'}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="font-bold text-slate-900 truncate">{u.name}</p>
-                                                        <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
-                                                            <Mail className="w-3 h-3 text-slate-400" />
-                                                            {u.email}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3.5">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {userRoles.length > 0 ? (
-                                                        userRoles.map((r) => (
-                                                            <span
-                                                                key={r.id}
-                                                                className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                                                                    r.name === 'superadmin'
-                                                                        ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                                                                        : r.name === 'admin'
-                                                                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                                                        : r.name === 'asatidz'
-                                                                        ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                                                        : r.name === 'walikelas'
-                                                                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                                                        : 'bg-slate-100 text-slate-700 border border-slate-200'
-                                                                }`}
-                                                            >
-                                                                {r.name}
-                                                            </span>
-                                                        ))
-                                                    ) : (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">
-                                                            {u.role || 'staf'}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3.5">
-                                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                    Akun Aktif
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-3.5 text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <button
-                                                        onClick={() => handleOpenResetModal(u)}
-                                                        title="Reset Password"
-                                                        className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
-                                                    >
-                                                        <KeyRound className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleOpenUserModal(u)}
-                                                        title="Edit Pengguna"
-                                                        className="p-1.5 text-slate-500 hover:text-[#093c30] hover:bg-emerald-50 rounded-md transition-colors"
-                                                    >
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteUser(u)}
-                                                        title="Hapus Pengguna"
-                                                        disabled={isSuper && u.email === 'superadmin@tarbiyah.id'}
-                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                    <span>Total Pengguna: {totalUsers}</span>
-                </div>
-            </div>
-
-            {/* Modal Tambah / Edit User */}
-            {userModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-                    <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-                            <h3 className="text-sm font-bold text-slate-800">
-                                {editingUser ? `Edit Pengguna: ${editingUser.name}` : 'Tambah Pengguna Baru'}
-                            </h3>
-                            <button
-                                onClick={() => setUserModalOpen(false)}
-                                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleUserSubmit} className="p-5 space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-700">Nama Lengkap *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={userForm.name}
-                                    onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-                                    placeholder="Contoh: Ust. Abdullah Syukri"
-                                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-[#093c30]"
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-700">Alamat Email *</label>
-                                <input
-                                    type="email"
-                                    required
-                                    value={userForm.email}
-                                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                                    placeholder="email@pesantren.id"
-                                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-[#093c30]"
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-700">
-                                    {editingUser ? 'Kata Sandi Baru (Kosongkan jika tidak diubah)' : 'Kata Sandi Awal *'}
-                                </label>
-                                <input
-                                    type="password"
-                                    required={!editingUser}
-                                    value={userForm.password}
-                                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                                    placeholder="Minimal 6 karakter"
-                                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-[#093c30]"
-                                />
-                            </div>
-
-                            <div className="space-y-2 pt-1">
-                                <label className="text-xs font-semibold text-slate-700">Pilih Peran (Role) *</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {roles.map((r) => {
-                                        const isChecked = userForm.roles.includes(r.name);
-                                        return (
-                                            <label
-                                                key={r.id}
-                                                className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
-                                                    isChecked
-                                                        ? 'bg-emerald-50 border-[#093c30] text-[#093c30] font-bold'
-                                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                                }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isChecked}
-                                                    onChange={() => toggleFormRole(r.name)}
-                                                    className="w-3.5 h-3.5 text-[#093c30] rounded border-slate-300 focus:ring-emerald-500"
-                                                />
-                                                <span className="capitalize">{r.name}</span>
-                                            </label>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                                <button
-                                    type="button"
-                                    onClick={() => setUserModalOpen(false)}
-                                    className="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-medium rounded-lg hover:bg-slate-50"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isCreating || isUpdating}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#093c30] hover:bg-[#072d24] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors disabled:opacity-50"
-                                >
-                                    {(isCreating || isUpdating) ? (
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                        <Save className="w-3.5 h-3.5" />
-                                    )}
-                                    Simpan Pengguna
-                                </button>
-                            </div>
-                        </form>
+            {/* Modal Tambah / Edit Pengguna */}
+            <Modal
+                open={userModalOpen}
+                title={editingUser ? `Edit Pengguna: ${editingUser.name}` : 'Tambah Pengguna Baru'}
+                onClose={() => setUserModalOpen(false)}
+            >
+                <form onSubmit={handleUserSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            Nama Lengkap *
+                        </label>
+                        <input
+                            type="text"
+                            required
+                            value={userForm.name}
+                            onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                            placeholder="Contoh: Ust. Abdullah Syukri, M.Pd."
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
                     </div>
-                </div>
-            )}
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            Alamat Email (Login) *
+                        </label>
+                        <input
+                            type="email"
+                            required
+                            value={userForm.email}
+                            onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                            placeholder="nama@tarbiyah.id"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            {editingUser ? 'Kata Sandi Baru (Kosongkan bila tidak diubah)' : 'Kata Sandi Awal *'}
+                        </label>
+                        <input
+                            type="password"
+                            required={!editingUser}
+                            minLength={6}
+                            value={userForm.password}
+                            onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                            placeholder="Minimal 6 karakter"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                    </div>
+
+                    <div className="pt-1">
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                            Pilih Peran Sistem (Role) *
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {roles.map((r) => {
+                                const isChecked = userForm.roles.includes(r.name);
+                                return (
+                                    <label
+                                        key={r.id}
+                                        className={`flex items-center gap-2 p-2 rounded-md border text-xs cursor-pointer transition-all ${
+                                            isChecked
+                                                ? 'bg-emerald-50 border-emerald-500 text-[#093c30] font-semibold'
+                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => toggleFormRole(r.name)}
+                                            className="w-3.5 h-3.5 text-[#093c30] rounded border-slate-300 focus:ring-emerald-500"
+                                        />
+                                        <span className="capitalize">{r.name}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                        <button
+                            type="button"
+                            onClick={() => setUserModalOpen(false)}
+                            className="px-4 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-md hover:bg-slate-50 transition-colors"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isCreating || isUpdating}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#093c30] text-white text-sm font-semibold rounded-md hover:bg-[#072d24] transition-colors disabled:opacity-50 shadow-xs"
+                        >
+                            {isCreating || isUpdating ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            Simpan Pengguna
+                        </button>
+                    </div>
+                </form>
+            </Modal>
 
             {/* Modal Reset Password */}
-            {resetModalOpen && resetTargetUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-                    <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-                            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                <KeyRound className="w-4 h-4 text-amber-600" />
-                                Reset Kata Sandi
-                            </h3>
-                            <button
-                                onClick={() => setResetModalOpen(false)}
-                                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
+            <Modal
+                open={resetModalOpen && Boolean(resetTargetUser)}
+                title={`Reset Kata Sandi: ${resetTargetUser?.name || ''}`}
+                onClose={() => setResetModalOpen(false)}
+            >
+                <form onSubmit={handleResetSubmit} className="space-y-4">
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                        Masukkan kata sandi baru untuk pengguna{' '}
+                        <strong className="text-slate-900">{resetTargetUser?.name}</strong> (
+                        <span className="font-mono text-slate-500">{resetTargetUser?.email}</span>):
+                    </p>
 
-                        <form onSubmit={handleResetSubmit} className="p-5 space-y-4">
-                            <p className="text-xs text-slate-600">
-                                Masukkan kata sandi baru untuk pengguna{' '}
-                                <strong className="text-slate-900">{resetTargetUser.name}</strong> ({resetTargetUser.email}):
-                            </p>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-700">Kata Sandi Baru *</label>
-                                <input
-                                    type="password"
-                                    required
-                                    minLength={6}
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    placeholder="Minimal 6 karakter"
-                                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-[#093c30]"
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                                <button
-                                    type="button"
-                                    onClick={() => setResetModalOpen(false)}
-                                    className="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-medium rounded-lg hover:bg-slate-50"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isResetting}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors disabled:opacity-50"
-                                >
-                                    {isResetting ? (
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                        <KeyRound className="w-3.5 h-3.5" />
-                                    )}
-                                    Ubah Kata Sandi
-                                </button>
-                            </div>
-                        </form>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            Kata Sandi Baru *
+                        </label>
+                        <input
+                            type="password"
+                            required
+                            minLength={6}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Minimal 6 karakter"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
                     </div>
-                </div>
-            )}
+
+                    <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                        <button
+                            type="button"
+                            onClick={() => setResetModalOpen(false)}
+                            className="px-4 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-md hover:bg-slate-50 transition-colors"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isResetting}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-md hover:bg-amber-700 transition-colors disabled:opacity-50 shadow-xs"
+                        >
+                            {isResetting ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <KeyRound className="w-4 h-4" />
+                            )}
+                            Perbarui Kata Sandi
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Confirm Dialog Hapus */}
+            <ConfirmDialog
+                open={Boolean(deleteTargetUser)}
+                title="Hapus Pengguna"
+                message={`Apakah Anda yakin ingin menghapus akun pengguna "${deleteTargetUser?.name}" (${deleteTargetUser?.email})? Tindakan ini tidak dapat dibatalkan.`}
+                onConfirm={handleDeleteUser}
+                onCancel={() => setDeleteTargetUser(null)}
+                isLoading={isDeleting}
+            />
         </div>
     );
 }

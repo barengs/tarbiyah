@@ -174,6 +174,38 @@ class SecurityController extends Controller
     }
 
     /**
+     * Batch update urutan & parent menu (Drag-and-Drop / Arrow Reorder).
+     */
+    public function reorderMenus(Request $request)
+    {
+        $validated = $request->validate([
+            'items'              => 'required|array',
+            'items.*.id'         => 'required|exists:menus,id',
+            'items.*.parent_id'  => 'nullable|exists:menus,id',
+            'items.*.sort_order' => 'required|integer',
+        ]);
+
+        \DB::transaction(function () use ($validated) {
+            foreach ($validated['items'] as $item) {
+                $parentId = (!empty($item['parent_id']) && $item['parent_id'] != $item['id'])
+                    ? $item['parent_id']
+                    : null;
+
+                Menu::where('id', $item['id'])->update([
+                    'parent_id'  => $parentId,
+                    'sort_order' => $item['sort_order'],
+                ]);
+            }
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Tata letak urutan menu berhasil diperbarui.',
+            'data'    => $this->getMenus()->getData()->data,
+        ]);
+    }
+
+    /**
      * Hapus menu.
      */
     public function destroyMenu($id)

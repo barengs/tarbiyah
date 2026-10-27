@@ -29,6 +29,14 @@ export const teacherApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: (result, error, { id }) => ['Teacher', { type: 'Teacher', id }],
         }),
+        assignTeacherStudies: builder.mutation({
+            query: ({ id, study_ids }) => ({
+                url: `master/teachers/${id}/studies`,
+                method: 'POST',
+                body: { study_ids },
+            }),
+            invalidatesTags: (result, error, { id }) => ['Teacher', { type: 'Teacher', id }, 'Study'],
+        }),
         deleteTeacher: builder.mutation({
             query: (id) => ({
                 url: `master/teachers/${id}`,
@@ -44,5 +52,6 @@ export const {
     useGetTeacherByIdQuery,
     useCreateTeacherMutation,
     useUpdateTeacherMutation,
+    useAssignTeacherStudiesMutation,
     useDeleteTeacherMutation,
 } = teacherApi;

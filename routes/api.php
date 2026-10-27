@@ -109,6 +109,7 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
     Route::apiResource('academic-quarters', AcademicQuarterController::class);
 
     // Data Guru (Guru Pesantren & Guru Luar)
+    Route::post('teachers/{id}/studies', [TeacherController::class, 'syncStudies']);
     Route::apiResource('teachers', TeacherController::class);
 
     // Data Siswa (Santri Mukim & Murid Reguler Luar)

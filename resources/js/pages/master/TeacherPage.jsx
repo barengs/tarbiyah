@@ -9,13 +9,14 @@ import {
 import DataTable from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, ShieldAlert } from 'lucide-react';
+import AssignStudyModal from '../../components/organisms/AssignStudyModal';
+import { Plus, Edit2, Trash2, ShieldAlert, BookOpen, PlusCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function TeacherPage() {
     const navigate = useNavigate();
     const [statusFilter, setStatusFilter] = useState('');
-    const { data: response, isLoading } = useGetTeachersQuery(
+    const { data: response, isLoading, refetch } = useGetTeachersQuery(
         statusFilter ? { status: statusFilter } : undefined
     );
     const teachers = response?.data || [];
@@ -27,6 +28,15 @@ export default function TeacherPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
+
+    // Penugasan Mata Pelajaran Modal
+    const [assignModalOpen, setAssignModalOpen] = useState(false);
+    const [selectedTeacherForAssign, setSelectedTeacherForAssign] = useState(null);
+
+    const openAssignModal = (teacher) => {
+        setSelectedTeacherForAssign(teacher);
+        setAssignModalOpen(true);
+    };
 
     // Form fields
     const [name, setName] = useState('');
@@ -140,10 +150,62 @@ export default function TeacherPage() {
             key: 'specialization',
             label: 'Bidang Keahlian',
             render: (row) => (
-                <span className="text-sm text-slate-600 font-medium">
+                <span className="text-xs text-slate-600 font-medium">
                     {row.specialization || '-'}
                 </span>
             ),
+        },
+        {
+            key: 'studies',
+            label: 'Mata Pelajaran Diampu',
+            render: (row) => {
+                const studies = row.studies || [];
+                if (studies.length === 0) {
+                    return (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                openAssignModal(row);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition-colors cursor-pointer group shadow-2xs"
+                            title="Klik untuk menugaskan mata pelajaran ke guru ini"
+                        >
+                            <PlusCircle className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform" />
+                            + Tugaskan Mapel
+                        </button>
+                    );
+                }
+
+                return (
+                    <div className="flex flex-wrap items-center gap-1 max-w-xs">
+                        {studies.slice(0, 2).map((s) => (
+                            <span
+                                key={s.id}
+                                className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"
+                            >
+                                {s.name}
+                            </span>
+                        ))}
+                        {studies.length > 2 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-[#093c30] border border-emerald-200">
+                                +{studies.length - 2} lagi
+                            </span>
+                        )}
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                openAssignModal(row);
+                            }}
+                            className="p-1 text-slate-400 hover:text-[#093c30] hover:bg-slate-100 rounded transition-colors"
+                            title="Ubah Penugasan Mapel"
+                        >
+                            <Edit2 className="w-3 h-3" />
+                        </button>
+                    </div>
+                );
+            },
         },
         {
             key: 'contact',
@@ -160,6 +222,13 @@ export default function TeacherPage() {
             label: 'Aksi',
             render: (row) => (
                 <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); openAssignModal(row); }}
+                        className="p-1.5 text-slate-500 hover:text-[#093c30] hover:bg-emerald-50 rounded-md transition-colors"
+                        title="Tugaskan / Kelola Mapel"
+                    >
+                        <BookOpen className="w-4 h-4" />
+                    </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
                         className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
@@ -181,43 +250,35 @@ export default function TeacherPage() {
 
     return (
         <div className="space-y-6">
-            {/* Header info */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Data Guru & Pendidik</h1>
                     <p className="text-sm text-slate-500 mt-1">
-                        Kelola data dewan guru pesantren, guru honorer, dan guru luar madrasah.
+                        Kelola data dewan asatidz pesantren, guru formal, dan tenaga pengajar luar (mandiri).
                     </p>
                 </div>
                 <button
                     onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#093c30] text-white text-sm font-semibold rounded-md hover:bg-[#072d24] transition-colors shadow-sm self-start sm:self-auto"
                 >
                     <Plus className="w-4 h-4" />
-                    Tambah Guru
+                    Daftarkan Guru Baru
                 </button>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex gap-2 border-b border-slate-200 pb-2">
-                {[
-                    { label: 'Semua Status', value: '' },
-                    { label: 'Guru Tetap', value: 'tetap' },
-                    { label: 'Guru Honorer', value: 'honorer' },
-                    { label: 'Guru Luar (Mandiri)', value: 'luar' },
-                ].map((tab) => (
-                    <button
-                        key={tab.value}
-                        onClick={() => setStatusFilter(tab.value)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                            statusFilter === tab.value
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
+            {/* Filter */}
+            <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-slate-500">Filter Status:</span>
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-md px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#093c30]"
+                >
+                    <option value="">Semua Status Guru</option>
+                    <option value="tetap">Guru Tetap Pesantren</option>
+                    <option value="honorer">Honorer</option>
+                    <option value="luar">Guru Luar (Mandiri)</option>
+                </select>
             </div>
 
             {/* Note banner */}
@@ -237,124 +298,138 @@ export default function TeacherPage() {
                 onRowClick={(row) => navigate("/guru/" + row.id)}
             />
 
-            {/* Form Modal */}
+            {/* Form Modal Tambah / Edit Guru */}
             <Modal
                 open={modalOpen}
                 title={editingItem ? 'Edit Data Guru' : 'Daftarkan Guru Baru'}
                 onClose={() => setModalOpen(false)}
-            >
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Nama Lengkap & Gelar *</label>
-                        <input
-                            type="text"
-                            required
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Ust. Ahmad Zaki, S.Pd.I"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">NIP / NUPTK</label>
-                            <input
-                                type="text"
-                                value={nip}
-                                onChange={(e) => setNip(e.target.value)}
-                                placeholder="198501..."
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Jenis Kelamin *</label>
-                            <select
-                                value={gender}
-                                onChange={(e) => setGender(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
-                            >
-                                <option value="L">Laki-laki</option>
-                                <option value="P">Perempuan</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Status Kepegawaian *</label>
-                            <select
-                                value={status}
-                                onChange={(e) => setStatus(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
-                            >
-                                <option value="tetap">Guru Tetap Pesantren</option>
-                                <option value="honorer">Guru Honorer</option>
-                                <option value="luar">Guru Luar (Hanya Mengajar Mapel)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Bidang Keahlian / Mapel</label>
-                            <input
-                                type="text"
-                                value={specialization}
-                                onChange={(e) => setSpecialization(e.target.value)}
-                                placeholder="Matematika / Fiqih"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">No. WhatsApp / HP</label>
-                            <input
-                                type="text"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                placeholder="08123456789"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Email</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="guru@tarbiyah.id"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="pt-2 flex justify-end gap-3">
+                footer={
+                    <>
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
+                            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
+                            form="teacher-form"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-xs font-semibold text-white bg-[#093c30] hover:bg-[#072d24] rounded-md transition-colors disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan Data'}
                         </button>
+                    </>
+                }
+            >
+                <form id="teacher-form" onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Nama Lengkap & Gelar <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            required
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Contoh: Ust. M. Rofiq, S.Pd.I"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-[#093c30] focus:border-transparent outline-none"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">NIP / Kode Identitas</label>
+                            <input
+                                type="text"
+                                value={nip}
+                                onChange={(e) => setNip(e.target.value)}
+                                placeholder="Opsional (misal: 198501...)"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-[#093c30] focus:border-transparent outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Kelamin</label>
+                            <select
+                                value={gender}
+                                onChange={(e) => setGender(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-[#093c30] focus:border-transparent outline-none bg-white"
+                            >
+                                <option value="L">Laki-laki (Ustadz)</option>
+                                <option value="P">Perempuan (Ustadzah)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Status Kepegawaian</label>
+                            <select
+                                value={status}
+                                onChange={(e) => setStatus(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-[#093c30] focus:border-transparent outline-none bg-white"
+                            >
+                                <option value="tetap">Guru Tetap Pesantren</option>
+                                <option value="honorer">Guru Honorer</option>
+                                <option value="luar">Guru Luar (Mandiri)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Bidang Keahlian / Jurusan</label>
+                            <input
+                                type="text"
+                                value={specialization}
+                                onChange={(e) => setSpecialization(e.target.value)}
+                                placeholder="Contoh: Fiqih / Matematika"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-[#093c30] focus:border-transparent outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Nomor Telepon / WA</label>
+                            <input
+                                type="text"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                placeholder="08xxxxxxxxxx"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-[#093c30] focus:border-transparent outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="guru@pesantren.id"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-[#093c30] focus:border-transparent outline-none"
+                            />
+                        </div>
                     </div>
                 </form>
             </Modal>
 
-            {/* Confirm Dialog */}
+            {/* Modal Penugasan Mata Pelajaran */}
+            <AssignStudyModal
+                open={assignModalOpen}
+                onClose={() => {
+                    setAssignModalOpen(false);
+                    setSelectedTeacherForAssign(null);
+                }}
+                teacher={selectedTeacherForAssign}
+                onSuccess={refetch}
+            />
+
+            {/* Confirm Dialog Hapus */}
             <ConfirmDialog
                 open={!!deleteTarget}
                 title="Hapus Data Guru"
-                message={`Yakin ingin menghapus guru ${deleteTarget?.name}?`}
+                message={`Apakah Anda yakin ingin menghapus data guru "${deleteTarget?.name}"?`}
                 onConfirm={handleDelete}
                 onCancel={() => setDeleteTarget(null)}
-                isLoading={isDeleting}
             />
         </div>
     );

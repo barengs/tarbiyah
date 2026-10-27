@@ -15,7 +15,7 @@ class TeacherController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Teacher::with('user');
+            $query = Teacher::with(['user', 'studies.educationalInstitution']);
 
             if ($request->has('status')) {
                 $query->where('status', $request->query('status'));
@@ -63,6 +63,8 @@ class TeacherController extends Controller
             'is_active'      => 'nullable|boolean',
             'create_user'    => 'nullable|boolean',
             'password'       => 'nullable|string|min:6',
+            'study_ids'      => 'nullable|array',
+            'study_ids.*'    => 'exists:studies,id',
         ]);
 
         try {
@@ -92,12 +94,16 @@ class TeacherController extends Controller
                 'is_active'      => $validated['is_active'] ?? true,
             ]);
 
+            if (!empty($validated['study_ids'])) {
+                $teacher->studies()->sync($validated['study_ids']);
+            }
+
             DB::commit();
 
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Guru berhasil didaftarkan',
-                'data'    => $teacher->load('user'),
+                'data'    => $teacher->load(['user', 'studies.educationalInstitution']),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -156,20 +162,63 @@ class TeacherController extends Controller
             'specialization' => 'nullable|string|max:255',
             'status'         => 'sometimes|required|in:tetap,honorer,luar',
             'is_active'      => 'nullable|boolean',
+            'study_ids'      => 'nullable|array',
+            'study_ids.*'    => 'exists:studies,id',
         ]);
 
         try {
             $teacher->update($validated);
+
+            if (isset($validated['study_ids'])) {
+                $teacher->studies()->sync($validated['study_ids']);
+            }
+
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Data guru berhasil diperbarui',
-                'data'    => $teacher->fresh('user'),
+                'data'    => $teacher->fresh(['user', 'studies.educationalInstitution']),
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error updating teacher: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Gagal memperbarui data guru',
+            ], 500);
+        }
+    }
+
+    /**
+     * Sinkronisasi mata pelajaran yang diampu oleh guru (Pemetaan Mapel).
+     */
+    public function syncStudies(Request $request, string $id)
+    {
+        $teacher = Teacher::find($id);
+
+        if (!$teacher) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Data guru tidak ditemukan',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'study_ids'   => 'present|array',
+            'study_ids.*' => 'exists:studies,id',
+        ]);
+
+        try {
+            $teacher->studies()->sync($validated['study_ids']);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Penugasan mata pelajaran berhasil diperbarui',
+                'data'    => $teacher->fresh(['user', 'studies.educationalInstitution']),
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error assigning studies to teacher: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan penugasan mata pelajaran: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -186,6 +235,7 @@ class TeacherController extends Controller
         }
 
         try {
+            $teacher->studies()->detach();
             $teacher->delete();
             return response()->json([
                 'status'  => 'success',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     useGetStudentsQuery, 
@@ -13,13 +13,26 @@ import Modal from '../components/ui/Modal';
 import PullStudentsModal from '../components/organisms/PullStudentsModal';
 import BulkAssignProgramModal from '../components/organisms/BulkAssignProgramModal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, Users, Home, School, Search, Info, RefreshCw, CalendarRange, GraduationCap, BookOpen, School as SchoolIcon, UsersRound } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Home, School, Search, Info, RefreshCw, CalendarRange, GraduationCap, BookOpen, School as SchoolIcon, UsersRound, ChevronDown } from 'lucide-react';
 import { useGetClassGroupsQuery } from '../store/slices/classGroupApi';
 import { useGetEducationsQuery } from '../store/slices/institutionApi';
 import { toast } from 'react-toastify';
 
 export default function StudentPage() {
     const navigate = useNavigate();
+    const [actionDropdownOpen, setActionDropdownOpen] = useState(false);
+    const actionDropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (actionDropdownRef.current && !actionDropdownRef.current.contains(e.target)) {
+                setActionDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const [mukimFilter, setMukimFilter] = useState('all'); // 'all', 'mukim', 'luar'
     const [statusFilter, setStatusFilter] = useState('');
     const [search, setSearch] = useState('');
@@ -339,45 +352,77 @@ export default function StudentPage() {
                         Daftar seluruh siswa madrasah, memisahkan perlakuan santri mukim pesantren dan murid reguler luar (kalong).
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div ref={actionDropdownRef} className="relative">
                     <button
-                        onClick={() => setPullModalOpen(true)}
-                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold text-sm rounded-md hover:bg-slate-50 transition shadow-xs hover:border-emerald-600"
-                        title="Pratinjau & tarik santri baru dari sistem kepesantrenan (SMPT)"
+                        type="button"
+                        onClick={() => setActionDropdownOpen((v) => !v)}
+                        className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#093c30] text-white font-semibold text-xs sm:text-sm rounded-md hover:bg-[#072d24] transition shadow-xs"
                     >
-                        <RefreshCw className="w-4 h-4 text-emerald-700" />
-                        <span>Tarik Data Santri Baru</span>
+                        <span>Aksi Siswa</span>
+                        {selectedIds.length > 0 && (
+                            <span className="px-1.5 py-0.2 bg-emerald-500 text-white text-[11px] font-bold rounded-full">
+                                {selectedIds.length}
+                            </span>
+                        )}
+                        <ChevronDown className={"w-3.5 h-3.5 transition-transform duration-150 " + (actionDropdownOpen ? "rotate-180" : "")} />
                     </button>
-                    <button
-                        onClick={() => setBulkModalOpen(true)}
-                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-violet-600 text-white font-semibold text-sm rounded-md hover:bg-violet-700 transition shadow-sm"
-                        title="Atur program / jenjang / rombel untuk santri terpilih"
-                    >
-                        <GraduationCap className="w-4 h-4" />
-                        <span>Atur Program / Rombel ({selectedIds.length})</span>
-                    </button>
-                    <button
-                        onClick={openCreateModal}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white font-semibold text-sm rounded-md hover:bg-emerald-800 transition shadow-sm"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Daftar Siswa Luar
-                    </button>
+
+                    {actionDropdownOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-lg shadow-lg py-1.5 z-40 animate-in fade-in">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActionDropdownOpen(false);
+                                    openCreateModal();
+                                }}
+                                className="w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-slate-900 transition-colors"
+                            >
+                                <Plus className="w-4 h-4 text-emerald-700 shrink-0" />
+                                <div>
+                                    <p className="font-bold">Tambah Siswa Luar</p>
+                                    <p className="text-[11px] text-slate-400">Pendaftaran murid non-mukim</p>
+                                </div>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActionDropdownOpen(false);
+                                    setPullModalOpen(true);
+                                }}
+                                className="w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-slate-900 transition-colors"
+                            >
+                                <RefreshCw className="w-4 h-4 text-emerald-700 shrink-0" />
+                                <div>
+                                    <p className="font-bold">Tarik Data Santri</p>
+                                    <p className="text-[11px] text-slate-400">Sinkronisasi data santri SMPT</p>
+                                </div>
+                            </button>
+
+                            <div className="my-1 border-t border-slate-100" />
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActionDropdownOpen(false);
+                                    setBulkModalOpen(true);
+                                }}
+                                className="w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 flex items-center justify-between text-slate-700 hover:text-slate-900 transition-colors"
+                            >
+                                <div className="flex items-center gap-2.5">
+                                    <GraduationCap className="w-4 h-4 text-violet-600 shrink-0" />
+                                    <span className="font-bold">Atur Rombel</span>
+                                </div>
+                                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-violet-100 text-violet-700">
+                                    {selectedIds.length}
+                                </span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Banner Penjelasan Dualitas Kesiswaan */}
-            <div className="p-4 bg-slate-100 border border-slate-200 rounded-md flex items-start gap-3">
-                <Info className="w-5 h-5 text-slate-600 shrink-0 mt-0.5" />
-                <div className="text-xs text-slate-600 leading-relaxed space-y-1">
-                    <p>
-                        <span className="font-bold text-slate-800">{withPercent('Santri Mukim', summary.mukim_percent)}:</span> Terintegrasi otomatis melalui sinkronisasi data master santri pesantren (<code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800 font-mono">smpt</code>) dengan ID referensi santri.
-                    </p>
-                    <p>
-                        <span className="font-bold text-slate-800">{withPercent('Siswa Reguler Luar', summary.luar_percent)}:</span> Siswa non-mukim yang hanya bersekolah formal/madrasah dan tidak tinggal di asrama pesantren. Pendaftaran dilakukan langsung di modul ini.
-                    </p>
-                </div>
-            </div>
+            
 
             {/* Filter Lanjutan Dinamis */}
             <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm space-y-3">

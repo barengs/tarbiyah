@@ -410,6 +410,7 @@ export default function TeacherDetailPage() {
                                         <table className="w-full text-left text-xs text-slate-700">
                                             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                                                 <tr>
+                                                    <th className="px-3.5 py-2 w-12 text-center">No.</th>
                                                     <th className="px-3.5 py-2">Kode</th>
                                                     <th className="px-3.5 py-2">Nama Mata Pelajaran</th>
                                                     <th className="px-3.5 py-2">Lembaga / Jenjang</th>
@@ -418,8 +419,9 @@ export default function TeacherDetailPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
-                                                {studies.map((s) => (
+                                                {studies.map((s, idx) => (
                                                     <tr key={s.id} className="hover:bg-slate-50/50">
+                                                        <td className="px-3.5 py-2 font-mono text-slate-400 font-semibold text-center w-12">{idx + 1}</td>
                                                         <td className="px-3.5 py-2 font-mono font-semibold text-slate-600">{s.code || '-'}</td>
                                                         <td className="px-3.5 py-2 font-bold text-slate-900">{s.name}</td>
                                                         <td className="px-3.5 py-2 text-slate-600">{s.educational_institution?.name || '-'}</td>
@@ -455,6 +457,7 @@ export default function TeacherDetailPage() {
                                         <table className="w-full text-left text-xs text-slate-700">
                                             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                                                 <tr>
+                                                    <th className="px-3.5 py-2 w-12 text-center">No.</th>
                                                     <th className="px-3.5 py-2">Hari</th>
                                                     <th className="px-3.5 py-2">Jam Ke / Waktu</th>
                                                     <th className="px-3.5 py-2">Mata Pelajaran</th>
@@ -463,8 +466,9 @@ export default function TeacherDetailPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
-                                                {schedules.map((sch) => (
+                                                {schedules.map((sch, idx) => (
                                                     <tr key={sch.id} className="hover:bg-slate-50/50">
+                                                        <td className="px-3.5 py-2 font-mono text-slate-400 font-semibold text-center w-12">{idx + 1}</td>
                                                         <td className="px-3.5 py-2 font-bold text-[#093c30]">
                                                             {dayNames[sch.day] || `Hari-${sch.day}`}
                                                         </td>

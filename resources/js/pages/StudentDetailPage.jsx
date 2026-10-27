@@ -442,6 +442,7 @@ export default function StudentDetailPage() {
                                         <table className="w-full text-left text-xs text-slate-700">
                                             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                                                 <tr>
+                                                    <th className="px-3.5 py-2 w-12 text-center">No.</th>
                                                     <th className="px-3.5 py-2">Tahun Ajaran</th>
                                                     <th className="px-3.5 py-2">Rombel / Kelas</th>
                                                     <th className="px-3.5 py-2">Jenjang</th>
@@ -450,11 +451,12 @@ export default function StudentDetailPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
-                                                {classHistories.map((h) => {
+                                                {classHistories.map((h, idx) => {
                                                     const cg = h.class_group;
                                                     const isCurrent = h.status === 'Aktif' || h.status === 'aktif';
                                                     return (
                                                         <tr key={h.id} className={isCurrent ? 'bg-emerald-50/30' : 'hover:bg-slate-50/50'}>
+                                                            <td className="px-3.5 py-2 font-mono text-slate-400 font-semibold text-center w-12">{idx + 1}</td>
                                                             <td className="px-3.5 py-2 font-medium">{cg?.academic_year?.name || '-'}</td>
                                                             <td className="px-3.5 py-2 font-bold text-slate-900">{cg?.name || '-'}</td>
                                                             <td className="px-3.5 py-2 text-slate-600">{cg?.education?.name || '-'}</td>

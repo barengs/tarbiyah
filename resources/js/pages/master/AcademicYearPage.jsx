@@ -1,18 +1,4 @@
-import React, { useState } from 'react';
-import { toast } from 'react-toastify';
-import {
-    Calendar,
-    CalendarDays,
-    Plus,
-    CheckCircle2,
-    Clock,
-    Edit2,
-    Trash2,
-    Layers,
-    AlertCircle,
-    ChevronRight,
-    Sparkles,
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     useGetAcademicYearsQuery,
     useCreateAcademicYearMutation,
@@ -24,12 +10,31 @@ import {
     useSetActiveAcademicQuarterMutation,
     useDeleteAcademicQuarterMutation,
 } from '../../store/slices/academicApi';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/atoms/Card';
+import Card, { CardHeader, CardContent } from '../../components/atoms/Card';
 import Badge from '../../components/atoms/Badge';
 import Button from '../../components/atoms/Button';
+import {
+    Calendar,
+    CalendarDays,
+    Clock,
+    Plus,
+    Edit2,
+    Trash2,
+    CheckCircle2,
+    Layers,
+    ChevronRight,
+    ChevronDown,
+    Search,
+    Inbox,
+    PlusCircle,
+    ChevronsUpDown,
+} from 'lucide-react';
+import { toast } from 'react-toastify';
 
 export default function AcademicYearPage() {
-    const { data: yearsResponse, isLoading } = useGetAcademicYearsQuery();
+    const { data: response, isLoading } = useGetAcademicYearsQuery();
+    const years = response?.data || [];
+
     const [createYear, { isLoading: isCreatingYear }] = useCreateAcademicYearMutation();
     const [updateYear, { isLoading: isUpdatingYear }] = useUpdateAcademicYearMutation();
     const [setActiveYear] = useSetActiveAcademicYearMutation();
@@ -40,7 +45,11 @@ export default function AcademicYearPage() {
     const [setActiveQuarter] = useSetActiveAcademicQuarterMutation();
     const [deleteQuarter] = useDeleteAcademicQuarterMutation();
 
-    // Modal state
+    // State Expand/Collapse baris tahun akademik
+    const [expandedYearIds, setExpandedYearIds] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Modal Tahun Akademik
     const [showYearModal, setShowYearModal] = useState(false);
     const [editingYear, setEditingYear] = useState(null);
     const [yearForm, setYearForm] = useState({
@@ -51,6 +60,7 @@ export default function AcademicYearPage() {
         active: false,
     });
 
+    // Modal Periode Triwulan
     const [showQuarterModal, setShowQuarterModal] = useState(false);
     const [selectedYearForQuarter, setSelectedYearForQuarter] = useState(null);
     const [editingQuarter, setEditingQuarter] = useState(null);
@@ -61,9 +71,47 @@ export default function AcademicYearPage() {
         active: false,
     });
 
-    const years = yearsResponse?.data || [];
+    // Cari tahun akademik yang aktif saat ini
     const activeYear = years.find((y) => y.active);
     const activeQuarter = activeYear?.quarters?.find((q) => q.active);
+
+    // Buka baris tahun aktif secara default saat pertama kali dimuat
+    useEffect(() => {
+        if (years.length > 0 && expandedYearIds.length === 0) {
+            const active = years.find((y) => y.active);
+            if (active) {
+                setExpandedYearIds([active.id]);
+            } else if (years[0]) {
+                setExpandedYearIds([years[0].id]);
+            }
+        }
+    }, [years]);
+
+    // Filter daftar tahun berdasarkan pencarian
+    const filteredYears = useMemo(() => {
+        if (!searchQuery.trim()) return years;
+        const q = searchQuery.toLowerCase();
+        return years.filter(
+            (y) =>
+                y.year?.toLowerCase().includes(q) ||
+                y.description?.toLowerCase().includes(q) ||
+                (y.quarters || []).some((qt) => qt.name?.toLowerCase().includes(q))
+        );
+    }, [years, searchQuery]);
+
+    const toggleExpandYear = (yearId) => {
+        setExpandedYearIds((prev) =>
+            prev.includes(yearId) ? prev.filter((id) => id !== yearId) : [...prev, yearId]
+        );
+    };
+
+    const handleExpandAll = () => {
+        setExpandedYearIds(years.map((y) => y.id));
+    };
+
+    const handleCollapseAll = () => {
+        setExpandedYearIds([]);
+    };
 
     // Handler Tahun Akademik
     const handleOpenCreateYear = () => {
@@ -102,8 +150,11 @@ export default function AcademicYearPage() {
                 await updateYear({ id: editingYear.id, ...yearForm }).unwrap();
                 toast.success('Tahun akademik berhasil diperbarui!');
             } else {
-                await createYear(yearForm).unwrap();
+                const res = await createYear(yearForm).unwrap();
                 toast.success('Tahun akademik dan 4 periode Triwulan berhasil dibuat otomatis!');
+                if (res?.data?.id) {
+                    setExpandedYearIds((prev) => [...prev, res.data.id]);
+                }
             }
             setShowYearModal(false);
         } catch (err) {
@@ -115,6 +166,9 @@ export default function AcademicYearPage() {
         try {
             await setActiveYear(yearId).unwrap();
             toast.success(`Tahun akademik ${yearLabel} berhasil diaktifkan!`);
+            if (!expandedYearIds.includes(yearId)) {
+                setExpandedYearIds((prev) => [...prev, yearId]);
+            }
         } catch (err) {
             toast.error('Gagal mengaktifkan tahun akademik');
         }
@@ -230,7 +284,7 @@ export default function AcademicYearPage() {
             <Card className="p-5 bg-gradient-to-r from-emerald-50 via-emerald-50/60 to-white border-emerald-200 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-3.5">
-                        <span className="p-2.5 rounded-lg bg-[#093c30] text-white shrink-0 mt-0.5">
+                        <span className="p-2.5 rounded-lg bg-[#093c30] text-white shrink-0 mt-0.5 shadow-2xs">
                             <CalendarDays className="w-5 h-5" />
                         </span>
                         <div>
@@ -261,197 +315,404 @@ export default function AcademicYearPage() {
                 </div>
             </Card>
 
-            {/* 3. DAFTAR TAHUN AKADEMIK & SUB-AKADEMIK TRIWULAN */}
-            {isLoading ? (
-                <div className="p-12 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-                    Memuat data tahun akademik dan periode triwulan...
+            {/* 3. TOOLBAR TABEL & FILTER */}
+            <div className="bg-white border border-slate-200/90 rounded-t-md p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                {/* Search Bar */}
+                <div className="relative flex-1 max-w-sm">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Cari tahun akademik atau triwulan..."
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#093c30] focus:border-[#093c30]"
+                    />
                 </div>
-            ) : years.length === 0 ? (
-                <Card className="p-12 text-center text-slate-400 text-sm space-y-3">
-                    <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
-                    <p>Belum ada data tahun akademik. Silakan klik tombol Tambah Tahun Akademik.</p>
-                </Card>
-            ) : (
-                <div className="space-y-5">
-                    {years.map((year) => {
-                        const isThisYearActive = Boolean(year.active);
-                        const quarters = year.quarters || [];
 
-                        return (
-                            <Card
-                                key={year.id}
-                                className={`border transition-all ${
-                                    isThisYearActive
-                                        ? 'border-emerald-300 ring-1 ring-emerald-200/80 shadow-sm'
-                                        : 'border-slate-200/90'
-                                }`}
-                            >
-                                {/* HEADER TAHUN AKADEMIK */}
-                                <CardHeader className="bg-slate-50/70 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
-                                            <Layers className="w-4 h-4 text-emerald-800" />
+                {/* Tombol Expand/Collapse All */}
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <span className="text-[11px] text-slate-500 mr-1">
+                        Total: <strong className="text-slate-800">{years.length}</strong> Tahun
+                    </span>
+                    <button
+                        type="button"
+                        onClick={handleExpandAll}
+                        className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-[#093c30] bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md transition-colors"
+                        title="Buka seluruh sub-data triwulan"
+                    >
+                        Buka Semua
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleCollapseAll}
+                        className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md transition-colors"
+                        title="Tutup seluruh sub-data triwulan"
+                    >
+                        Tutup Semua
+                    </button>
+                </div>
+            </div>
+
+            {/* 4. TABEL TAHUN AKADEMIK COLLAPSIBLE */}
+            <div className="bg-white border border-t-0 border-slate-200/90 rounded-b-md shadow-2xs overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                        {/* THEAD */}
+                        <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider select-none">
+                            <tr>
+                                <th className="w-10 px-3 py-2.5 text-center"></th>
+                                <th className="w-12 px-3 py-2.5 text-center">No.</th>
+                                <th className="px-3.5 py-2.5">Tahun Akademik</th>
+                                <th className="px-3.5 py-2.5">Rentang Kalender</th>
+                                <th className="px-3.5 py-2.5">Sub-Triwulan</th>
+                                <th className="px-3.5 py-2.5">Status</th>
+                                <th className="px-3.5 py-2.5 text-right">Aksi</th>
+                            </tr>
+                        </thead>
+
+                        {/* TBODY */}
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={7} className="py-12 px-4 text-center">
+                                        <div className="flex flex-col items-center justify-center text-slate-400">
+                                            <div className="w-6 h-6 border-2 border-[#093c30] border-t-transparent rounded-full animate-spin mb-2" />
+                                            <span className="text-xs font-medium text-slate-500">
+                                                Memuat data tahun akademik &amp; triwulan...
+                                            </span>
                                         </div>
-                                        <div>
-                                            <div className="flex items-center gap-2.5">
-                                                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
-                                                    Tahun Akademik {year.year}
-                                                </h3>
-                                                {isThisYearActive ? (
-                                                    <Badge variant="emerald" size="xs" dot>
-                                                        Tahun Ajaran Aktif
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant="slate" size="xs">
-                                                        Arsip
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-slate-500 mt-0.5">
-                                                Rentang: {year.start_date ? year.start_date.split('T')[0] : '—'} s/d{' '}
-                                                {year.end_date ? year.end_date.split('T')[0] : '—'} • {quarters.length} Periode Triwulan
+                                    </td>
+                                </tr>
+                            ) : filteredYears.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="py-12 px-4 text-center">
+                                        <div className="flex flex-col items-center justify-center text-slate-400">
+                                            <Inbox className="w-8 h-8 mb-2 text-slate-300" strokeWidth={1.5} />
+                                            <p className="text-xs font-semibold text-slate-600">
+                                                {searchQuery
+                                                    ? `Tidak ditemukan data untuk kata kunci "${searchQuery}"`
+                                                    : 'Belum ada tahun akademik terdaftar'}
                                             </p>
                                         </div>
-                                    </div>
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredYears.map((year, index) => {
+                                    const isExpanded = expandedYearIds.includes(year.id);
+                                    const isThisYearActive = Boolean(year.active);
+                                    const quarters = year.quarters || [];
 
-                                    {/* Action Buttons Tahun Akademik */}
-                                    <div className="flex items-center gap-2 self-start sm:self-auto">
-                                        {!isThisYearActive && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSetActiveYear(year.id, year.year)}
-                                                className="px-2.5 py-1 text-xs font-semibold rounded bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-700 text-slate-700 transition-colors shadow-2xs"
-                                                title="Jadikan Tahun Akademik Ini Aktif"
+                                    return (
+                                        <React.Fragment key={year.id}>
+                                            {/* BARIS INDUK TAHUN AKADEMIK */}
+                                            <tr
+                                                onClick={() => toggleExpandYear(year.id)}
+                                                className={`transition-colors cursor-pointer select-none ${
+                                                    isThisYearActive
+                                                        ? isExpanded
+                                                            ? 'bg-emerald-50/70 hover:bg-emerald-50/90'
+                                                            : 'bg-emerald-50/40 hover:bg-emerald-50/60'
+                                                        : isExpanded
+                                                        ? 'bg-slate-50/90 hover:bg-slate-100/80'
+                                                        : 'hover:bg-slate-50/80'
+                                                }`}
                                             >
-                                                Aktifkan Tahun
-                                            </button>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={() => handleOpenCreateQuarter(year)}
-                                            className="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-[#093c30] transition-colors"
-                                            title="Tambah Sub-Triwulan Baru"
-                                        >
-                                            + Tambah Triwulan
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleOpenEditYear(year)}
-                                            className="p-1.5 rounded text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent hover:border-slate-200"
-                                            title="Edit Tahun Akademik"
-                                        >
-                                            <Edit2 className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteYear(year.id, year.year)}
-                                            className="p-1.5 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50"
-                                            title="Hapus Tahun Akademik"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                </CardHeader>
-
-                                {/* SUB-AKADEMIK: DAFTAR PERIODE TRIWULAN */}
-                                <CardContent className="p-4 sm:p-5">
-                                    <div className="mb-2.5 flex items-center justify-between text-xs text-slate-400 uppercase font-bold tracking-wider">
-                                        <span>Sub-Akademik Periode Pendidikan Triwulan</span>
-                                        <span>Status &amp; Aksi</span>
-                                    </div>
-
-                                    <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden">
-                                        {quarters.length === 0 ? (
-                                            <div className="p-6 text-center text-xs text-slate-400">
-                                                Belum ada periode triwulan di tahun ini. Klik &ldquo;Tambah Triwulan&rdquo; untuk menyusunnya.
-                                            </div>
-                                        ) : (
-                                            quarters.map((q) => {
-                                                const isQuarterActive = Boolean(q.active && isThisYearActive);
-
-                                                return (
-                                                    <div
-                                                        key={q.id}
-                                                        className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                                                            isQuarterActive
-                                                                ? 'bg-emerald-50/60 font-medium'
-                                                                : 'hover:bg-slate-50/70 bg-white'
+                                                {/* Kolom Toggle Expand/Collapse */}
+                                                <td className="w-10 px-3 py-2.5 text-center text-slate-400">
+                                                    <span
+                                                        className={`inline-flex p-1 rounded-md transition-transform duration-200 ${
+                                                            isExpanded ? 'rotate-90 text-[#093c30]' : 'rotate-0 text-slate-400'
                                                         }`}
                                                     >
-                                                        {/* Info Triwulan */}
-                                                        <div className="flex items-center gap-3">
-                                                            <div
-                                                                className={`w-2 h-2 rounded-full shrink-0 ${
-                                                                    isQuarterActive ? 'bg-emerald-600 ring-4 ring-emerald-100' : 'bg-slate-300'
-                                                                }`}
-                                                            />
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className="text-xs sm:text-sm font-bold text-slate-800">
-                                                                        {q.name}
-                                                                    </p>
-                                                                    {isQuarterActive && (
-                                                                        <Badge variant="emerald" size="xs">
-                                                                            Sedang Berjalan
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-                                                                <p className="text-[11px] text-slate-500 mt-0.5">
-                                                                    Rentang: {q.start_date ? q.start_date.split('T')[0] : '—'} s/d{' '}
-                                                                    {q.end_date ? q.end_date.split('T')[0] : '—'}
+                                                        <ChevronRight className="w-3.5 h-3.5" />
+                                                    </span>
+                                                </td>
+
+                                                {/* Kolom No. */}
+                                                <td className="w-12 px-3 py-2.5 text-center font-mono font-semibold text-[11px] text-slate-400">
+                                                    {index + 1}
+                                                </td>
+
+                                                {/* Kolom Tahun Akademik */}
+                                                <td className="px-3.5 py-2.5">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <span className="p-1 rounded bg-white border border-slate-200 text-[#093c30] shadow-2xs">
+                                                            <Layers className="w-3.5 h-3.5" />
+                                                        </span>
+                                                        <div>
+                                                            <p className="font-extrabold text-slate-900 text-xs sm:text-sm">
+                                                                Tahun Akademik {year.year}
+                                                            </p>
+                                                            {year.description && (
+                                                                <p className="text-[11px] text-slate-400 line-clamp-1">
+                                                                    {year.description}
                                                                 </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Action Buttons Triwulan */}
-                                                        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                                                            {!isQuarterActive ? (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleSetActiveQuarter(q.id, q.name, year.year)}
-                                                                    className="px-2.5 py-1 text-xs font-semibold rounded bg-white hover:bg-[#093c30] text-slate-700 hover:text-white border border-slate-200 transition-colors shadow-2xs"
-                                                                >
-                                                                    Jadikan Aktif
-                                                                </button>
-                                                            ) : (
-                                                                <span className="flex items-center gap-1 text-xs font-bold text-emerald-800 px-2 py-0.5 bg-white rounded border border-emerald-200 shadow-2xs">
-                                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                                                    Aktif
-                                                                </span>
                                                             )}
-
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenEditQuarter(q, year)}
-                                                                className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                                                                title="Edit Triwulan"
-                                                            >
-                                                                <Edit2 className="w-3.5 h-3.5" />
-                                                            </button>
-
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteQuarter(q.id, q.name)}
-                                                                className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50"
-                                                                title="Hapus Triwulan"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
                                                         </div>
                                                     </div>
-                                                );
-                                            })
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-                </div>
-            )}
+                                                </td>
 
-            {/* 4. MODAL FORM TAHUN AKADEMIK */}
+                                                {/* Kolom Rentang Kalender */}
+                                                <td className="px-3.5 py-2.5 text-slate-600">
+                                                    <div className="text-[11px] font-medium">
+                                                        <span>{year.start_date ? year.start_date.split('T')[0] : '—'}</span>
+                                                        <span className="text-slate-400 mx-1">s/d</span>
+                                                        <span>{year.end_date ? year.end_date.split('T')[0] : '—'}</span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Kolom Sub-Triwulan */}
+                                                <td className="px-3.5 py-2.5">
+                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                                        <Clock className="w-3 h-3 text-slate-500" />
+                                                        {quarters.length} Triwulan
+                                                    </span>
+                                                </td>
+
+                                                {/* Kolom Status */}
+                                                <td className="px-3.5 py-2.5">
+                                                    {isThisYearActive ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-[#093c30] border border-emerald-300">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                                                            Tahun Aktif
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                                                            Arsip
+                                                        </span>
+                                                    )}
+                                                </td>
+
+                                                {/* Kolom Aksi */}
+                                                <td className="px-3.5 py-2.5 text-right">
+                                                    <div
+                                                        className="flex items-center justify-end gap-1.5"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        {!isThisYearActive && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleSetActiveYear(year.id, year.year)}
+                                                                className="px-2 py-1 text-[11px] font-semibold rounded bg-white hover:bg-[#093c30] text-slate-700 hover:text-white border border-slate-200 transition-colors shadow-2xs"
+                                                                title="Jadikan Tahun Akademik Ini Aktif"
+                                                            >
+                                                                Aktifkan
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenCreateQuarter(year)}
+                                                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded bg-emerald-50 hover:bg-emerald-100 text-[#093c30] border border-emerald-200 transition-colors shadow-2xs"
+                                                            title="Tambah Triwulan ke tahun ini"
+                                                        >
+                                                            <PlusCircle className="w-3 h-3" />
+                                                            + Triwulan
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenEditYear(year)}
+                                                            className="p-1.5 rounded text-slate-500 hover:text-[#093c30] hover:bg-slate-100 transition-colors"
+                                                            title="Edit Tahun Akademik"
+                                                        >
+                                                            <Edit2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteYear(year.id, year.year)}
+                                                            className="p-1.5 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                                                            title="Hapus Tahun Akademik"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            {/* BARIS SUB-DATA TRIWULAN (COLLAPSIBLE CHILD ROW) */}
+                                            {isExpanded && (
+                                                <tr>
+                                                    <td
+                                                        colSpan={7}
+                                                        className="p-0 bg-slate-50/70 border-y border-slate-200/80"
+                                                    >
+                                                        <div className="p-4 sm:p-5 pl-8 sm:pl-12 space-y-3">
+                                                            {/* Header Sub-Tabel Triwulan */}
+                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/70">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Clock className="w-4 h-4 text-[#093c30]" />
+                                                                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                                                        Sub-Akademik Periode Triwulan — Tahun Akademik {year.year}
+                                                                    </h4>
+                                                                    <span className="text-[11px] text-slate-500 font-medium">
+                                                                        ({quarters.length} periode terdaftar)
+                                                                    </span>
+                                                                </div>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenCreateQuarter(year)}
+                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-emerald-50 text-xs font-semibold text-[#093c30] border border-emerald-300 rounded-md transition-colors shadow-2xs self-start sm:self-auto"
+                                                                >
+                                                                    <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                                                                    Tambah Periode Triwulan
+                                                                </button>
+                                                            </div>
+
+                                                            {/* Tabel Sub-Triwulan */}
+                                                            {quarters.length === 0 ? (
+                                                                <div className="p-6 text-center text-xs text-slate-400 bg-white rounded-md border border-dashed border-slate-200">
+                                                                    Belum ada periode triwulan pada tahun akademik ini. Klik{' '}
+                                                                    <strong className="text-[#093c30]">
+                                                                        &ldquo;+ Tambah Periode Triwulan&rdquo;
+                                                                    </strong>{' '}
+                                                                    untuk menyusun kalender pendidikan.
+                                                                </div>
+                                                            ) : (
+                                                                <div className="bg-white rounded-md border border-slate-200/90 shadow-2xs overflow-hidden">
+                                                                    <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                                                                        <thead className="bg-slate-100/70 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                                                            <tr>
+                                                                                <th className="w-10 px-3 py-2 text-center">No.</th>
+                                                                                <th className="px-3.5 py-2">Nama Periode Triwulan</th>
+                                                                                <th className="px-3.5 py-2">Rentang Tanggal</th>
+                                                                                <th className="px-3.5 py-2">Status Triwulan</th>
+                                                                                <th className="px-3.5 py-2 text-right">Aksi</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-slate-100">
+                                                                            {quarters.map((q, qIndex) => {
+                                                                                const isQuarterActive = Boolean(
+                                                                                    q.active && isThisYearActive
+                                                                                );
+
+                                                                                return (
+                                                                                    <tr
+                                                                                        key={q.id}
+                                                                                        className={`transition-colors ${
+                                                                                            isQuarterActive
+                                                                                                ? 'bg-emerald-50/50 hover:bg-emerald-50/70'
+                                                                                                : 'hover:bg-slate-50/70'
+                                                                                        }`}
+                                                                                    >
+                                                                                        {/* Sub No. */}
+                                                                                        <td className="w-10 px-3 py-2 text-center font-mono text-[11px] text-slate-400">
+                                                                                            {qIndex + 1}
+                                                                                        </td>
+
+                                                                                        {/* Sub Nama */}
+                                                                                        <td className="px-3.5 py-2">
+                                                                                            <div className="flex items-center gap-2">
+                                                                                                <div
+                                                                                                    className={`w-2 h-2 rounded-full shrink-0 ${
+                                                                                                        isQuarterActive
+                                                                                                            ? 'bg-emerald-600 ring-2 ring-emerald-200'
+                                                                                                            : 'bg-slate-300'
+                                                                                                    }`}
+                                                                                                />
+                                                                                                <span className="font-bold text-slate-900 text-xs">
+                                                                                                    {q.name}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </td>
+
+                                                                                        {/* Sub Rentang Tanggal */}
+                                                                                        <td className="px-3.5 py-2 text-slate-600 font-medium text-[11px]">
+                                                                                            <span>
+                                                                                                {q.start_date
+                                                                                                    ? q.start_date.split('T')[0]
+                                                                                                    : '—'}
+                                                                                            </span>
+                                                                                            <span className="text-slate-400 mx-1">
+                                                                                                s/d
+                                                                                            </span>
+                                                                                            <span>
+                                                                                                {q.end_date
+                                                                                                    ? q.end_date.split('T')[0]
+                                                                                                    : '—'}
+                                                                                            </span>
+                                                                                        </td>
+
+                                                                                        {/* Sub Status */}
+                                                                                        <td className="px-3.5 py-2">
+                                                                                            {isQuarterActive ? (
+                                                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 px-2 py-0.5 bg-emerald-100 rounded border border-emerald-300">
+                                                                                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                                                                                    Sedang Berjalan
+                                                                                                </span>
+                                                                                            ) : (
+                                                                                                <span className="text-[10px] text-slate-400 font-medium">
+                                                                                                    Tidak Aktif
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </td>
+
+                                                                                        {/* Sub Aksi */}
+                                                                                        <td className="px-3.5 py-2 text-right">
+                                                                                            <div className="flex items-center justify-end gap-1.5">
+                                                                                                {!isQuarterActive && (
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        onClick={() =>
+                                                                                                            handleSetActiveQuarter(
+                                                                                                                q.id,
+                                                                                                                q.name,
+                                                                                                                year.year
+                                                                                                            )
+                                                                                                        }
+                                                                                                        className="px-2 py-0.5 text-[11px] font-semibold rounded bg-white hover:bg-[#093c30] text-slate-700 hover:text-white border border-slate-300 transition-colors shadow-2xs"
+                                                                                                    >
+                                                                                                        Jadikan Aktif
+                                                                                                    </button>
+                                                                                                )}
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    onClick={() =>
+                                                                                                        handleOpenEditQuarter(
+                                                                                                            q,
+                                                                                                            year
+                                                                                                        )
+                                                                                                    }
+                                                                                                    className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                                                                                                    title="Edit Triwulan"
+                                                                                                >
+                                                                                                    <Edit2 className="w-3 h-3" />
+                                                                                                </button>
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    onClick={() =>
+                                                                                                        handleDeleteQuarter(
+                                                                                                            q.id,
+                                                                                                            q.name
+                                                                                                        )
+                                                                                                    }
+                                                                                                    className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                                                                                                    title="Hapus Triwulan"
+                                                                                                >
+                                                                                                    <Trash2 className="w-3 h-3" />
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* 5. MODAL FORM TAHUN AKADEMIK */}
             {showYearModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
                     <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
@@ -472,56 +733,50 @@ export default function AcademicYearPage() {
                         <form onSubmit={handleSubmitYear} className="p-5 space-y-4">
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                                    Tahun Akademik Hijriah <span className="text-rose-500">*</span>
+                                    Label Tahun Akademik (Hijriah) <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
-                                    placeholder="Contoh: 1446-1447 atau 1447-1448"
+                                    placeholder="Contoh: 1446-1447 atau 1447/1448"
                                     value={yearForm.year}
                                     onChange={(e) => setYearForm({ ...yearForm, year: e.target.value })}
                                     className="w-full text-xs sm:text-sm px-3 py-2 rounded-md border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#093c30]/20 focus:border-[#093c30]"
                                     required
                                 />
                                 <p className="text-[11px] text-slate-400 mt-1">
-                                    Format baku pesantren: 1446-1447 (4 periode Triwulan akan dibuat otomatis).
+                                    Format Hijriah standar pesantren, misal: 1446-1447.
                                 </p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                                        Tanggal Mulai <span className="text-rose-500">*</span>
-                                    </label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Mulai</label>
                                     <input
                                         type="date"
                                         value={yearForm.start_date}
                                         onChange={(e) => setYearForm({ ...yearForm, start_date: e.target.value })}
                                         className="w-full text-xs px-3 py-2 rounded-md border border-slate-200 focus:outline-none focus:border-[#093c30]"
-                                        required
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                                        Tanggal Selesai <span className="text-rose-500">*</span>
-                                    </label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Selesai</label>
                                     <input
                                         type="date"
                                         value={yearForm.end_date}
                                         onChange={(e) => setYearForm({ ...yearForm, end_date: e.target.value })}
                                         className="w-full text-xs px-3 py-2 rounded-md border border-slate-200 focus:outline-none focus:border-[#093c30]"
-                                        required
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-slate-700 mb-1">Deskripsi / Catatan</label>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Keterangan / Catatan</label>
                                 <textarea
                                     rows={2}
                                     value={yearForm.description}
                                     onChange={(e) => setYearForm({ ...yearForm, description: e.target.value })}
                                     className="w-full text-xs px-3 py-2 rounded-md border border-slate-200 focus:outline-none focus:border-[#093c30]"
-                                    placeholder="Keterangan kalender akademik"
+                                    placeholder="Catatan kalender..."
                                 />
                             </div>
 
@@ -554,7 +809,7 @@ export default function AcademicYearPage() {
                 </div>
             )}
 
-            {/* 5. MODAL FORM PERIODE TRIWULAN */}
+            {/* 6. MODAL FORM PERIODE TRIWULAN */}
             {showQuarterModal && selectedYearForQuarter && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
                     <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">

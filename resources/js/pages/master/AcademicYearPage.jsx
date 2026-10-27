@@ -10,7 +10,7 @@ import {
     useSetActiveAcademicQuarterMutation,
     useDeleteAcademicQuarterMutation,
 } from '../../store/slices/academicApi';
-import Card, { CardHeader, CardContent } from '../../components/atoms/Card';
+import Card from '../../components/atoms/Card';
 import Badge from '../../components/atoms/Badge';
 import Button from '../../components/atoms/Button';
 import {
@@ -23,11 +23,10 @@ import {
     CheckCircle2,
     Layers,
     ChevronRight,
-    ChevronDown,
     Search,
     Inbox,
     PlusCircle,
-    ChevronsUpDown,
+    CornerDownRight,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -353,16 +352,16 @@ export default function AcademicYearPage() {
                 </div>
             </div>
 
-            {/* 4. TABEL TAHUN AKADEMIK COLLAPSIBLE */}
+            {/* 4. TABEL HIERARKI TAHUN AKADEMIK & SUB-TRIWULAN */}
             <div className="bg-white border border-t-0 border-slate-200/90 rounded-b-md shadow-2xs overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
-                        {/* THEAD */}
-                        <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider select-none">
+                        {/* THEAD TUNGGAL BERSIH */}
+                        <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider select-none border-b border-slate-200">
                             <tr>
                                 <th className="w-10 px-3 py-2.5 text-center"></th>
-                                <th className="w-12 px-3 py-2.5 text-center">No.</th>
-                                <th className="px-3.5 py-2.5">Tahun Akademik</th>
+                                <th className="w-14 px-3 py-2.5 text-center">No.</th>
+                                <th className="px-3.5 py-2.5">Tahun Akademik &amp; Periode</th>
                                 <th className="px-3.5 py-2.5">Rentang Kalender</th>
                                 <th className="px-3.5 py-2.5">Sub-Triwulan</th>
                                 <th className="px-3.5 py-2.5">Status</th>
@@ -370,7 +369,7 @@ export default function AcademicYearPage() {
                             </tr>
                         </thead>
 
-                        {/* TBODY */}
+                        {/* TBODY DENGAN ROW HIERARKI */}
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {isLoading ? (
                                 <tr>
@@ -404,7 +403,7 @@ export default function AcademicYearPage() {
 
                                     return (
                                         <React.Fragment key={year.id}>
-                                            {/* BARIS INDUK TAHUN AKADEMIK */}
+                                            {/* BARIS INDUK: TAHUN AKADEMIK */}
                                             <tr
                                                 onClick={() => toggleExpandYear(year.id)}
                                                 className={`transition-colors cursor-pointer select-none ${
@@ -413,7 +412,7 @@ export default function AcademicYearPage() {
                                                             ? 'bg-emerald-50/70 hover:bg-emerald-50/90'
                                                             : 'bg-emerald-50/40 hover:bg-emerald-50/60'
                                                         : isExpanded
-                                                        ? 'bg-slate-50/90 hover:bg-slate-100/80'
+                                                        ? 'bg-slate-50/80 hover:bg-slate-100/70'
                                                         : 'hover:bg-slate-50/80'
                                                 }`}
                                             >
@@ -428,8 +427,8 @@ export default function AcademicYearPage() {
                                                     </span>
                                                 </td>
 
-                                                {/* Kolom No. */}
-                                                <td className="w-12 px-3 py-2.5 text-center font-mono font-semibold text-[11px] text-slate-400">
+                                                {/* Kolom No. Induk */}
+                                                <td className="w-14 px-3 py-2.5 text-center font-mono font-bold text-xs text-slate-500">
                                                     {index + 1}
                                                 </td>
 
@@ -483,7 +482,7 @@ export default function AcademicYearPage() {
                                                     )}
                                                 </td>
 
-                                                {/* Kolom Aksi */}
+                                                {/* Kolom Aksi Tahun */}
                                                 <td className="px-3.5 py-2.5 text-right">
                                                     <div
                                                         className="flex items-center justify-end gap-1.5"
@@ -528,181 +527,143 @@ export default function AcademicYearPage() {
                                                 </td>
                                             </tr>
 
-                                            {/* BARIS SUB-DATA TRIWULAN (COLLAPSIBLE CHILD ROW) */}
-                                            {isExpanded && (
-                                                <tr>
-                                                    <td
-                                                        colSpan={7}
-                                                        className="p-0 bg-slate-50/70 border-y border-slate-200/80"
-                                                    >
-                                                        <div className="p-4 sm:p-5 pl-8 sm:pl-12 space-y-3">
-                                                            {/* Header Sub-Tabel Triwulan */}
-                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/70">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Clock className="w-4 h-4 text-[#093c30]" />
-                                                                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                                                                        Sub-Akademik Periode Triwulan — Tahun Akademik {year.year}
-                                                                    </h4>
-                                                                    <span className="text-[11px] text-slate-500 font-medium">
-                                                                        ({quarters.length} periode terdaftar)
-                                                                    </span>
-                                                                </div>
+                                            {/* BARIS-BARIS TURUNAN TRIWULAN (MODEL DATA HIRARKI LANGSUNG) */}
+                                            {isExpanded &&
+                                                (quarters.length === 0 ? (
+                                                    <tr className="bg-slate-50/50">
+                                                        <td className="w-10 px-3 py-2 text-center text-slate-300">
+                                                            <CornerDownRight className="w-3.5 h-3.5 mx-auto" />
+                                                        </td>
+                                                        <td className="w-14 px-3 py-2 text-center font-mono text-[11px] text-slate-400">
+                                                            {index + 1}.1
+                                                        </td>
+                                                        <td colSpan={5} className="px-3.5 py-2 text-slate-400 text-xs italic">
+                                                            Belum ada periode triwulan. Klik tombol{' '}
+                                                            <strong className="text-[#093c30] font-bold not-italic">
+                                                                + Triwulan
+                                                            </strong>{' '}
+                                                            di atas untuk menyusun kalender pendidikan.
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    quarters.map((q, qIndex) => {
+                                                        const isQuarterActive = Boolean(
+                                                            q.active && isThisYearActive
+                                                        );
 
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleOpenCreateQuarter(year)}
-                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-emerald-50 text-xs font-semibold text-[#093c30] border border-emerald-300 rounded-md transition-colors shadow-2xs self-start sm:self-auto"
-                                                                >
-                                                                    <Plus className="w-3.5 h-3.5 text-emerald-600" />
-                                                                    Tambah Periode Triwulan
-                                                                </button>
-                                                            </div>
+                                                        return (
+                                                            <tr
+                                                                key={q.id}
+                                                                className={`transition-colors border-l-2 ${
+                                                                    isQuarterActive
+                                                                        ? 'bg-emerald-50/40 hover:bg-emerald-50/60 border-l-[#093c30]'
+                                                                        : 'bg-slate-50/40 hover:bg-slate-100/60 border-l-slate-300'
+                                                                }`}
+                                                            >
+                                                                {/* Tree Branch Icon */}
+                                                                <td className="w-10 px-3 py-2 text-center text-slate-400">
+                                                                    <CornerDownRight className="w-3.5 h-3.5 mx-auto" />
+                                                                </td>
 
-                                                            {/* Tabel Sub-Triwulan */}
-                                                            {quarters.length === 0 ? (
-                                                                <div className="p-6 text-center text-xs text-slate-400 bg-white rounded-md border border-dashed border-slate-200">
-                                                                    Belum ada periode triwulan pada tahun akademik ini. Klik{' '}
-                                                                    <strong className="text-[#093c30]">
-                                                                        &ldquo;+ Tambah Periode Triwulan&rdquo;
-                                                                    </strong>{' '}
-                                                                    untuk menyusun kalender pendidikan.
-                                                                </div>
-                                                            ) : (
-                                                                <div className="bg-white rounded-md border border-slate-200/90 shadow-2xs overflow-hidden">
-                                                                    <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
-                                                                        <thead className="bg-slate-100/70 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                                                            <tr>
-                                                                                <th className="w-10 px-3 py-2 text-center">No.</th>
-                                                                                <th className="px-3.5 py-2">Nama Periode Triwulan</th>
-                                                                                <th className="px-3.5 py-2">Rentang Tanggal</th>
-                                                                                <th className="px-3.5 py-2">Status Triwulan</th>
-                                                                                <th className="px-3.5 py-2 text-right">Aksi</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody className="divide-y divide-slate-100">
-                                                                            {quarters.map((q, qIndex) => {
-                                                                                const isQuarterActive = Boolean(
-                                                                                    q.active && isThisYearActive
-                                                                                );
+                                                                {/* Sub No. Hierarki: 1.1, 1.2, dll */}
+                                                                <td className="w-14 px-3 py-2 text-center font-mono text-[11px] text-slate-400">
+                                                                    {index + 1}.{qIndex + 1}
+                                                                </td>
 
-                                                                                return (
-                                                                                    <tr
-                                                                                        key={q.id}
-                                                                                        className={`transition-colors ${
-                                                                                            isQuarterActive
-                                                                                                ? 'bg-emerald-50/50 hover:bg-emerald-50/70'
-                                                                                                : 'hover:bg-slate-50/70'
-                                                                                        }`}
-                                                                                    >
-                                                                                        {/* Sub No. */}
-                                                                                        <td className="w-10 px-3 py-2 text-center font-mono text-[11px] text-slate-400">
-                                                                                            {qIndex + 1}
-                                                                                        </td>
+                                                                {/* Nama Periode Triwulan */}
+                                                                <td className="px-3.5 py-2">
+                                                                    <div className="flex items-center gap-2 pl-1">
+                                                                        <span
+                                                                            className={`w-2 h-2 rounded-full shrink-0 ${
+                                                                                isQuarterActive
+                                                                                    ? 'bg-emerald-600 ring-2 ring-emerald-200'
+                                                                                    : 'bg-slate-300'
+                                                                            }`}
+                                                                        />
+                                                                        <span
+                                                                            className={`text-xs ${
+                                                                                isQuarterActive
+                                                                                    ? 'font-bold text-slate-900'
+                                                                                    : 'font-medium text-slate-700'
+                                                                            }`}
+                                                                        >
+                                                                            {q.name}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
 
-                                                                                        {/* Sub Nama */}
-                                                                                        <td className="px-3.5 py-2">
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <div
-                                                                                                    className={`w-2 h-2 rounded-full shrink-0 ${
-                                                                                                        isQuarterActive
-                                                                                                            ? 'bg-emerald-600 ring-2 ring-emerald-200'
-                                                                                                            : 'bg-slate-300'
-                                                                                                    }`}
-                                                                                                />
-                                                                                                <span className="font-bold text-slate-900 text-xs">
-                                                                                                    {q.name}
-                                                                                                </span>
-                                                                                            </div>
-                                                                                        </td>
+                                                                {/* Rentang Tanggal Triwulan */}
+                                                                <td className="px-3.5 py-2 text-slate-600">
+                                                                    <div className="text-[11px] font-medium">
+                                                                        <span>
+                                                                            {q.start_date ? q.start_date.split('T')[0] : '—'}
+                                                                        </span>
+                                                                        <span className="text-slate-400 mx-1">s/d</span>
+                                                                        <span>
+                                                                            {q.end_date ? q.end_date.split('T')[0] : '—'}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
 
-                                                                                        {/* Sub Rentang Tanggal */}
-                                                                                        <td className="px-3.5 py-2 text-slate-600 font-medium text-[11px]">
-                                                                                            <span>
-                                                                                                {q.start_date
-                                                                                                    ? q.start_date.split('T')[0]
-                                                                                                    : '—'}
-                                                                                            </span>
-                                                                                            <span className="text-slate-400 mx-1">
-                                                                                                s/d
-                                                                                            </span>
-                                                                                            <span>
-                                                                                                {q.end_date
-                                                                                                    ? q.end_date.split('T')[0]
-                                                                                                    : '—'}
-                                                                                            </span>
-                                                                                        </td>
+                                                                {/* Indikator Sub-Triwulan */}
+                                                                <td className="px-3.5 py-2 text-slate-400 text-[11px]">
+                                                                    Triwulan Ke-{qIndex + 1}
+                                                                </td>
 
-                                                                                        {/* Sub Status */}
-                                                                                        <td className="px-3.5 py-2">
-                                                                                            {isQuarterActive ? (
-                                                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 px-2 py-0.5 bg-emerald-100 rounded border border-emerald-300">
-                                                                                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                                                                                    Sedang Berjalan
-                                                                                                </span>
-                                                                                            ) : (
-                                                                                                <span className="text-[10px] text-slate-400 font-medium">
-                                                                                                    Tidak Aktif
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </td>
+                                                                {/* Status Triwulan */}
+                                                                <td className="px-3.5 py-2">
+                                                                    {isQuarterActive ? (
+                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 px-2 py-0.5 bg-emerald-100 rounded border border-emerald-300">
+                                                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                                                            Sedang Berjalan
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[10px] text-slate-400 font-medium">
+                                                                            Tidak Aktif
+                                                                        </span>
+                                                                    )}
+                                                                </td>
 
-                                                                                        {/* Sub Aksi */}
-                                                                                        <td className="px-3.5 py-2 text-right">
-                                                                                            <div className="flex items-center justify-end gap-1.5">
-                                                                                                {!isQuarterActive && (
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        onClick={() =>
-                                                                                                            handleSetActiveQuarter(
-                                                                                                                q.id,
-                                                                                                                q.name,
-                                                                                                                year.year
-                                                                                                            )
-                                                                                                        }
-                                                                                                        className="px-2 py-0.5 text-[11px] font-semibold rounded bg-white hover:bg-[#093c30] text-slate-700 hover:text-white border border-slate-300 transition-colors shadow-2xs"
-                                                                                                    >
-                                                                                                        Jadikan Aktif
-                                                                                                    </button>
-                                                                                                )}
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={() =>
-                                                                                                        handleOpenEditQuarter(
-                                                                                                            q,
-                                                                                                            year
-                                                                                                        )
-                                                                                                    }
-                                                                                                    className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-                                                                                                    title="Edit Triwulan"
-                                                                                                >
-                                                                                                    <Edit2 className="w-3 h-3" />
-                                                                                                </button>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={() =>
-                                                                                                        handleDeleteQuarter(
-                                                                                                            q.id,
-                                                                                                            q.name
-                                                                                                        )
-                                                                                                    }
-                                                                                                    className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                                                                                                    title="Hapus Triwulan"
-                                                                                                >
-                                                                                                    <Trash2 className="w-3 h-3" />
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                );
-                                                                            })}
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
+                                                                {/* Aksi Triwulan */}
+                                                                <td className="px-3.5 py-2 text-right">
+                                                                    <div className="flex items-center justify-end gap-1.5">
+                                                                        {!isQuarterActive && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    handleSetActiveQuarter(
+                                                                                        q.id,
+                                                                                        q.name,
+                                                                                        year.year
+                                                                                    )
+                                                                                }
+                                                                                className="px-2 py-0.5 text-[11px] font-semibold rounded bg-white hover:bg-[#093c30] text-slate-700 hover:text-white border border-slate-300 transition-colors shadow-2xs"
+                                                                            >
+                                                                                Jadikan Aktif
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleOpenEditQuarter(q, year)}
+                                                                            className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors"
+                                                                            title="Edit Triwulan"
+                                                                        >
+                                                                            <Edit2 className="w-3 h-3" />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleDeleteQuarter(q.id, q.name)}
+                                                                            className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                                                                            title="Hapus Triwulan"
+                                                                        >
+                                                                            <Trash2 className="w-3 h-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                ))}
                                         </React.Fragment>
                                     );
                                 })

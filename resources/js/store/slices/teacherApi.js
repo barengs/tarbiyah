@@ -9,6 +9,10 @@ export const teacherApi = apiSlice.injectEndpoints({
             }),
             providesTags: ['Teacher'],
         }),
+        getTeacherById: builder.query({
+            query: (id) => `master/teachers/${id}`,
+            providesTags: (result, error, id) => [{ type: 'Teacher', id }],
+        }),
         createTeacher: builder.mutation({
             query: (data) => ({
                 url: 'master/teachers',
@@ -23,7 +27,7 @@ export const teacherApi = apiSlice.injectEndpoints({
                 method: 'PUT',
                 body: data,
             }),
-            invalidatesTags: ['Teacher'],
+            invalidatesTags: (result, error, { id }) => ['Teacher', { type: 'Teacher', id }],
         }),
         deleteTeacher: builder.mutation({
             query: (id) => ({
@@ -37,6 +41,7 @@ export const teacherApi = apiSlice.injectEndpoints({
 
 export const {
     useGetTeachersQuery,
+    useGetTeacherByIdQuery,
     useCreateTeacherMutation,
     useUpdateTeacherMutation,
     useDeleteTeacherMutation,

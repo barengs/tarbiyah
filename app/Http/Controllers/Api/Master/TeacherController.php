@@ -111,7 +111,16 @@ class TeacherController extends Controller
 
     public function show(string $id)
     {
-        $teacher = Teacher::with('user')->find($id);
+        $teacher = Teacher::with([
+            'user',
+            'studies.educationalInstitution',
+            'homeroomClassGroups.education',
+            'homeroomClassGroups.academicYear',
+            'schedules.study',
+            'schedules.classGroup.education',
+            'schedules.lessonHour',
+            'schedules.classroom',
+        ])->find($id);
 
         if (!$teacher) {
             return response()->json([

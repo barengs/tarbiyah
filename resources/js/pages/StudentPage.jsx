@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
     useGetStudentsQuery, 
     useCreateStudentMutation, 
@@ -18,6 +19,7 @@ import { useGetEducationsQuery } from '../store/slices/institutionApi';
 import { toast } from 'react-toastify';
 
 export default function StudentPage() {
+    const navigate = useNavigate();
     const [mukimFilter, setMukimFilter] = useState('all'); // 'all', 'mukim', 'luar'
     const [statusFilter, setStatusFilter] = useState('');
     const [search, setSearch] = useState('');
@@ -193,6 +195,7 @@ export default function StudentPage() {
                         type="checkbox"
                         className="mt-1.5 w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500"
                         checked={selectedIds.includes(row.id)}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={() => toggleSelect(row.id)}
                         aria-label={`Pilih ${row.name}`}
                     />
@@ -452,6 +455,7 @@ export default function StudentPage() {
                     data={students}
                     isLoading={isLoading}
                     emptyMessage="Belum ada data siswa ditemukan"
+                    onRowClick={(row) => navigate("/siswa/" + row.id)}
                 />
             </div>
 

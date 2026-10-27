@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
     useGetTeachersQuery, 
     useCreateTeacherMutation, 
@@ -12,6 +13,7 @@ import { Plus, Edit2, Trash2, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function TeacherPage() {
+    const navigate = useNavigate();
     const [statusFilter, setStatusFilter] = useState('');
     const { data: response, isLoading } = useGetTeachersQuery(
         statusFilter ? { status: statusFilter } : undefined
@@ -232,6 +234,7 @@ export default function TeacherPage() {
                 data={teachers}
                 isLoading={isLoading}
                 emptyMessage="Belum ada data guru terdaftar"
+                onRowClick={(row) => navigate("/guru/" + row.id)}
             />
 
             {/* Form Modal */}

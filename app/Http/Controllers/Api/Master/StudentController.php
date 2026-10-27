@@ -674,7 +674,15 @@ class StudentController extends Controller
 
     public function show(string $id)
     {
-        $student = Student::with(['activeClass.classGroup'])->find($id);
+        $student = Student::with([
+            'program',
+            'activeClass.classGroup.education.institution',
+            'activeClass.classGroup.academicYear',
+            'activeClass.classGroup.homeroomTeacher',
+            'studentClasses.classGroup.education.institution',
+            'studentClasses.classGroup.academicYear',
+            'studentClasses.classGroup.homeroomTeacher',
+        ])->find($id);
 
         if (!$student) {
             return response()->json([

@@ -9,6 +9,10 @@ export const studentApi = apiSlice.injectEndpoints({
             }),
             providesTags: ['Student'],
         }),
+        getStudentById: builder.query({
+            query: (id) => `master/students/${id}`,
+            providesTags: (result, error, id) => [{ type: 'Student', id }],
+        }),
         getUnassignedStudents: builder.query({
             query: (params) => ({
                 url: 'master/students/unassigned',
@@ -30,7 +34,7 @@ export const studentApi = apiSlice.injectEndpoints({
                 method: 'PUT',
                 body: data,
             }),
-            invalidatesTags: ['Student'],
+            invalidatesTags: (result, error, { id }) => ['Student', { type: 'Student', id }],
         }),
         deleteStudent: builder.mutation({
             query: (id) => ({
@@ -73,6 +77,7 @@ export const studentApi = apiSlice.injectEndpoints({
 
 export const {
     useGetStudentsQuery,
+    useGetStudentByIdQuery,
     useGetUnassignedStudentsQuery,
     useCreateStudentMutation,
     useUpdateStudentMutation,
@@ -81,5 +86,5 @@ export const {
     useGetPullPreviewQuery,
     useLazyGetPullPreviewQuery,
     usePullStudentsFromSmptMutation,
-    useBulkAssignProgramMutation
+    useBulkAssignProgramMutation,
 } = studentApi;

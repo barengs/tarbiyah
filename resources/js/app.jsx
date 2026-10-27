@@ -17,7 +17,9 @@ import ClassPromotionPage from './pages/ClassPromotionPage';
 import StudyPage from './pages/master/StudyPage';
 import LessonHourPage from './pages/master/LessonHourPage';
 import TeacherPage from './pages/master/TeacherPage';
+import TeacherDetailPage from './pages/master/TeacherDetailPage';
 import StudentPage from './pages/StudentPage';
+import StudentDetailPage from './pages/StudentDetailPage';
 import TahfidzHalaqahPage from './pages/TahfidzHalaqahPage';
 import ScheduleKbmPage from './pages/ScheduleKbmPage';
 import AssessmentPage from './pages/AssessmentPage';
@@ -69,11 +71,17 @@ const App = () => {
 
                             {/* Modul Data Siswa / Santri */}
                             <Route path="siswa" element={<StudentPage />} />
+                            <Route path="siswa/:id" element={<StudentDetailPage />} />
                             <Route path="santri" element={<StudentPage />} />
+                            <Route path="santri/:id" element={<StudentDetailPage />} />
 
-                            {/* Modul Guru & Pendidik */}
+                            {/* Modul Guru & Pendidik / Staff */}
                             <Route path="master/guru" element={<TeacherPage />} />
+                            <Route path="master/guru/:id" element={<TeacherDetailPage />} />
                             <Route path="guru" element={<TeacherPage />} />
+                            <Route path="guru/:id" element={<TeacherDetailPage />} />
+                            <Route path="staff" element={<TeacherPage />} />
+                            <Route path="staff/:id" element={<TeacherDetailPage />} />
 
                             {/* Modul Tahfidz, KBM, Presensi, Nilai, Rapor */}
                             <Route path="tahfidz" element={<TahfidzHalaqahPage />} />

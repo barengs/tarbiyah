@@ -32,6 +32,22 @@ export const scheduleApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: ['Schedule'],
         }),
+        copyPeriodSchedule: builder.mutation({
+            query: (data) => ({
+                url: 'main/schedules/copy-period',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['Schedule'],
+        }),
+        copyAcademicYearSchedule: builder.mutation({
+            query: (data) => ({
+                url: 'main/schedules/copy-academic-year',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['Schedule', 'ClassGroup'],
+        }),
     }),
 });
 
@@ -40,4 +56,6 @@ export const {
     useCreateScheduleMutation,
     useUpdateScheduleMutation,
     useDeleteScheduleMutation,
+    useCopyPeriodScheduleMutation,
+    useCopyAcademicYearScheduleMutation,
 } = scheduleApi;

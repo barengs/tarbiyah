@@ -116,6 +116,7 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
     Route::get('students/unassigned', [StudentController::class, 'unassigned']);
     Route::post('students/bulk-assign', [StudentController::class, 'bulkAssign']);
     Route::post('students/bulk-assign-program', [StudentController::class, 'bulkAssignProgram']);
+    Route::get('students/generate-nis', [StudentController::class, 'generateNis']);
     Route::get('students/pull-preview', [StudentController::class, 'previewPullFromSmpt']);
     Route::post('students/pull-from-smpt', [StudentController::class, 'pullFromSmpt']);
     Route::apiResource('students', StudentController::class);
@@ -147,6 +148,8 @@ Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function
     Route::get('dashboard/stats', [DashboardController::class, 'stats']);
     
     // Jadwal Pelajaran (Lesson Schedules)
+    Route::post('schedules/copy-period', [LessonScheduleController::class, 'copyPeriod']);
+    Route::post('schedules/copy-academic-year', [LessonScheduleController::class, 'copyAcademicYear']);
     Route::apiResource('schedules', LessonScheduleController::class);
 
     // Jurnal Pembelajaran & Presensi KBM Guru

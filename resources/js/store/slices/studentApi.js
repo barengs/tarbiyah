@@ -65,6 +65,12 @@ export const studentApi = apiSlice.injectEndpoints({
             }),
             providesTags: ['Student'],
         }),
+        generateNis: builder.query({
+            query: (params) => ({
+                url: 'master/students/generate-nis',
+                params,
+            }),
+        }),
         pullStudentsFromSmpt: builder.mutation({
             query: () => ({
                 url: 'master/students/pull-from-smpt',
@@ -87,4 +93,6 @@ export const {
     useLazyGetPullPreviewQuery,
     usePullStudentsFromSmptMutation,
     useBulkAssignProgramMutation,
+    useGenerateNisQuery,
+    useLazyGenerateNisQuery,
 } = studentApi;

@@ -26,6 +26,9 @@ class KbmSeeder extends Seeder
         $tahun = AcademicYear::where('active', true)->first() ?? AcademicYear::first();
         if (!$tahun) return;
 
+        $quarter = \App\Models\AcademicQuarter::where('academic_year_id', $tahun->id)->where('active', true)->first()
+            ?? \App\Models\AcademicQuarter::where('academic_year_id', $tahun->id)->first();
+
         $rombels = ClassGroup::all();
         $teachers = Teacher::where('is_active', true)->orderBy('id')->get();
         $hours = LessonHour::orderBy('order')->get()->keyBy('order');
@@ -159,14 +162,15 @@ class KbmSeeder extends Seeder
                 if (!$h || !$study || !$teacher) continue;
 
                 LessonSchedule::create([
-                    'academic_year_id' => $tahun->id,
-                    'class_group_id'   => $rombel->id,
-                    'study_id'         => $study->id,
-                    'teacher_id'       => $teacher->id,
-                    'lesson_hour_id'   => $h->id,
-                    'classroom_id'     => Classroom::where('id', $classroom)->exists() ? $classroom : ($rombel->classroom_id ?? Classroom::first()?->id),
-                    'day'              => $day,
-                    'is_active'        => true,
+                    'academic_year_id'    => $tahun->id,
+                    'academic_quarter_id' => $quarter?->id,
+                    'class_group_id'      => $rombel->id,
+                    'study_id'            => $study->id,
+                    'teacher_id'          => $teacher->id,
+                    'lesson_hour_id'      => $h->id,
+                    'classroom_id'        => Classroom::where('id', $classroom)->exists() ? $classroom : ($rombel->classroom_id ?? Classroom::first()?->id),
+                    'day'                 => $day,
+                    'is_active'           => true,
                 ]);
             }
         }

@@ -626,35 +626,121 @@ class StudentController extends Controller
         }
     }
 
+        /**
+     * Membentuk NIS unik otomatis berbasis tahun Hijriah dan kode ma'had (0197)
+     * Sama persis dengan metode pembentukan NIS di SMPT.
+     */
+    private function makeNis($period = null): string
+    {
+        if (!$period) {
+            $activeYear = AcademicYear::where('active', true)->first();
+            $period = $activeYear ? $activeYear->year : '1446';
+        }
+
+        preg_match('/\d{4}/', $period, $matches);
+        $hijriYear = $matches[0] ?? '1446';
+        $prefix = $hijriYear . '0197';
+
+        $lastStudent = Student::where('nis', 'like', $prefix . '%')
+            ->orderBy('nis', 'desc')
+            ->first();
+
+        if ($lastStudent) {
+            $lastSequence = (int) substr($lastStudent->nis, -3);
+            $nextSequence = $lastSequence + 1;
+        } else {
+            $nextSequence = 1;
+        }
+
+        return $prefix . str_pad($nextSequence, 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Endpoint API untuk menghasilkan NIS otomatis saat registrasi siswa baru.
+     */
+    public function generateNis(Request $request)
+    {
+        $period = $request->query('period');
+        $nis = $this->makeNis($period);
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'nis'    => $nis,
+                'period' => $period,
+            ],
+        ]);
+    }
+
     public function store(Request $request)
     {
+        // Jika NIS kosong, bentuk otomatis dari sistem
+        if (empty($request->nis)) {
+            $request->merge([
+                'nis' => $this->makeNis($request->period)
+            ]);
+        }
+
         $validated = $request->validate([
-            'nis'            => 'required|string|max:50|unique:students,nis',
-            'santri_id'      => 'nullable|integer',
-            'parent_id'      => 'nullable|string|max:30', // NIK Wali Santri
-            'nik'            => 'nullable|string|max:30',
-            'kk'             => 'nullable|string|max:30',
-            'first_name'     => 'nullable|string|max:255',
-            'last_name'      => 'nullable|string|max:255',
-            'name'           => 'nullable|string|max:255',
-            'gender'         => 'required|in:L,P',
-            'is_mukim'       => 'required|boolean', // false untuk siswa reguler luar
-            'period'         => 'nullable|string|max:20',
-            'born_in'        => 'nullable|string|max:255',
-            'born_at'        => 'nullable|date',
-            'last_education' => 'nullable|string|max:255',
-            'village_id'     => 'nullable|integer',
-            'village'        => 'nullable|string|max:255',
-            'district'       => 'nullable|string|max:255',
-            'postal_code'    => 'nullable|string|max:10',
-            'phone'          => 'nullable|string|max:30',
-            'parent_name'    => 'nullable|string|max:255',
-            'parent_phone'   => 'nullable|string|max:30',
-            'address'        => 'nullable|string',
-            'hostel_id'      => 'nullable|integer',
-            'program_id'     => 'nullable|integer',
-            'status'         => 'nullable|string',
+            'nis'               => 'required|string|max:50|unique:students,nis',
+            'santri_id'         => 'nullable|integer',
+            'parent_id'         => 'nullable|string|max:30',
+            'nik'               => 'nullable|string|max:30',
+            'kk'                => 'nullable|string|max:30',
+            'first_name'        => 'nullable|string|max:255',
+            'last_name'         => 'nullable|string|max:255',
+            'name'              => 'required|string|max:255',
+            'gender'            => 'required|in:L,P',
+            'is_mukim'          => 'required|boolean',
+            'period'            => 'nullable|string|max:20',
+            'born_in'           => 'nullable|string|max:255',
+            'born_at'           => 'nullable|date',
+            'last_education'    => 'nullable|string|max:255',
+            'village_id'        => 'nullable|integer',
+            'village'           => 'nullable|string|max:255',
+            'district'          => 'nullable|string|max:255',
+            'postal_code'       => 'nullable|string|max:10',
+            'phone'             => 'nullable|string|max:30',
+            'parent_name'       => 'nullable|string|max:255',
+            'parent_phone'      => 'nullable|string|max:30',
+            'father_name'       => 'nullable|string|max:255',
+            'father_nik'        => 'nullable|string|max:30',
+            'father_job'        => 'nullable|string|max:100',
+            'father_phone'      => 'nullable|string|max:30',
+            'mother_name'       => 'nullable|string|max:255',
+            'mother_nik'        => 'nullable|string|max:30',
+            'mother_job'        => 'nullable|string|max:100',
+            'mother_phone'      => 'nullable|string|max:30',
+            'guardian_name'     => 'nullable|string|max:255',
+            'guardian_nik'      => 'nullable|string|max:30',
+            'guardian_relation' => 'nullable|string|max:100',
+            'guardian_job'      => 'nullable|string|max:100',
+            'guardian_phone'    => 'nullable|string|max:30',
+            'address'           => 'nullable|string',
+            'hostel_id'         => 'nullable|integer',
+            'program_id'        => 'nullable|integer',
+            'status'            => 'nullable|string',
         ]);
+
+        if (empty($validated['parent_name'])) {
+            $validated['parent_name'] = $validated['father_name'] 
+                ?? $validated['guardian_name'] 
+                ?? $validated['mother_name'] 
+                ?? null;
+        }
+        if (empty($validated['parent_phone'])) {
+            $validated['parent_phone'] = $validated['father_phone'] 
+                ?? $validated['guardian_phone'] 
+                ?? $validated['mother_phone'] 
+                ?? null;
+        }
+        if (empty($validated['parent_id'])) {
+            $validated['parent_id'] = $validated['father_nik'] 
+                ?? $validated['guardian_nik'] 
+                ?? $validated['mother_nik'] 
+                ?? $validated['kk'] 
+                ?? null;
+        }
 
         try {
             $student = Student::create($validated);

@@ -11,19 +11,77 @@ import {
 import { useGetClassGroupsQuery } from '../store/slices/classGroupApi';
 import { useGetStudiesQuery } from '../store/slices/studyApi';
 import Modal from '../components/ui/Modal';
+import PrintAttendanceModal from '../components/organisms/PrintAttendanceModal';
+import ActionDropdown from '../components/molecules/ActionDropdown';
 import { 
     Calendar, Clock, BookOpen, User, CheckCircle2, AlertTriangle, 
     Zap, Plus, Trash2, Printer, ChevronLeft, ChevronRight, ShieldCheck, Filter, 
     CalendarDays, Users, Award, FileText, Check, HelpCircle, Save,
-    CheckCheck, UserX, AlertCircle, RefreshCw, CalendarRange, Layers
+    CheckCheck, UserX, AlertCircle, RefreshCw, CalendarRange, Layers, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+
+/**
+ * Format tanggal lokal YYYY-MM-DD
+ */
+const getTodayDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+/**
+ * Hitung rentang pekan aktif pesantren (Sabtu s.d. Kamis)
+ * Pekan pesantren dimulai Sabtu (6) s.d Kamis (4)
+ */
+const getPesantrenWeekRange = (baseDate = new Date()) => {
+    const d = new Date(baseDate);
+    const day = d.getDay(); // 0: Sun, 1: Mon, ..., 5: Fri, 6: Sat
+    const diffToSaturday = day === 6 ? 0 : -(day + 1);
+    const sat = new Date(d);
+    sat.setDate(d.getDate() + diffToSaturday);
+
+    const thu = new Date(sat);
+    thu.setDate(sat.getDate() + 5);
+
+    const format = (dateObj) => {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dt = String(dateObj.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dt}`;
+    };
+
+    return {
+        startDate: format(sat),
+        endDate: format(thu),
+    };
+};
+
+/**
+ * Dapatkan nama hari dalam bahasa Indonesia dari string YYYY-MM-DD
+ */
+const getDayNameFromDate = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(d);
+        }
+    } catch (e) {
+        // ignore
+    }
+    return '';
+};
 
 export default function AttendancePage() {
     // ═══════════════════════════════════════════════════════════
     // ACTIVE TAB UTAMA: FORMULIR vs LEMBAR MATRIKS P1-P16
     // ═══════════════════════════════════════════════════════════
     const [activeTab, setActiveTab] = useState('attendance_form'); // 'attendance_form' | 'matrix_sheet'
+    const [printModalOpen, setPrintModalOpen] = useState(false);
 
     // Master Rombel
     const { data: groupsData } = useGetClassGroupsQuery();
@@ -41,16 +99,20 @@ export default function AttendancePage() {
     // ═══════════════════════════════════════════════════════════
     const [entryMode, setEntryMode] = useState('daily'); // 'daily' | 'weekly' | 'range'
 
-    // Parameter Tanggal
-    const [singleDate, setSingleDate] = useState('2026-10-17'); // Hari Sabtu default
-    const [rangeStartDate, setRangeStartDate] = useState('2026-10-17'); // Sabtu
-    const [rangeEndDate, setRangeEndDate] = useState('2026-10-22'); // Kamis (Akhir pekan)
+    // Parameter Tanggal (Default otomatis mengikuti tanggal HARI INI)
+    const todayStr = useMemo(() => getTodayDateString(), []);
+    const initialWeek = useMemo(() => getPesantrenWeekRange(), []);
+
+    const [singleDate, setSingleDate] = useState(todayStr); // Mengikuti tanggal sekarang
+    const [rangeStartDate, setRangeStartDate] = useState(initialWeek.startDate); // Sabtu pekan ini
+    const [rangeEndDate, setRangeEndDate] = useState(initialWeek.endDate); // Kamis pekan ini
 
     // Saat beralih ke mode mingguan, otomatis set rentang Sabtu s.d Kamis pekan berjalan
     const handleSetWeeklyMode = () => {
         setEntryMode('weekly');
-        setRangeStartDate('2026-10-17'); // Sabtu
-        setRangeEndDate('2026-10-22');   // Kamis akhir pekan
+        const week = getPesantrenWeekRange(singleDate ? new Date(singleDate + 'T00:00:00') : new Date());
+        setRangeStartDate(week.startDate);
+        setRangeEndDate(week.endDate);
     };
 
     // Effective date range untuk query range
@@ -77,12 +139,18 @@ export default function AttendancePage() {
     // Active Day Index untuk Day Stepper Tabs
     const [activeDayIndex, setActiveDayIndex] = useState(0);
 
-    // Pastikan activeDayIndex valid saat daysList berganti
+    // Otomatis arahkan activeDayIndex ke hari ini (atau singleDate) saat daysList berganti/dimuat
     useEffect(() => {
-        if (activeDayIndex >= daysList.length) {
-            setActiveDayIndex(0);
+        if (daysList.length > 0) {
+            const targetDate = singleDate || todayStr;
+            const targetIdx = daysList.findIndex(d => d.date === targetDate);
+            if (targetIdx !== -1) {
+                setActiveDayIndex(targetIdx);
+            } else if (activeDayIndex >= daysList.length) {
+                setActiveDayIndex(0);
+            }
         }
-    }, [daysList.length]);
+    }, [daysList, singleDate, todayStr]);
 
     // ═══════════════════════════════════════════════════════════
     // LOCAL MULTI-DAY STATE: { [dateStr]: [ { student_id, name, nis, attendances: { [order]: { schedule_id, status } } } ] }
@@ -438,32 +506,80 @@ export default function AttendancePage() {
                         </p>
                     </div>
 
-                    {/* Mode Navigation Tabs */}
-                    <div className="flex items-center p-1 bg-slate-100 rounded-md border border-slate-200 shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('attendance_form')}
-                            className={`px-3.5 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
-                                activeTab === 'attendance_form'
-                                    ? 'bg-[#093c30] text-white shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                        >
-                            <Clock className="w-3.5 h-3.5 text-emerald-300" />
-                            Formulir Absen (Per Jam)
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('matrix_sheet')}
-                            className={`px-3.5 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
-                                activeTab === 'matrix_sheet'
-                                    ? 'bg-[#093c30] text-white shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                        >
-                            <FileText className="w-3.5 h-3.5 text-emerald-300" />
-                            Lembar Matriks (P1 - P16)
-                        </button>
+                    {/* Mode Navigation Tabs & Print Action */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center p-1 bg-slate-100 rounded-md border border-slate-200 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('attendance_form')}
+                                className={`px-3.5 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
+                                    activeTab === 'attendance_form'
+                                        ? 'bg-[#093c30] text-white shadow-xs'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                <Clock className="w-3.5 h-3.5 text-emerald-300" />
+                                Formulir Absen (Per Jam)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('matrix_sheet')}
+                                className={`px-3.5 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
+                                    activeTab === 'matrix_sheet'
+                                        ? 'bg-[#093c30] text-white shadow-xs'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                <FileText className="w-3.5 h-3.5 text-emerald-300" />
+                                Lembar Matriks (P1 - P16)
+                            </button>
+                        </div>
+
+                        <ActionDropdown
+                            label="Aksi Presensi"
+                            icon={Layers}
+                            variant="primary"
+                            items={[
+                                {
+                                    id: 'print_attendance',
+                                    label: 'Cetak Lembar Presensi (PDF)',
+                                    description: 'Unduh dokumen presensi resmi (harian / sepekan penuh)',
+                                    icon: Printer,
+                                    iconColor: 'text-emerald-700',
+                                    onClick: () => setPrintModalOpen(true),
+                                },
+                                {
+                                    id: 'save_attendance',
+                                    label: entryMode === 'weekly' 
+                                        ? 'Simpan Presensi Sepekan' 
+                                        : entryMode === 'range' 
+                                            ? `Simpan ${daysList.length} Hari Sekaligus` 
+                                            : 'Simpan Presensi Hari Ini',
+                                    description: 'Simpan seluruh entri status kehadiran santri',
+                                    icon: Save,
+                                    iconColor: 'text-emerald-700',
+                                    onClick: handleSaveAllDays,
+                                    disabled: isSavingMultiDay,
+                                },
+                                {
+                                    id: 'set_all_hadir',
+                                    label: 'Setel Semua Hadir (100%)',
+                                    description: 'Tandai seluruh santri di hari aktif dengan status Hadir',
+                                    icon: CheckCheck,
+                                    iconColor: 'text-teal-600',
+                                    dividerBefore: true,
+                                    onClick: handleSetAllStudentsHadir,
+                                },
+                                entryMode !== 'daily' ? {
+                                    id: 'rule_leave',
+                                    label: 'Terapkan Izin Berhari-hari',
+                                    description: 'Catat santri izin atau sakit beberapa hari sekaligus',
+                                    icon: Plus,
+                                    iconColor: 'text-amber-600',
+                                    onClick: handleOpenRuleModal,
+                                } : null,
+                            ].filter(Boolean)}
+                        />
                     </div>
                 </div>
 
@@ -563,29 +679,40 @@ export default function AttendancePage() {
                                 </button>
                             </div>
 
-                            {/* Tombol Aksi Cepat: Terapkan Izin Berhari-hari & Simpan Semua */}
+                            {/* Tombol Aksi Cepat & Simpan */}
                             <div className="flex items-center gap-2 shrink-0">
-                                {entryMode !== 'daily' && (
-                                    <button
-                                        type="button"
-                                        onClick={handleOpenRuleModal}
-                                        className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded shadow-xs transition flex items-center gap-1.5"
-                                        title="Catat santri yang izin atau sakit selama beberapa hari sekaligus"
-                                    >
-                                        <Plus className="w-3.5 h-3.5 text-amber-700" />
-                                        Terapkan Izin Berhari-hari
-                                    </button>
-                                )}
-
-                                <button
-                                    type="button"
-                                    onClick={handleSetAllStudentsHadir}
-                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded transition flex items-center gap-1"
-                                    title="Reset seluruh santri di hari ini ke status Hadir"
-                                >
-                                    <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                    Hadir Semua Hari Ini
-                                </button>
+                                <ActionDropdown
+                                    label="Aksi Cepat"
+                                    icon={Sparkles}
+                                    variant="secondary"
+                                    items={[
+                                        {
+                                            id: 'quick_all_hadir',
+                                            label: 'Hadir Semua Hari Ini',
+                                            description: 'Setel status seluruh santri hari ini menjadi Hadir',
+                                            icon: CheckCheck,
+                                            iconColor: 'text-emerald-600',
+                                            onClick: handleSetAllStudentsHadir,
+                                        },
+                                        entryMode !== 'daily' ? {
+                                            id: 'quick_rule_leave',
+                                            label: 'Terapkan Izin Berhari-hari',
+                                            description: 'Catat santri izin/sakit beberapa hari sekaligus',
+                                            icon: Plus,
+                                            iconColor: 'text-amber-600',
+                                            onClick: handleOpenRuleModal,
+                                        } : null,
+                                        {
+                                            id: 'quick_print_pdf',
+                                            label: 'Cetak Lembar Presensi (PDF)',
+                                            description: 'Download formulir harian atau rekap pekan',
+                                            icon: Printer,
+                                            iconColor: 'text-slate-700',
+                                            dividerBefore: true,
+                                            onClick: () => setPrintModalOpen(true),
+                                        },
+                                    ].filter(Boolean)}
+                                />
 
                                 <button
                                     type="button"
@@ -609,7 +736,7 @@ export default function AttendancePage() {
                         {/* Input Pemilihan Tanggal / Rentang */}
                         <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-4 text-xs">
                             {entryMode === 'daily' ? (
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2.5">
                                     <span className="font-semibold text-slate-600">Tanggal Absen:</span>
                                     <input
                                         type="date"
@@ -617,8 +744,21 @@ export default function AttendancePage() {
                                         onChange={(e) => setSingleDate(e.target.value)}
                                         className="px-3 py-1.5 border border-slate-300 rounded font-bold text-slate-900 bg-white"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setSingleDate(todayStr)}
+                                        className={`px-2.5 py-1 text-xs rounded border transition flex items-center gap-1 ${
+                                            singleDate === todayStr 
+                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' 
+                                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300 font-medium'
+                                        }`}
+                                        title="Kembali ke tanggal hari ini"
+                                    >
+                                        <Clock className="w-3 h-3 text-emerald-600" />
+                                        Hari Ini
+                                    </button>
                                     <span className="px-2.5 py-1 rounded bg-[#093c30] text-white font-bold">
-                                        Hari {currentDayObj?.day_name || 'Sabtu'}
+                                        Hari {currentDayObj?.day_name || getDayNameFromDate(singleDate) || 'Hari Ini'}
                                     </span>
                                 </div>
                             ) : entryMode === 'weekly' ? (
@@ -695,6 +835,11 @@ export default function AttendancePage() {
                                         <span className={`text-[10px] font-mono ${isActive ? 'text-emerald-200' : 'text-slate-400'}`}>
                                             ({d.date.substring(5)})
                                         </span>
+                                        {d.date === todayStr && (
+                                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${isActive ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'}`}>
+                                                Hari Ini
+                                            </span>
+                                        )}
                                         {hasAbsent ? (
                                             <span className="w-2 h-2 rounded-full bg-amber-400" title="Ada catatan ketidakhadiran di hari ini" />
                                         ) : (
@@ -790,7 +935,7 @@ export default function AttendancePage() {
                                         <th className="sticky left-12 z-20 bg-[#093c30] px-3 py-3 text-left min-w-[13rem] border-r border-[#064e3b]">
                                             Nama Santri
                                         </th>
-                                        <th className="px-2 py-3 text-center min-w-[7rem] border-r border-[#064e3b]">
+                                        <th className="px-2 py-3 text-center min-w-[8rem] border-r border-[#064e3b]">
                                             Set 1 Baris
                                         </th>
 
@@ -842,7 +987,7 @@ export default function AttendancePage() {
                                                     </div>
                                                 </td>
 
-                                                {/* Tombol Aksi Cepat 1 Baris Santri (Full Day) */}
+                                                {/* Tombol Aksi Cepat 1 Baris Santri (Full Day: H, S, I, A) */}
                                                 <td className="px-2 py-2 text-center border-r border-slate-200">
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
@@ -868,6 +1013,14 @@ export default function AttendancePage() {
                                                             title="Set Izin seharian (Full Day) untuk santri ini"
                                                         >
                                                             I
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleSetAllHoursForStudent(row.student_id, 'alpa')}
+                                                            className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                                                            title="Set Alpa seharian (Full Day) untuk santri ini"
+                                                        >
+                                                            A
                                                         </button>
                                                     </div>
                                                 </td>
@@ -1009,12 +1162,31 @@ export default function AttendancePage() {
                                     ))}
                                 </select>
 
-                                <button
-                                    onClick={() => window.print()}
-                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded hover:bg-slate-50 transition"
-                                >
-                                    <Printer className="w-3.5 h-3.5" /> Print
-                                </button>
+                                <ActionDropdown
+                                    label="Aksi Lembar"
+                                    icon={Layers}
+                                    variant="secondary"
+                                    size="sm"
+                                    items={[
+                                        {
+                                            id: 'print_matrix_pdf',
+                                            label: 'Cetak Lembar Presensi (PDF)',
+                                            description: 'Download dokumen rekap presensi resmi santri',
+                                            icon: Printer,
+                                            iconColor: 'text-emerald-700',
+                                            onClick: () => setPrintModalOpen(true),
+                                        },
+                                        {
+                                            id: 'switch_to_form',
+                                            label: 'Buka Formulir Jam Pelajaran',
+                                            description: 'Input dan edit presensi langsung per jam tatap muka',
+                                            icon: Clock,
+                                            iconColor: 'text-[#093c30]',
+                                            dividerBefore: true,
+                                            onClick: () => setActiveTab('attendance_form'),
+                                        },
+                                    ]}
+                                />
                             </div>
                         </div>
 
@@ -1467,6 +1639,21 @@ export default function AttendancePage() {
                     </div>
                 </form>
             </Modal>
+
+            {/* Modal Cetak Presensi (PDF) */}
+            <PrintAttendanceModal
+                open={printModalOpen}
+                onClose={() => setPrintModalOpen(false)}
+                currentGroup={currentGroup}
+                currentDayObj={currentDayObj}
+                studentRows={currentDayRows}
+                notesMap={currentDayNotes}
+                daysList={daysList}
+                multiDayState={multiDayState}
+                academicYear={currentGroup?.academic_year?.name || '1446/1447 H'}
+                quarterName="Triwulan IV (Syawal - Dzulhijjah)"
+                defaultMode={entryMode === 'weekly' ? 'weekly' : 'daily'}
+            />
         </div>
     );
 }

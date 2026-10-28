@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
     useGetSchedulesQuery, 
     useCreateScheduleMutation, 
@@ -16,14 +16,19 @@ import { useGetClassGroupsQuery } from '../store/slices/classGroupApi';
 import { useGetStudiesQuery } from '../store/slices/studyApi';
 import { useGetTeachersQuery } from '../store/slices/teacherApi';
 import { useGetLessonHoursQuery } from '../store/slices/lessonHourApi';
+import { useGetAcademicYearsQuery, useGetAcademicQuartersQuery } from '../store/slices/academicApi';
+import { useGetEducationsQuery } from '../store/slices/institutionApi';
 import Modal from '../components/ui/Modal';
 import FlatTabs from '../components/atoms/FlatTabs';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import CopyScheduleModal from '../components/organisms/CopyScheduleModal';
+import PrintScheduleModal from '../components/organisms/PrintScheduleModal';
+import ActionDropdown from '../components/molecules/ActionDropdown';
 import { 
     Calendar, Plus, Clock, BookOpen, BarChart3, User, MapPin, 
     Trash2, Sun, Moon, Coffee, GraduationCap, Users, LayoutGrid, 
     Table as TableIcon, Columns, Search, Filter, AlertTriangle, CheckCircle2,
-    School, ShieldAlert, ChevronLeft, ChevronRight, Printer, Layers
+    School, ShieldAlert, ChevronLeft, ChevronRight, Printer, Layers, Copy
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -34,8 +39,36 @@ export default function ScheduleKbmPage() {
     // ═══════════════════════════════════════════════════════════
     // KALENDER AKADEMIK HIJRIYAH BERBASIS TRIWULAN
     // ═══════════════════════════════════════════════════════════
-    const [hijriYear, setHijriYear] = useState('1446/1447');
-    const [selectedQuarter, setSelectedQuarter] = useState('triwulan_4');
+    const { data: yearsData } = useGetAcademicYearsQuery();
+    const academicYears = yearsData?.data || [];
+    const activeYearObj = useMemo(() => academicYears.find(y => y.active) || academicYears[0], [academicYears]);
+
+    const [selectedYearId, setSelectedYearId] = useState('');
+    useEffect(() => {
+        if (activeYearObj?.id && !selectedYearId) {
+            setSelectedYearId(String(activeYearObj.id));
+        }
+    }, [activeYearObj, selectedYearId]);
+
+    const { data: quartersData } = useGetAcademicQuartersQuery(selectedYearId || undefined);
+    const quarters = quartersData?.data || [];
+
+    const [selectedQuarterId, setSelectedQuarterId] = useState('');
+    useEffect(() => {
+        if (quarters.length > 0 && !selectedQuarterId) {
+            const activeQ = quarters.find(q => q.active) || quarters[0];
+            if (activeQ) setSelectedQuarterId(String(activeQ.id));
+        }
+    }, [quarters, selectedQuarterId]);
+
+    const { data: educationsData } = useGetEducationsQuery();
+    const educations = educationsData?.data || [];
+
+    const currentYear = useMemo(() => academicYears.find(y => String(y.id) === String(selectedYearId)) || activeYearObj, [academicYears, selectedYearId, activeYearObj]);
+    const currentQuarter = useMemo(() => quarters.find(q => String(q.id) === String(selectedQuarterId)) || quarters[0], [quarters, selectedQuarterId]);
+
+    const [copyModalOpen, setCopyModalOpen] = useState(false);
+    const [printModalOpen, setPrintModalOpen] = useState(false);
 
     // ═══════════════════════════════════════════════════════════
     // FILTER DATA MASTER BERTINGKAT: PROGRAM -> JENJANG -> KELAS -> HARI
@@ -68,7 +101,14 @@ export default function ScheduleKbmPage() {
     const teachers = teachersData?.data || [];
 
     // Fetch Schedules
-    const { data: schedulesData } = useGetSchedulesQuery({});
+    const scheduleParams = useMemo(() => {
+        const params = {};
+        if (selectedYearId) params.academic_year_id = selectedYearId;
+        if (selectedQuarterId) params.academic_quarter_id = selectedQuarterId;
+        return params;
+    }, [selectedYearId, selectedQuarterId]);
+
+    const { data: schedulesData, refetch: refetchSchedules } = useGetSchedulesQuery(scheduleParams);
     const allSchedules = schedulesData?.data || [];
 
     const [createSchedule, { isLoading: isCreatingSchedule }] = useCreateScheduleMutation();
@@ -203,6 +243,21 @@ export default function ScheduleKbmPage() {
         });
     }, [rawJournals, journalFilterStudyId, journalSearchQuery]);
 
+    // View Mode & Pagination Jurnal Mengajar
+    const [journalViewMode, setJournalViewMode] = useState('matrix_table'); // 'matrix_table' | 'cards'
+    const [journalPage, setJournalPage] = useState(1);
+    const [journalPerPage, setJournalPerPage] = useState(15);
+
+    const totalJournalPages = Math.ceil(journals.length / journalPerPage) || 1;
+    const paginatedJournals = useMemo(() => {
+        const start = (journalPage - 1) * journalPerPage;
+        return journals.slice(start, start + journalPerPage);
+    }, [journals, journalPage, journalPerPage]);
+
+    useEffect(() => {
+        setJournalPage(1);
+    }, [journalFilterStudyId, journalSearchQuery, currentWeeklyGroup?.id]);
+
     const [createJournal, { isLoading: isCreatingJournal }] = useCreateJournalMutation();
     const [updatePresences, { isLoading: isSavingPresences }] = useUpdatePresencesMutation();
 
@@ -271,7 +326,8 @@ export default function ScheduleKbmPage() {
         e.preventDefault();
         try {
             await createSchedule({
-                academic_year_id: 1,
+                academic_year_id: Number(selectedYearId || 1),
+                academic_quarter_id: Number(selectedQuarterId || 4),
                 class_group_id: schedTargetGroupId || paginatedGroups[0]?.id,
                 study_id: schedStudyId,
                 teacher_id: schedTeacherId,
@@ -301,7 +357,7 @@ export default function ScheduleKbmPage() {
         e.preventDefault();
         try {
             const res = await createJournal({
-                academic_year_id: 1,
+                academic_year_id: Number(selectedYearId || 1),
                 class_group_id: currentWeeklyGroup?.id,
                 study_id: jStudyId,
                 teacher_id: jTeacherId,
@@ -349,13 +405,13 @@ export default function ScheduleKbmPage() {
                 <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-[#093c30] text-emerald-100 flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5" /> Kalender Hijriyah: {hijriYear} H
+                            <Calendar className="w-3.5 h-3.5" /> Kalender Hijriyah: {currentYear?.year || '1446/1447'} H
                         </span>
                         <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                            Triwulan IV (Syawal - Dzulhijjah)
+                            {currentQuarter?.name || 'Triwulan IV (Syawal - Dzulhijjah)'}
                         </span>
                         <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> KBM Aktif
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> {currentQuarter?.active ? 'KBM Aktif' : 'Periode Terpilih'}
                         </span>
                     </div>
                     <h1 className="text-xl font-bold text-slate-900 tracking-tight">
@@ -368,30 +424,66 @@ export default function ScheduleKbmPage() {
 
                 <div className="flex flex-wrap items-center gap-2">
                     <select
-                        value={selectedQuarter}
-                        onChange={(e) => setSelectedQuarter(e.target.value)}
+                        value={selectedQuarterId}
+                        onChange={(e) => setSelectedQuarterId(e.target.value)}
                         className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded bg-white text-slate-800"
                     >
-                        <option value="triwulan_1">Triwulan I (Muharram - Rabi'ul Awwal)</option>
-                        <option value="triwulan_2">Triwulan II (Rabi'ul Akhir - Jumadil Akhir)</option>
-                        <option value="triwulan_3">Triwulan III (Rajab - Ramadhan)</option>
-                        <option value="triwulan_4">Triwulan IV (Syawal - Dzulhijjah) &bull; Aktif</option>
+                        {quarters.length > 0 ? (
+                            quarters.map((q) => (
+                                <option key={q.id} value={q.id}>
+                                    {q.name} {q.active ? '• Aktif' : ''}
+                                </option>
+                            ))
+                        ) : (
+                            <>
+                                <option value="1">Triwulan I (Muharram - Rabi'ul Awwal)</option>
+                                <option value="2">Triwulan II (Rabi'ul Akhir - Jumadil Akhir)</option>
+                                <option value="3">Triwulan III (Rajab - Ramadhan)</option>
+                                <option value="4">Triwulan IV (Syawal - Dzulhijjah) • Aktif</option>
+                            </>
+                        )}
                     </select>
 
-                    <button
-                        onClick={() => {
-                            setSchedDay(6);
-                            setSchedHourId(lessonHours[0]?.id || '');
-                            setSchedTargetGroupId(paginatedGroups[0]?.id || '');
-                            setSchedStudyId(studies[0]?.id || '');
-                            setSchedTeacherId(teachers[0]?.id || '');
-                            setSchedClassroomId('');
-                            setScheduleModalOpen(true);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#093c30] text-white text-xs font-semibold rounded-md hover:bg-[#064e3b] shadow-xs transition"
-                    >
-                        <Plus className="w-3.5 h-3.5" /> Tambah Jadwal
-                    </button>
+                    <ActionDropdown
+                        label="Aksi Jadwal"
+                        icon={Layers}
+                        variant="primary"
+                        items={[
+                            {
+                                id: 'add_schedule',
+                                label: 'Tambah Jadwal Baru',
+                                description: 'Input KBM mata pelajaran, ustadz, jam, dan rombel',
+                                icon: Plus,
+                                iconColor: 'text-emerald-700',
+                                onClick: () => {
+                                    setSchedDay(6);
+                                    setSchedHourId(lessonHours[0]?.id || '');
+                                    setSchedTargetGroupId(paginatedGroups[0]?.id || '');
+                                    setSchedStudyId(studies[0]?.id || '');
+                                    setSchedTeacherId(teachers[0]?.id || '');
+                                    setSchedClassroomId('');
+                                    setScheduleModalOpen(true);
+                                }
+                            },
+                            {
+                                id: 'copy_schedule',
+                                label: 'Salin Jadwal KBM',
+                                description: 'Salin jadwal antar triwulan atau tahun ajaran baru',
+                                icon: Copy,
+                                iconColor: 'text-blue-600',
+                                onClick: () => setCopyModalOpen(true)
+                            },
+                            {
+                                id: 'print_schedule',
+                                label: 'Cetak Jadwal Pelajaran (PDF)',
+                                description: 'Download format resmi jadwal per rombel & periode',
+                                icon: Printer,
+                                iconColor: 'text-slate-700',
+                                dividerBefore: true,
+                                onClick: () => setPrintModalOpen(true)
+                            }
+                        ]}
+                    />
                 </div>
             </div>
 
@@ -1078,8 +1170,8 @@ export default function ScheduleKbmPage() {
                                 </div>
                             </div>
 
-                            {/* Status Bar Ringkasan */}
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                            {/* Status Bar Ringkasan & Switcher View Mode */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
                                 <div className="flex items-center gap-3 text-slate-600">
                                     <span>
                                         Total Jurnal KBM: <b className="text-slate-900">{journals.length} Sesi</b>
@@ -1090,61 +1182,279 @@ export default function ScheduleKbmPage() {
                                     </span>
                                 </div>
 
-                                <div className="w-full sm:w-64">
-                                    <input
-                                        type="text"
-                                        placeholder="Cari materi / nama guru..."
-                                        value={journalSearchQuery}
-                                        onChange={(e) => setJournalSearchQuery(e.target.value)}
-                                        className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50 text-slate-800 placeholder:text-slate-400"
-                                    />
+                                <div className="flex items-center gap-2">
+                                    {/* Toggle View Mode: Tabel Matriks vs Kartu Detail */}
+                                    <div className="flex items-center bg-slate-100 p-0.5 rounded border border-slate-200">
+                                        <button
+                                            type="button"
+                                            onClick={() => setJournalViewMode('matrix_table')}
+                                            className={`px-2.5 py-1 text-xs font-bold rounded flex items-center gap-1.5 transition ${
+                                                journalViewMode === 'matrix_table'
+                                                    ? 'bg-white text-emerald-900 shadow-xs'
+                                                    : 'text-slate-600 hover:text-slate-900'
+                                            }`}
+                                            title="Tampilkan dalam bentuk tabel matriks kompak (tanpa scroll panjang)"
+                                        >
+                                            <TableIcon className="w-3.5 h-3.5" />
+                                            <span>Tabel Matriks</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setJournalViewMode('cards')}
+                                            className={`px-2.5 py-1 text-xs font-bold rounded flex items-center gap-1.5 transition ${
+                                                journalViewMode === 'cards'
+                                                    ? 'bg-white text-emerald-900 shadow-xs'
+                                                    : 'text-slate-600 hover:text-slate-900'
+                                            }`}
+                                            title="Tampilkan dalam bentuk kartu per sesi"
+                                        >
+                                            <Columns className="w-3.5 h-3.5" />
+                                            <span>Kartu Detail</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="w-48 sm:w-60">
+                                        <input
+                                            type="text"
+                                            placeholder="Cari materi / nama guru..."
+                                            value={journalSearchQuery}
+                                            onChange={(e) => setJournalSearchQuery(e.target.value)}
+                                            className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* List Kartu Jurnal Mengajar */}
-                        <div className="space-y-3">
-                            {isLoadingJournals ? (
-                                <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-md">
-                                    Memuat daftar riwayat jurnal mengajar...
+                        {/* Konten Jurnal: Tabel Matriks (Default) vs Kartu Detail */}
+                        {isLoadingJournals ? (
+                            <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-md">
+                                Memuat daftar riwayat jurnal mengajar...
+                            </div>
+                        ) : journals.length === 0 ? (
+                            <div className="p-12 text-center bg-white border border-slate-200 rounded-md shadow-xs space-y-3">
+                                <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                    <BookOpen className="w-6 h-6" />
                                 </div>
-                            ) : journals.length === 0 ? (
-                                <div className="p-12 text-center bg-white border border-slate-200 rounded-md shadow-xs space-y-3">
-                                    <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                                        <BookOpen className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-bold text-slate-800">
-                                            Belum Ada Jurnal KBM untuk {currentWeeklyGroup?.name}
-                                        </h3>
-                                        <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                                            Jurnal otomatis terisi ketika presensi jam pelajaran disimpan di menu <b>Presensi & Disiplin</b>, atau Anda dapat membuka sesi jurnal baru secara manual di sini.
-                                        </p>
-                                    </div>
-                                    <div className="pt-2 flex items-center justify-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setJMeetingNo(1);
-                                                setJStudyId(studies[0]?.id || '');
-                                                setJTeacherId(teachers[0]?.id || '');
-                                                setJTopic('KBM Perdana Tatap Muka');
-                                                setJournalModalOpen(true);
-                                            }}
-                                            className="px-3.5 py-2 bg-[#093c30] text-white text-xs font-semibold rounded hover:bg-[#064e3b] transition"
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-800">
+                                        Belum Ada Jurnal KBM untuk {currentWeeklyGroup?.name}
+                                    </h3>
+                                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                                        Jurnal otomatis terisi ketika presensi jam pelajaran disimpan di menu <b>Presensi & Disiplin</b>, atau Anda dapat membuka sesi jurnal baru secara manual di sini.
+                                    </p>
+                                </div>
+                                <div className="pt-2 flex items-center justify-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setJMeetingNo(1);
+                                            setJStudyId(studies[0]?.id || '');
+                                            setJTeacherId(teachers[0]?.id || '');
+                                            setJTopic('KBM Perdana Tatap Muka');
+                                            setJournalModalOpen(true);
+                                        }}
+                                        className="px-3.5 py-2 bg-[#093c30] text-white text-xs font-semibold rounded hover:bg-[#064e3b] transition"
+                                    >
+                                        + Buka Jurnal Pertemuan Baru
+                                    </button>
+                                    <a
+                                        href="/presensi"
+                                        className="px-3.5 py-2 bg-emerald-50 text-emerald-800 text-xs font-semibold rounded border border-emerald-200 hover:bg-emerald-100 transition"
+                                    >
+                                        Isi Presensi Harian &bull; 6 Jam
+                                    </a>
+                                </div>
+                            </div>
+                        ) : journalViewMode === 'matrix_table' ? (
+                            /* ═══════════════════════════════════════════════════════════
+                               TAMPILAN 1: TABEL MATRIKS JURNAL KBM (KOMPAK & RAPI)
+                               ═══════════════════════════════════════════════════════════ */
+                            <div className="space-y-3">
+                                <div className="border border-slate-200 rounded-md bg-white shadow-xs overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                        <thead className="bg-[#093c30] text-white">
+                                            <tr>
+                                                <th className="px-3 py-3 text-center w-12 border-r border-[#064e3b]">
+                                                    No
+                                                </th>
+                                                <th className="px-3 py-3 text-center border-r border-[#064e3b] whitespace-nowrap">
+                                                    Pertemuan
+                                                </th>
+                                                <th className="px-3.5 py-3 text-left border-r border-[#064e3b] whitespace-nowrap">
+                                                    Hari & Tanggal
+                                                </th>
+                                                <th className="px-3 py-3 text-center border-r border-[#064e3b] whitespace-nowrap">
+                                                    Jam KBM
+                                                </th>
+                                                <th className="px-3.5 py-3 text-left border-r border-[#064e3b] min-w-[10rem]">
+                                                    Mata Pelajaran
+                                                </th>
+                                                <th className="px-3.5 py-3 text-left border-r border-[#064e3b] min-w-[14rem]">
+                                                    Materi / Bahasan
+                                                </th>
+                                                <th className="px-3.5 py-3 text-left border-r border-[#064e3b] min-w-[10rem]">
+                                                    Ustadz Pengampu
+                                                </th>
+                                                <th className="px-3 py-3 text-center border-r border-[#064e3b] whitespace-nowrap">
+                                                    Kehadiran Santri
+                                                </th>
+                                                <th className="px-3 py-3 text-center whitespace-nowrap">
+                                                    Aksi
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {paginatedJournals.map((j, idx) => {
+                                                const totalStudents = (j.hadir_count || 0) + (j.sakit_count || 0) + (j.izin_count || 0) + (j.alpa_count || 0);
+                                                const hadirPct = totalStudents > 0 ? Math.round(((j.hadir_count || 0) / totalStudents) * 100) : 0;
+                                                const hourOrder = j.lesson_schedule?.lesson_hour?.order;
+                                                const hourTime = j.lesson_schedule?.lesson_hour?.start_time ? 
+                                                    `${j.lesson_schedule.lesson_hour.start_time.substring(0, 5)} - ${j.lesson_schedule.lesson_hour.end_time?.substring(0, 5)}` : null;
+
+                                                return (
+                                                    <tr key={j.id} className={idx % 2 !== 0 ? 'bg-slate-50/50 hover:bg-slate-100/70' : 'bg-white hover:bg-slate-50'}>
+                                                        <td className="px-3 py-2.5 text-center text-slate-400 font-mono border-r border-slate-100">
+                                                            {(journalPage - 1) * journalPerPage + idx + 1}
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-center border-r border-slate-100 whitespace-nowrap">
+                                                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-[#093c30] text-emerald-100">
+                                                                Pertemuan Ke-{j.meeting_number}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-3.5 py-2.5 border-r border-slate-100 whitespace-nowrap">
+                                                            <div className="font-semibold text-slate-800">
+                                                                {j.date ? new Date(j.date).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-center border-r border-slate-100 whitespace-nowrap">
+                                                            <span className="font-bold text-emerald-800">
+                                                                Jam {hourOrder || '-'}
+                                                            </span>
+                                                            {hourTime && (
+                                                                <div className="text-[10px] text-slate-400 font-mono">
+                                                                    {hourTime}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-3.5 py-2.5 border-r border-slate-100">
+                                                            <div className="font-bold text-slate-900">
+                                                                {j.study?.name || '-'}
+                                                            </div>
+                                                            {j.study?.category && (
+                                                                <span className="text-[10px] text-slate-400">
+                                                                    {j.study.category}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-3.5 py-2.5 border-r border-slate-100">
+                                                            <div className="text-slate-700 font-medium line-clamp-2" title={j.topic}>
+                                                                {j.topic || 'KBM Reguler Sesuai Silabus'}
+                                                            </div>
+                                                            {j.notes && (
+                                                                <div className="text-[10px] text-slate-400 italic line-clamp-1 mt-0.5">
+                                                                    Catatan: {j.notes}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-3.5 py-2.5 border-r border-slate-100">
+                                                            <div className="font-semibold text-slate-800 truncate" title={j.teacher?.name}>
+                                                                {j.teacher?.name || '-'}
+                                                            </div>
+                                                            {j.substitute_teacher && (
+                                                                <div className="text-[10px] text-amber-700 font-medium">
+                                                                    (Pengganti: {j.substitute_teacher.name})
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-3 py-2.5 border-r border-slate-100 whitespace-nowrap">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <span className="font-bold font-mono text-emerald-700 text-xs w-9 text-right">
+                                                                    {hadirPct}%
+                                                                </span>
+                                                                <div className="flex items-center gap-1 text-[10px]">
+                                                                    <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold" title="Hadir">
+                                                                        H:{j.hadir_count || 0}
+                                                                    </span>
+                                                                    <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold" title="Sakit">
+                                                                        S:{j.sakit_count || 0}
+                                                                    </span>
+                                                                    <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 font-bold" title="Izin">
+                                                                        I:{j.izin_count || 0}
+                                                                    </span>
+                                                                    <span className="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 font-bold" title="Alpa">
+                                                                        A:{j.alpa_count || 0}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenPresenceModal(j)}
+                                                                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold border border-emerald-200 rounded transition inline-flex items-center gap-1 shadow-2xs"
+                                                                title="Lihat & perbarui presensi santri pertemuan ini"
+                                                            >
+                                                                <Users className="w-3.5 h-3.5 text-emerald-700" />
+                                                                <span>Detail Presensi</span>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Pagination Kontrol Tabel Matriks */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-md p-3">
+                                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                                        <span>
+                                            Menampilkan <b>{Math.min(journals.length, (journalPage - 1) * journalPerPage + 1)}</b> - <b>{Math.min(journals.length, journalPage * journalPerPage)}</b> dari <b>{journals.length} Sesi KBM</b>
+                                        </span>
+                                        <span>&bull;</span>
+                                        <span>Tampilkan:</span>
+                                        <select
+                                            value={journalPerPage}
+                                            onChange={(e) => { setJournalPerPage(Number(e.target.value)); setJournalPage(1); }}
+                                            className="px-2 py-1 text-xs border border-slate-300 rounded bg-white"
                                         >
-                                            + Buka Jurnal Pertemuan Baru
-                                        </button>
-                                        <a
-                                            href="/presensi"
-                                            className="px-3.5 py-2 bg-emerald-50 text-emerald-800 text-xs font-semibold rounded border border-emerald-200 hover:bg-emerald-100 transition"
-                                        >
-                                            Isi Presensi Harian &bull; 6 Jam
-                                        </a>
+                                            <option value={10}>10 Sesi / Hal</option>
+                                            <option value={15}>15 Sesi / Hal</option>
+                                            <option value={25}>25 Sesi / Hal</option>
+                                            <option value={50}>50 Sesi / Hal</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-slate-500">
+                                            Halaman {journalPage} dari {totalJournalPages}
+                                        </span>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                disabled={journalPage <= 1}
+                                                onClick={() => setJournalPage(p => Math.max(1, p - 1))}
+                                                className="p-1 border border-slate-200 rounded bg-white disabled:opacity-30 hover:bg-slate-50"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                disabled={journalPage >= totalJournalPages}
+                                                onClick={() => setJournalPage(p => Math.min(totalJournalPages, p + 1))}
+                                                className="p-1 border border-slate-200 rounded bg-white disabled:opacity-30 hover:bg-slate-50"
+                                            >
+                                                <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            ) : (
-                                journals.map((j) => {
+                            </div>
+                        ) : (
+                            /* ═══════════════════════════════════════════════════════════
+                               TAMPILAN 2: KARTU DETAIL (OPSIONAL)
+                               ═══════════════════════════════════════════════════════════ */
+                            <div className="space-y-3">
+                                {paginatedJournals.map((j) => {
                                     const totalStudents = (j.hadir_count || 0) + (j.sakit_count || 0) + (j.izin_count || 0) + (j.alpa_count || 0);
                                     const hadirPct = totalStudents > 0 ? Math.round(((j.hadir_count || 0) / totalStudents) * 100) : 0;
                                     const hourOrder = j.lesson_schedule?.lesson_hour?.order;
@@ -1190,7 +1500,6 @@ export default function ScheduleKbmPage() {
                                                     </p>
                                                 </div>
 
-                                                {/* Rekap Kehadiran Pill Badges & Tombol Aksi */}
                                                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
                                                     <div className="bg-slate-50 border border-slate-200 rounded p-2 text-xs space-y-1">
                                                         <div className="flex items-center justify-between gap-3">
@@ -1231,9 +1540,39 @@ export default function ScheduleKbmPage() {
                                             </div>
                                         </div>
                                     );
-                                })
-                            )}
-                        </div>
+                                })}
+
+                                {/* Pagination Kontrol Kartu */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-md p-3">
+                                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                                        <span>
+                                            Menampilkan <b>{Math.min(journals.length, (journalPage - 1) * journalPerPage + 1)}</b> - <b>{Math.min(journals.length, journalPage * journalPerPage)}</b> dari <b>{journals.length} Sesi KBM</b>
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-slate-500">
+                                            Halaman {journalPage} dari {totalJournalPages}
+                                        </span>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                disabled={journalPage <= 1}
+                                                onClick={() => setJournalPage(p => Math.max(1, p - 1))}
+                                                className="p-1 border border-slate-200 rounded bg-white disabled:opacity-30 hover:bg-slate-50"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                disabled={journalPage >= totalJournalPages}
+                                                onClick={() => setJournalPage(p => Math.min(totalJournalPages, p + 1))}
+                                                className="p-1 border border-slate-200 rounded bg-white disabled:opacity-30 hover:bg-slate-50"
+                                            >
+                                                <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -1589,6 +1928,40 @@ export default function ScheduleKbmPage() {
                     }
                 }}
                 onCancel={() => setDeleteScheduleTarget(null)}
+            />
+
+            {/* Modal Salin Jadwal Antar Periode / Tahun Akademik */}
+            <CopyScheduleModal
+                open={copyModalOpen}
+                onClose={() => setCopyModalOpen(false)}
+                academicYears={academicYears}
+                activeYearId={selectedYearId}
+                quarters={quarters}
+                activeQuarterId={selectedQuarterId}
+                educations={educations}
+                currentEducation={selectedEducation}
+                onSuccess={(result) => {
+                    if (result?.type === 'period' && result?.targetQuarterId) {
+                        setSelectedQuarterId(String(result.targetQuarterId));
+                    } else if (result?.type === 'year' && result?.targetYearId) {
+                        setSelectedYearId(String(result.targetYearId));
+                    }
+                    refetchSchedules();
+                }}
+            />
+
+            {/* Modal Cetak Jadwal Pelajaran (PDF Frontend) */}
+            <PrintScheduleModal
+                open={printModalOpen}
+                onClose={() => setPrintModalOpen(false)}
+                allGroups={allGroups}
+                filteredGroups={filteredGroups}
+                currentGroup={currentWeeklyGroup || paginatedGroups[0]}
+                schedules={allSchedules}
+                lessonHours={lessonHours}
+                academicYear={currentYear?.year ? `${currentYear.year} H` : '1446/1447 H'}
+                quarterName={currentQuarter?.name || 'Triwulan IV (Syawal - Dzulhijjah)'}
+                selectedEducation={selectedEducation}
             />
         </div>
     );

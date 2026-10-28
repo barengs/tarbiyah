@@ -35,6 +35,11 @@ class LessonSchedule extends Model
         return $this->belongsTo(AcademicYear::class);
     }
 
+    public function academicQuarter()
+    {
+        return $this->belongsTo(AcademicQuarter::class);
+    }
+
     public function classGroup()
     {
         return $this->belongsTo(ClassGroup::class, 'class_group_id');

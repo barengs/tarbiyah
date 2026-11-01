@@ -462,7 +462,7 @@ export default function AcademicYearPage() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleSetActiveYear(year.id, year.year)}
-                                                                className="px-2 py-1 text-[11px] font-semibold rounded bg-white hover:bg-[#093c30] text-slate-700 hover:text-white border border-slate-200 transition-colors shadow-2xs"
+                                                                className="px-2 py-1 text-[11px] font-semibold rounded bg-white hover:bg-[#0b57d0] text-slate-700 hover:text-white border border-slate-200 transition-colors shadow-2xs"
                                                                 title="Jadikan Tahun Akademik Ini Aktif"
                                                             >
                                                                 Aktifkan
@@ -607,7 +607,7 @@ export default function AcademicYearPage() {
                                                                                         year.year
                                                                                     )
                                                                                 }
-                                                                                className="px-2 py-0.5 text-[11px] font-semibold rounded bg-white hover:bg-[#093c30] text-slate-700 hover:text-white border border-slate-300 transition-colors shadow-2xs"
+                                                                                className="px-2 py-0.5 text-[11px] font-semibold rounded bg-white hover:bg-[#0b57d0] text-slate-700 hover:text-white border border-slate-300 transition-colors shadow-2xs"
                                                                             >
                                                                                 Jadikan Aktif
                                                                             </button>

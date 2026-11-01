@@ -130,7 +130,7 @@ export default function LoginCard({
                     loading={isLoading}
                     icon={ArrowRight}
                     iconPosition="right"
-                    className="w-full text-base font-bold shadow-md bg-[#093c30] hover:bg-[#062c23] py-3.5 rounded-md"
+                    className="w-full text-base font-bold shadow-md bg-[#0b57d0] hover:bg-[#0842a0] py-3.5 rounded-md"
                 >
                     Masuk ke Sistem Akademik
                 </Button>

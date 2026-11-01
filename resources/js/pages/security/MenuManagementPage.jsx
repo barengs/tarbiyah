@@ -401,7 +401,7 @@ export default function MenuManagementPage() {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => handleOpenModal(null, '')}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#093c30] text-white font-semibold text-sm rounded-md hover:bg-[#072d24] transition shadow-xs"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#0b57d0] text-white font-semibold text-sm rounded-md hover:bg-[#0842a0] transition shadow-xs"
                     >
                         <Plus className="w-4 h-4" />
                         Tambah Menu Utama
@@ -815,7 +815,7 @@ export default function MenuManagementPage() {
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#093c30] text-white text-sm font-semibold rounded-md hover:bg-[#072d24] transition-colors disabled:opacity-50 shadow-xs"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md hover:bg-[#0842a0] transition-colors disabled:opacity-50 shadow-xs"
                         >
                             {isCreating || isUpdating ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />

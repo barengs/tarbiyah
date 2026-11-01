@@ -43,98 +43,17 @@ export default function Dashboard() {
     const ov = dashboardData?.data?.overview || {};
     const academicMeta = dashboardData?.data?.academic_year || {};
     const presenceTrend = dashboardData?.data?.presence_trend || [
-        { day: 'Sabtu', jamaah: 99.1, kbm: 98.4, halaqah: 97.9 },
-        { day: 'Ahad', jamaah: 99.3, kbm: 98.6, halaqah: 98.0 },
-        { day: 'Senin', jamaah: 99.0, kbm: 98.2, halaqah: 97.5 },
-        { day: 'Selasa', jamaah: 98.8, kbm: 98.5, halaqah: 97.8 },
-        { day: 'Rabu', jamaah: 99.4, kbm: 98.7, halaqah: 98.2 },
-        { day: 'Kamis', jamaah: 99.2, kbm: 98.4, halaqah: 98.0 },
-        { day: "Jum'at", jamaah: 99.5, kbm: 98.8, halaqah: 98.5 },
+        { day: 'Sabtu', jamaah: 0, kbm: 0, halaqah: 0 },
+        { day: 'Ahad', jamaah: 0, kbm: 0, halaqah: 0 },
+        { day: 'Senin', jamaah: 0, kbm: 0, halaqah: 0 },
+        { day: 'Selasa', jamaah: 0, kbm: 0, halaqah: 0 },
+        { day: 'Rabu', jamaah: 0, kbm: 0, halaqah: 0 },
+        { day: 'Kamis', jamaah: 0, kbm: 0, halaqah: 0 },
+        { day: "Jum'at", jamaah: 0, kbm: 0, halaqah: 0 },
     ];
-    const institutionDistribution = dashboardData?.data?.institution_distribution?.length
-        ? dashboardData.data.institution_distribution
-        : [
-              { name: 'Madrasah Tsanawiyah (MTs)', count: 620 },
-              { name: 'Madrasah Aliyah (MA)', count: 540 },
-          ];
-    const activeSchedules = dashboardData?.data?.active_schedules?.length
-        ? dashboardData.data.active_schedules
-        : [
-              {
-                  id: 1,
-                  subject: 'Kitab Fathul Qorib (Fiqh)',
-                  category: 'Diniyah',
-                  teacher: 'Ust. Ahmad Ghazali, Lc. • Santri: 74 Banin',
-                  room: "Ruang Utama Masjid Jami' Lt. 2",
-                  time: '09:40 - 11:15 WIB',
-                  status: 'Sedang Berjalan',
-                  remaining: 'Sisa 35 Menit',
-              },
-              {
-                  id: 2,
-                  subject: 'Fisika Terpadu & Falakiyah',
-                  category: 'Formal',
-                  teacher: 'Dr. Hendra Wijaya, M.Si. • Santri: 32 Kelas XII-IPA',
-                  room: 'Lab Sains Gedung Ibnu Sina Lt. 3',
-                  time: '09:40 - 11:15 WIB',
-                  status: 'Sedang Berjalan',
-                  remaining: 'Sisa 35 Menit',
-              },
-              {
-                  id: 3,
-                  subject: 'Nahwu & Sharaf (Al-Ajurrumiyyah)',
-                  category: 'Diniyah MTs',
-                  teacher: 'Ust. Moh. Kholil, S.Pd.I • Santri: 68 Banin',
-                  room: 'Aula Pondok Timur Lt. 1',
-                  time: '09:40 - 11:15 WIB',
-                  status: 'Sedang Berjalan',
-                  remaining: 'Sisa 35 Menit',
-              },
-          ];
-    const recentNotices = dashboardData?.data?.recent_notices?.length
-        ? dashboardData.data.recent_notices
-        : [
-              {
-                  id: 1,
-                  type: 'Izin Berobat Rujukan RS',
-                  tag: 'Sakit',
-                  tag_type: 'rose',
-                  title: 'Muhammad Faiz (Kelas X-A) • Pengawalan Wali Asrama',
-                  desc: 'Surat Izin #IZ-1446-889 • Disetujui Mudir',
-                  time: '15 Menit Lalu',
-              },
-              {
-                  id: 2,
-                  type: 'Kunjungan Wali (Sambangan Resmi)',
-                  tag: 'Tercatat',
-                  tag_type: 'blue',
-                  title: 'H. Ridwan & Keluarga untuk Santri Azka (Kelas VIII-B)',
-                  desc: 'Area Gazebo Kunjungan Timur • 10:00 - 14:00 WIB',
-                  time: '42 Menit Lalu',
-              },
-              {
-                  id: 3,
-                  type: 'Apresiasi Santri Berprestasi',
-                  tag: 'Teladan',
-                  tag_type: 'emerald',
-                  title: 'Farhan Ramadhan (MA-XII) • Juara 1 MQK Tingkat Provinsi',
-                  desc: '+50 Poin Syarafiyah Kehormatan',
-                  time: '1 Jam Lalu',
-              },
-          ];
-
-    // Quick CTA Handlers
-    const ctaHandlers = {
-        onInputNilai: () => {
-            toast.info('Membuka modul input nilai Imtihan / KKM...');
-        },
-        onRekapPresensi: () => {
-            toast.info('Mengambil rekap presensi santri...');
-        },
-        onMaklumatBaru: () => {
-            toast.info('Menyusun maklumat / pengumuman biro pengasuhan...');
-        },
-    };
+    const institutionDistribution = dashboardData?.data?.institution_distribution || [];
+    const activeSchedules = dashboardData?.data?.active_schedules || [];
+    const recentNotices = dashboardData?.data?.recent_notices || [];
 
     // Handler reset ke live
     const handleResetLive = () => {
@@ -181,28 +100,27 @@ export default function Dashboard() {
             <HeroBanner
                 user={user}
                 academicMeta={academicMeta}
-                ctaHandlers={ctaHandlers}
                 className="shadow-xs"
             />
 
             {/* 2. 4 KPI METRIC CARDS (PERSIS MOCKUP DESAIN) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {/* 1. TOTAL SANTRI AKTIF (100% BANIN / PUTRA) */}
+                {/* 1. TOTAL SANTRI AKTIF (100% PUTRA) */}
                 <MetricCard
                     label="Total Santri Aktif"
-                    value={ov.total_santri?.value ? ov.total_santri.value.toLocaleString() : "1.189"}
+                    value={ov.total_santri?.value !== undefined ? ov.total_santri.value.toLocaleString() : '0'}
                     unit="Jiwa"
                     icon={Users}
                     accent="green"
                     stats={[
-                        { dot: 'bg-[#093c30]', label: `${ov.total_santri?.value ? ov.total_santri.value.toLocaleString() : "1.189"} Banin (Putra)` },
-                        { dot: 'bg-emerald-600', label: '100% Santri Banin' },
+                        { dot: 'bg-[#093c30]', label: `${ov.total_santri?.value !== undefined ? ov.total_santri.value.toLocaleString() : '0'} Putra` },
+                        { dot: 'bg-emerald-600', label: `${ov.total_santri?.value > 0 ? '100%' : '0%'} Santri Putra` },
                     ]}
                     footer={
                         <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-100">
-                            <span className="text-slate-500">{ov.total_santri?.mukim_percent ? `${ov.total_santri.mukim_percent}%` : "100%"} Mukim di Asrama</span>
+                            <span className="text-slate-500">{ov.total_santri?.mukim_percent !== undefined ? `${ov.total_santri.mukim_percent}%` : '0%'} Mukim di Asrama</span>
                             <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded text-[11px] border border-emerald-200">
-                                +{ov.total_santri?.new_students || 271} Baru
+                                +{ov.total_santri?.new_students ?? 0} Baru
                             </span>
                         </div>
                     }
@@ -211,19 +129,22 @@ export default function Dashboard() {
                 {/* 2. PRESENSI HARI INI */}
                 <MetricCard
                     label="Presensi Hari Ini"
-                    value="98.6%"
+                    value={`${ov.presence?.rate ?? 0}%`}
                     unit=""
                     icon={ClipboardCheck}
                     accent="emerald"
-                    badge={{ label: 'Disiplin Sangat Baik', variant: 'emerald' }}
+                    badge={{
+                        label: ov.presence?.status_label || (ov.presence?.total_log > 0 ? 'Disiplin Sangat Baik' : 'Belum Ada Data'),
+                        variant: ov.presence?.total_log > 0 ? 'emerald' : 'slate',
+                    }}
                     stats={[
-                        { label: 'Shubuh Berjamaah', value: '99.1%' },
-                        { label: 'KBM Formal Pagi', value: '98.4%' },
+                        { label: 'Shubuh Berjamaah', value: `${ov.presence?.shubuh_rate ?? ov.presence?.rate ?? 0}%` },
+                        { label: 'KBM Formal Pagi', value: `${ov.presence?.kbm_rate ?? ov.presence?.rate ?? 0}%` },
                     ]}
                     footer={
                         <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-100 text-slate-500">
                             <span>Halaqah Maghrib:</span>
-                            <span className="font-bold text-slate-800">97.9% Tercatat</span>
+                            <span className="font-bold text-slate-800">{ov.presence?.halaqah_rate ?? ov.presence?.rate ?? 0}% Tercatat</span>
                         </div>
                     }
                 />
@@ -231,18 +152,18 @@ export default function Dashboard() {
                 {/* 4. MAPEL & KKM IMTIHAN */}
                 <MetricCard
                     label="Mapel & KKM Imtihan"
-                    value="48"
+                    value={String(ov.curriculum?.total_subjects ?? 0)}
                     unit="Mapel Aktif"
                     icon={Layers}
                     accent="blue"
                     stats={[
-                        { dot: 'bg-[#093c30]', label: '28 Diniyah/Kitab' },
-                        { dot: 'bg-sky-600', label: '20 Umum Kemenag' },
+                        { dot: 'bg-[#093c30]', label: `${ov.curriculum?.diniyah ?? 0} Diniyah/Kitab` },
+                        { dot: 'bg-sky-600', label: `${ov.curriculum?.kemenag_umum ?? 0} Umum Kemenag` },
                     ]}
                     footer={
                         <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-100 text-slate-500">
                             <span>Rerata KKM Kumulatif:</span>
-                            <span className="font-bold text-slate-800">84.2 / 100</span>
+                            <span className="font-bold text-slate-800">{ov.curriculum?.avg_kkm ?? 0} / 100</span>
                         </div>
                     }
                 />

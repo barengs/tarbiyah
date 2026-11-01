@@ -46,6 +46,7 @@ export default function DataTable({
     showPagination = true,
     showNumber = true,
     className = '',
+    filters = null,
 }) {
     const [globalFilter, setGlobalFilter] = useState('');
     const [sorting, setSorting] = useState([]);
@@ -142,34 +143,37 @@ export default function DataTable({
     return (
         <div className={`bg-white border border-slate-200/90 rounded-md shadow-2xs overflow-hidden ${className}`}>
             {/* TOOLBAR ATAS: Pencarian & Page Size */}
-            {(showSearch || showPagination) && (
+            {(showSearch || showPagination || filters) && (
                 <div className="p-3 bg-slate-50/60 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    {/* Pencarian Global Real-time */}
-                    {showSearch && (
-                        <div className="relative flex-1 max-w-sm">
-                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                            <input
-                                type="text"
-                                value={globalFilter ?? ''}
-                                onChange={(e) => setGlobalFilter(e.target.value)}
-                                placeholder={searchPlaceholder}
-                                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-300 rounded-md text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#093c30] focus:border-[#093c30] transition-colors"
-                            />
-                            {globalFilter && (
-                                <button
-                                    type="button"
-                                    onClick={() => setGlobalFilter('')}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded transition-colors"
-                                    title="Bersihkan pencarian"
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
-                            )}
-                        </div>
-                    )}
+                    {/* Pencarian Global Real-time & Filter Tambahan */}
+                    <div className="flex flex-wrap items-center gap-2.5 flex-1">
+                        {showSearch && (
+                            <div className="relative flex-1 min-w-[200px] max-w-sm">
+                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <input
+                                    type="text"
+                                    value={globalFilter ?? ''}
+                                    onChange={(e) => setGlobalFilter(e.target.value)}
+                                    placeholder={searchPlaceholder}
+                                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-300 rounded-md text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#093c30] focus:border-[#093c30] transition-colors"
+                                />
+                                {globalFilter && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setGlobalFilter('')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                                        title="Bersihkan pencarian"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {filters}
+                    </div>
 
                     {/* Kontrol Baris per Halaman */}
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                         <div className="flex items-center gap-1.5 text-xs text-slate-500">
                             <span className="text-[11px] text-slate-500">Tampilkan:</span>
                             <select

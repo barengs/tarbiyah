@@ -28,6 +28,7 @@ import ReportCardPage from './pages/ReportCardPage';
 import MenuManagementPage from './pages/security/MenuManagementPage';
 import RoleManagementPage from './pages/security/RoleManagementPage';
 import UserManagementPage from './pages/security/UserManagementPage';
+import GradingPeriodPage from './pages/settings/GradingPeriodPage';
 
 import '../css/app.css';
 
@@ -92,6 +93,8 @@ const App = () => {
                             <Route path="rapor" element={<ReportCardPage />} />
 
                             {/* Modul Keamanan & Manajemen Akses (Admin / Superadmin) */}
+                            <Route path="pengaturan/masa-nilai" element={<GradingPeriodPage />} />
+                            <Route path="admin/masa-nilai" element={<GradingPeriodPage />} />
                             <Route path="admin/menu" element={<MenuManagementPage />} />
                             <Route path="admin/role" element={<RoleManagementPage />} />
                             <Route path="admin/pengguna" element={<UserManagementPage />} />

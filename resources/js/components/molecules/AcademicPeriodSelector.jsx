@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useGetAcademicYearsQuery } from '../../store/slices/academicApi';
 import { setAcademicPeriod, resetToSystemActive } from '../../store/slices/academicContextSlice';
+import { apiSlice } from '../../store/slices/apiSlice';
 
 export default function AcademicPeriodSelector({ className = '' }) {
     const dispatch = useDispatch();
@@ -71,6 +72,19 @@ export default function AcademicPeriodSelector({ className = '' }) {
                 fullLabel: `Tahun Akademik ${year.year} ${quarter.name}`,
             })
         );
+        dispatch(
+            apiSlice.util.invalidateTags([
+                'Dashboard',
+                'Student',
+                'ClassGroup',
+                'Schedule',
+                'Journal',
+                'Presence',
+                'Assessment',
+                'ReportCard',
+                'AcademicQuarter',
+            ])
+        );
         setIsOpen(false);
     };
 
@@ -84,6 +98,19 @@ export default function AcademicPeriodSelector({ className = '' }) {
                     activeQuarterId: systemActiveQuarter.id,
                     activeQuarterName: systemActiveQuarter.name,
                 })
+            );
+            dispatch(
+                apiSlice.util.invalidateTags([
+                    'Dashboard',
+                    'Student',
+                    'ClassGroup',
+                    'Schedule',
+                    'Journal',
+                    'Presence',
+                    'Assessment',
+                    'ReportCard',
+                    'AcademicQuarter',
+                ])
             );
         }
         setIsOpen(false);
@@ -213,7 +240,7 @@ export default function AcademicPeriodSelector({ className = '' }) {
                                                         onClick={() => handleSelectPeriod(year, quarter)}
                                                         className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-all ${
                                                             isQuarterSelected
-                                                                ? 'bg-[#093c30] text-white shadow-xs font-semibold'
+                                                                ? 'bg-[#0b57d0] text-white shadow-xs font-semibold'
                                                                 : 'hover:bg-slate-100/80 text-slate-700'
                                                         }`}
                                                     >
@@ -221,7 +248,7 @@ export default function AcademicPeriodSelector({ className = '' }) {
                                                             <div
                                                                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                                                     isQuarterSelected
-                                                                        ? 'bg-emerald-300 ring-2 ring-emerald-400/40'
+                                                                        ? 'bg-blue-200 ring-2 ring-blue-300/40'
                                                                         : isLiveActive
                                                                         ? 'bg-emerald-500'
                                                                         : 'bg-slate-300'

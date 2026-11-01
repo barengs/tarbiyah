@@ -26,10 +26,18 @@ export default function MainLayout() {
     });
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+    const { selectedYearId, selectedQuarterId } = useSelector((state) => state.academicContext || {});
+
     // Get academic meta & notifications feed dari database
-    const { data: dashboardData } = useGetDashboardStatsQuery(undefined, {
-        skip: !user,
-    });
+    const { data: dashboardData } = useGetDashboardStatsQuery(
+        {
+            academic_year_id: selectedYearId,
+            academic_quarter_id: selectedQuarterId,
+        },
+        {
+            skip: !user,
+        }
+    );
 
     // Auto-close mobile sidebar saat navigasi berpindah
     useEffect(() => {

@@ -93,7 +93,12 @@ Route::prefix('security')->middleware(['autoprovision', 'auth:api'])->group(func
 
 // Master Data Routes (Protected by JWT & AutoProvision)
 Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(function () {
+    // Program Pesantren (Kubar, Tibyan - Tersinkronisasi dari SMPT)
+    Route::get('programs', [\App\Http\Controllers\Api\Master\ProgramController::class, 'index']);
+    Route::post('programs/sync-from-smpt', [\App\Http\Controllers\Api\Master\ProgramController::class, 'syncFromSmpt']);
+
     // Institusi Pendidikan
+    Route::post('institutions/{id}', [EducationalInstitutionController::class, 'update']);
     Route::apiResource('institutions', EducationalInstitutionController::class);
 
     // Jenjang Pendidikan per Institusi
@@ -164,7 +169,15 @@ Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function
     Route::get('journals/recap', [TeachingJournalController::class, 'recap']);
     Route::apiResource('journals', TeachingJournalController::class);
 
-    // Penilaian & Asesmen Siswa
+    // Penilaian Akhir Triwulan, Remidi Mapel Khusus & Evaluasi Kenaikan Kelas
+    Route::get('assessments/grading-period', [AssessmentController::class, 'gradingPeriod']);
+    Route::post('assessments/grading-period', [AssessmentController::class, 'updateGradingPeriod']);
+    Route::get('assessments/quarterly-sheet', [AssessmentController::class, 'quarterlySheet']);
+    Route::post('assessments/quarterly-sheet', [AssessmentController::class, 'saveQuarterlySheet']);
+    Route::post('assessments/toggle-lock', [AssessmentController::class, 'toggleScoreLock']);
+    Route::post('assessments/remedial-scores', [AssessmentController::class, 'saveRemedialScores']);
+    Route::get('assessments/collective-template', [AssessmentController::class, 'downloadCollectiveTemplate']);
+    Route::post('assessments/collective-import', [AssessmentController::class, 'importCollectiveExcel']);
     Route::get('assessments/categories', [AssessmentController::class, 'categories']);
     Route::get('assessments/gradebook', [AssessmentController::class, 'classGradebook']);
     Route::get('assessments/exam-eligibility', [AssessmentController::class, 'examEligibility']);

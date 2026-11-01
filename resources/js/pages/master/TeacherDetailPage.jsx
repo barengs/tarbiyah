@@ -118,7 +118,7 @@ export default function TeacherDetailPage() {
                 <p className="text-slate-600 font-semibold mb-4">Data guru tidak ditemukan atau telah dihapus.</p>
                 <Link
                     to="/guru"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#093c30] text-white rounded-md text-sm font-semibold hover:bg-[#072d24] transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white rounded-md text-sm font-semibold hover:bg-[#0842a0] transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Guru
                 </Link>
@@ -188,9 +188,9 @@ export default function TeacherDetailPage() {
                     </button>
                     <button
                         onClick={openEditModal}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-[#093c30] text-xs font-semibold text-white hover:bg-[#072d24] transition-colors shadow-2xs"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-[#0b57d0] text-xs font-semibold text-white hover:bg-[#0842a0] transition-colors shadow-2xs"
                     >
-                        <Edit2 className="w-3.5 h-3.5 text-emerald-200" />
+                        <Edit2 className="w-3.5 h-3.5 text-blue-200" />
                         Edit Data Guru
                     </button>
                     <button
@@ -383,9 +383,9 @@ export default function TeacherDetailPage() {
                                     <button
                                         type="button"
                                         onClick={() => setAssignModalOpen(true)}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#093c30] text-xs font-semibold text-white hover:bg-[#072d24] transition-colors shadow-2xs self-start sm:self-auto"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0b57d0] text-xs font-semibold text-white hover:bg-[#0842a0] transition-colors shadow-2xs self-start sm:self-auto"
                                     >
-                                        <BookOpen className="w-3.5 h-3.5 text-emerald-200" />
+                                        <BookOpen className="w-3.5 h-3.5 text-blue-200" />
                                         Kelola Penugasan Mapel
                                     </button>
                                 </div>
@@ -548,7 +548,7 @@ export default function TeacherDetailPage() {
                             type="submit"
                             form="edit-teacher-form"
                             disabled={isUpdating}
-                            className="px-4 py-2 text-xs font-semibold text-white bg-[#093c30] hover:bg-[#072d24] rounded-md transition-colors disabled:opacity-50"
+                            className="px-4 py-2 text-xs font-semibold text-white bg-[#0b57d0] hover:bg-[#0842a0] rounded-md transition-colors disabled:opacity-50"
                         >
                             {isUpdating ? 'Menyimpan...' : 'Simpan Perubahan'}
                         </button>

@@ -4,9 +4,10 @@ namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassGroup;
-use App\Models\StudentClass;
 use App\Models\ClassGroupSubject;
-use App\Models\Student;
+use App\Models\Education;
+use App\Models\EducationalInstitution;
+use App\Models\StudentClass;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -23,13 +24,16 @@ class ClassGroupController extends Controller
                 'education',
                 'educationClass',
                 'classroom',
-                'homeroomTeacher'
+                'homeroomTeacher',
             ])->withCount(['studentClasses as students_count' => function ($q) {
                 $q->where('status', 'aktif');
             }]);
 
-            if ($request->has('academic_year_id') && $request->query('academic_year_id')) {
-                $query->where('academic_year_id', $request->query('academic_year_id'));
+            if (! $request->boolean('ignore_year_filter')) {
+                $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
+                if ($targetYearId) {
+                    $query->where('academic_year_id', $targetYearId);
+                }
             }
 
             if ($request->has('educational_institution_id') && $request->query('educational_institution_id')) {
@@ -44,22 +48,23 @@ class ClassGroupController extends Controller
                 $search = $request->query('search');
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('code', 'like', "%{$search}%")
-                      ->orWhere('target_level', 'like', "%{$search}%");
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('target_level', 'like', "%{$search}%");
                 });
             }
 
             $groups = $query->orderBy('name', 'asc')->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data rombel/halaqah berhasil diambil',
-                'data'    => $groups,
+                'data' => $groups,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error retrieving class groups: ' . $e->getMessage());
+            Log::error('Error retrieving class groups: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil data rombel',
             ], 500);
         }
@@ -68,34 +73,47 @@ class ClassGroupController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'academic_year_id'           => 'required|exists:academic_years,id',
+            'academic_year_id' => 'required|exists:academic_years,id',
             'educational_institution_id' => 'required|exists:educational_institutions,id',
-            'education_id'               => 'nullable|exists:educations,id',
-            'education_class_id'         => 'nullable|exists:education_classes,id',
-            'classroom_id'               => 'nullable|exists:classrooms,id',
-            'homeroom_teacher_id'        => 'nullable|exists:teachers,id',
-            'code'                       => 'nullable|string|max:30',
-            'name'                       => 'required|string|max:255',
-            'gender'                     => 'nullable|in:L,P,campur',
-            'progression_type'           => 'required|in:semester,leveling',
-            'target_level'               => 'nullable|string|max:100',
-            'capacity'                   => 'nullable|integer',
-            'is_active'                  => 'nullable|boolean',
+            'education_id' => 'nullable|exists:educations,id',
+            'education_class_id' => 'nullable|exists:education_classes,id',
+            'classroom_id' => 'nullable|exists:classrooms,id',
+            'homeroom_teacher_id' => 'nullable|exists:teachers,id',
+            'code' => 'nullable|string|max:30',
+            'name' => 'required|string|max:255',
+            'gender' => 'nullable|in:L,P,campur',
+            'progression_type' => 'nullable|in:triwulan,semester,leveling',
+            'target_level' => 'nullable|string|max:100',
+            'capacity' => 'nullable|integer',
+            'is_active' => 'nullable|boolean',
         ]);
 
         try {
+            $inst = EducationalInstitution::find($validated['educational_institution_id']);
+            if (empty($validated['progression_type'])) {
+                $validated['progression_type'] = $inst?->progression_type ?? 'triwulan';
+            }
+            if (empty($validated['education_id']) && $inst) {
+                $edu = Education::where('educational_institution_id', $inst->id)->first();
+                if ($edu) {
+                    $validated['education_id'] = $edu->id;
+                    $validated['program_id'] = $edu->program_id;
+                }
+            }
+
             $group = ClassGroup::create($validated);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Rombongan belajar berhasil dibuat',
-                'data'    => $group->load(['academicYear', 'educationalInstitution', 'education', 'homeroomTeacher']),
+                'data' => $group->load(['academicYear', 'educationalInstitution', 'education', 'homeroomTeacher']),
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error creating class group: ' . $e->getMessage());
+            Log::error('Error creating class group: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal membuat rombel: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal membuat rombel: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -104,26 +122,80 @@ class ClassGroupController extends Controller
     {
         $group = ClassGroup::with([
             'academicYear',
+            'program',
             'educationalInstitution',
             'education',
+            'educationClass',
             'classroom',
             'homeroomTeacher',
             'studentClasses.student',
             'subjects.study',
-            'subjects.teacher'
+            'subjects.teacher',
+            'schedules.study',
+            'schedules.teacher',
+            'schedules.lessonHour',
+            'schedules.classroom',
         ])->find($id);
 
-        if (!$group) {
+        if (! $group) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Rombel tidak ditemukan',
             ], 404);
         }
 
+        // Agregasikan daftar guru mata pelajaran (dari tabel subjects atau dari schedules KBM)
+        $studyTeachersMap = [];
+
+        // 1. Ambil dari penugasan subjects (jika ada)
+        foreach ($group->subjects as $sub) {
+            if ($sub->study) {
+                $studyTeachersMap[$sub->study_id] = [
+                    'study_id' => $sub->study->id,
+                    'study_code' => $sub->study->code,
+                    'study_name' => $sub->study->name,
+                    'study_type' => $sub->study->study_type,
+                    'kkm' => $sub->study->kkm,
+                    'teacher_id' => $sub->teacher?->id,
+                    'teacher_name' => $sub->teacher?->name,
+                    'teacher_nip' => $sub->teacher?->nip,
+                    'teacher_spec' => $sub->teacher?->specialization,
+                    'source' => 'assigned',
+                    'total_hours' => 0,
+                ];
+            }
+        }
+
+        // 2. Ambil dari jadwal KBM (LessonSchedule)
+        foreach ($group->schedules as $sch) {
+            if ($sch->study) {
+                $sid = $sch->study_id;
+                if (! isset($studyTeachersMap[$sid])) {
+                    $studyTeachersMap[$sid] = [
+                        'study_id' => $sch->study->id,
+                        'study_code' => $sch->study->code,
+                        'study_name' => $sch->study->name,
+                        'study_type' => $sch->study->study_type,
+                        'kkm' => $sch->study->kkm,
+                        'teacher_id' => $sch->teacher?->id,
+                        'teacher_name' => $sch->teacher?->name,
+                        'teacher_nip' => $sch->teacher?->nip,
+                        'teacher_spec' => $sch->teacher?->specialization,
+                        'source' => 'schedule',
+                        'total_hours' => 0,
+                    ];
+                }
+                $studyTeachersMap[$sid]['total_hours']++;
+            }
+        }
+
+        $groupData = $group->toArray();
+        $groupData['teachers_list'] = array_values($studyTeachersMap);
+
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail rombel berhasil diambil',
-            'data'    => $group,
+            'data' => $groupData,
         ], 200);
     }
 
@@ -131,38 +203,55 @@ class ClassGroupController extends Controller
     {
         $group = ClassGroup::find($id);
 
-        if (!$group) {
+        if (! $group) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Rombel tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
-            'education_id'        => 'nullable|exists:educations,id',
-            'classroom_id'        => 'nullable|exists:classrooms,id',
+            'educational_institution_id' => 'sometimes|required|exists:educational_institutions,id',
+            'education_id' => 'nullable|exists:educations,id',
+            'education_class_id' => 'nullable|exists:education_classes,id',
+            'classroom_id' => 'nullable|exists:classrooms,id',
             'homeroom_teacher_id' => 'nullable|exists:teachers,id',
-            'code'                => 'nullable|string|max:30',
-            'name'                => 'sometimes|required|string|max:255',
-            'gender'              => 'nullable|in:L,P,campur',
-            'progression_type'    => 'sometimes|required|in:semester,leveling',
-            'target_level'        => 'nullable|string|max:100',
-            'capacity'            => 'nullable|integer',
-            'is_active'           => 'nullable|boolean',
+            'code' => 'nullable|string|max:30',
+            'name' => 'sometimes|required|string|max:255',
+            'gender' => 'nullable|in:L,P,campur',
+            'progression_type' => 'sometimes|nullable|in:triwulan,semester,leveling',
+            'target_level' => 'nullable|string|max:100',
+            'capacity' => 'nullable|integer',
+            'is_active' => 'nullable|boolean',
         ]);
 
         try {
+            if (! empty($validated['educational_institution_id'])) {
+                $inst = EducationalInstitution::find($validated['educational_institution_id']);
+                if (empty($validated['progression_type'])) {
+                    $validated['progression_type'] = $inst?->progression_type ?? 'triwulan';
+                }
+                if (empty($validated['education_id']) && $inst) {
+                    $edu = Education::where('educational_institution_id', $inst->id)->first();
+                    if ($edu) {
+                        $validated['education_id'] = $edu->id;
+                        $validated['program_id'] = $edu->program_id;
+                    }
+                }
+            }
+
             $group->update($validated);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Rombel berhasil diperbarui',
-                'data'    => $group->fresh(['academicYear', 'educationalInstitution', 'education', 'homeroomTeacher']),
+                'data' => $group->fresh(['academicYear', 'educationalInstitution', 'education', 'homeroomTeacher']),
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error updating class group: ' . $e->getMessage());
+            Log::error('Error updating class group: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui rombel',
             ], 500);
         }
@@ -172,23 +261,25 @@ class ClassGroupController extends Controller
     {
         $group = ClassGroup::find($id);
 
-        if (!$group) {
+        if (! $group) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Rombel tidak ditemukan',
             ], 404);
         }
 
         try {
             $group->delete();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Rombel berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting class group: ' . $e->getMessage());
+            Log::error('Error deleting class group: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghapus rombel',
             ], 500);
         }
@@ -203,8 +294,8 @@ class ClassGroupController extends Controller
 
         $validated = $request->validate([
             'student_id' => 'required|exists:students,id',
-            'joined_at'  => 'nullable|date',
-            'note'       => 'nullable|string',
+            'joined_at' => 'nullable|date',
+            'note' => 'nullable|string',
         ]);
 
         try {
@@ -215,38 +306,39 @@ class ClassGroupController extends Controller
             if ($existing) {
                 if ($existing->status === 'aktif') {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => 'Siswa sudah terdaftar dan aktif di rombel ini',
                     ], 422);
                 }
                 $existing->update([
-                    'status'    => 'aktif',
+                    'status' => 'aktif',
                     'joined_at' => $validated['joined_at'] ?? today(),
-                    'left_at'   => null,
+                    'left_at' => null,
                 ]);
                 $studentClass = $existing;
             } else {
                 $studentClass = StudentClass::create([
-                    'academic_year_id'           => $group->academic_year_id,
+                    'academic_year_id' => $group->academic_year_id,
                     'educational_institution_id' => $group->educational_institution_id,
-                    'student_id'                 => $validated['student_id'],
-                    'class_group_id'             => $group->id,
-                    'joined_at'                  => $validated['joined_at'] ?? today(),
-                    'status'                     => 'aktif',
-                    'note'                       => $validated['note'] ?? null,
+                    'student_id' => $validated['student_id'],
+                    'class_group_id' => $group->id,
+                    'joined_at' => $validated['joined_at'] ?? today(),
+                    'status' => 'aktif',
+                    'note' => $validated['note'] ?? null,
                 ]);
             }
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Siswa berhasil dimasukkan ke rombel',
-                'data'    => $studentClass->load('student'),
+                'data' => $studentClass->load('student'),
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error adding student to class: ' . $e->getMessage());
+            Log::error('Error adding student to class: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menambahkan siswa ke rombel: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menambahkan siswa ke rombel: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -260,27 +352,28 @@ class ClassGroupController extends Controller
             ->where('student_id', $studentId)
             ->first();
 
-        if (!$membership) {
+        if (! $membership) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Data keanggotaan siswa tidak ditemukan',
             ], 404);
         }
 
         try {
             $membership->update([
-                'status'  => 'keluar',
+                'status' => 'keluar',
                 'left_at' => today(),
             ]);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Siswa berhasil dikeluarkan dari rombel',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error removing student from class: ' . $e->getMessage());
+            Log::error('Error removing student from class: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengeluarkan siswa',
             ], 500);
         }
@@ -295,9 +388,9 @@ class ClassGroupController extends Controller
         $currentGroup = ClassGroup::findOrFail($id);
 
         $validated = $request->validate([
-            'student_id'       => 'required|exists:students,id',
-            'target_group_id'  => 'required|exists:class_groups,id|different:' . $id,
-            'note'             => 'nullable|string',
+            'student_id' => 'required|exists:students,id',
+            'target_group_id' => 'required|exists:class_groups,id|different:'.$id,
+            'note' => 'nullable|string',
         ]);
 
         $membership = StudentClass::where('class_group_id', $currentGroup->id)
@@ -305,9 +398,9 @@ class ClassGroupController extends Controller
             ->where('status', 'aktif')
             ->first();
 
-        if (!$membership) {
+        if (! $membership) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Siswa tidak sedang aktif di halaqah ini',
             ], 404);
         }
@@ -325,16 +418,17 @@ class ClassGroupController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Siswa berhasil dinaikkan ke {$targetGroup->name}",
-                'data'    => $newMembership->load(['student', 'classGroup']),
+                'data' => $newMembership->load(['student', 'classGroup']),
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error promoting tahfidz level: ' . $e->getMessage());
+            Log::error('Error promoting tahfidz level: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menaikkan level tahfidz: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menaikkan level tahfidz: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -347,7 +441,7 @@ class ClassGroupController extends Controller
         $group = ClassGroup::findOrFail($id);
 
         $validated = $request->validate([
-            'study_id'   => 'required|exists:studies,id',
+            'study_id' => 'required|exists:studies,id',
             'teacher_id' => 'nullable|exists:teachers,id',
         ]);
 
@@ -355,22 +449,23 @@ class ClassGroupController extends Controller
             $subject = ClassGroupSubject::updateOrCreate(
                 [
                     'class_group_id' => $group->id,
-                    'study_id'       => $validated['study_id'],
+                    'study_id' => $validated['study_id'],
                 ],
                 [
-                    'teacher_id'     => $validated['teacher_id'] ?? null,
+                    'teacher_id' => $validated['teacher_id'] ?? null,
                 ]
             );
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Mata pelajaran berhasil ditugaskan ke rombel',
-                'data'    => $subject->load(['study', 'teacher']),
+                'data' => $subject->load(['study', 'teacher']),
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error assigning subject to class: ' . $e->getMessage());
+            Log::error('Error assigning subject to class: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menugaskan mata pelajaran',
             ], 500);
         }

@@ -27,12 +27,14 @@ class LessonScheduleController extends Controller
                 'classroom'
             ]);
 
-            if ($request->has('academic_year_id') && $request->query('academic_year_id')) {
-                $query->where('academic_year_id', $request->query('academic_year_id'));
+            $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
+            if ($targetYearId) {
+                $query->where('academic_year_id', $targetYearId);
             }
 
-            if ($request->has('academic_quarter_id') && $request->query('academic_quarter_id')) {
-                $query->where('academic_quarter_id', $request->query('academic_quarter_id'));
+            $targetQuarterId = $request->query('academic_quarter_id') ?: $request->header('X-Academic-Quarter-Id');
+            if ($targetQuarterId) {
+                $query->where('academic_quarter_id', $targetQuarterId);
             }
 
             if ($request->has('class_group_id') && $request->query('class_group_id')) {
@@ -86,6 +88,15 @@ class LessonScheduleController extends Controller
                 ->where('active', true)
                 ->first() ?? AcademicQuarter::where('academic_year_id', $validated['academic_year_id'])->first();
             $validated['academic_quarter_id'] = $activeQuarter?->id;
+        }
+
+        // Cek 0: Mata Pelajaran Muatan Lokal (Non-Kelas) tidak boleh masuk ke jadwal pelajaran KBM
+        $studyObj = \App\Models\Study::find($validated['study_id']);
+        if ($studyObj && $studyObj->study_type === 'muatan_lokal') {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Mata pelajaran Muatan Lokal (Non-Kelas) tidak dimasukkan ke dalam jadwal pelajaran KBM, melainkan hanya dinilai pada akhir triwulan.',
+            ], 422);
         }
 
         // Cek 1: Apakah rombel sudah memiliki jadwal di hari & jam tersebut pada periode ini?

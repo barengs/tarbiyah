@@ -9,55 +9,56 @@
             color: #1e293b;
             margin: 0;
             padding: 24px;
-            font-size: 11pt;
+            font-size: 10.5pt;
             line-height: 1.4;
         }
         .header {
             text-align: center;
-            border-bottom: 2px solid #0f766e;
+            border-bottom: 2.5px solid #093c30;
             padding-bottom: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
         .header h1 {
             margin: 0;
-            font-size: 16pt;
-            color: #0f766e;
+            font-size: 14pt;
+            color: #093c30;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
         .header h2 {
-            margin: 4px 0;
-            font-size: 13pt;
+            margin: 3px 0;
+            font-size: 11.5pt;
             color: #0f172a;
+            text-transform: uppercase;
         }
         .header p {
             margin: 0;
-            font-size: 9pt;
+            font-size: 8.5pt;
             color: #64748b;
         }
         .info-table {
             width: 100%;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             border-collapse: collapse;
         }
         .info-table td {
             padding: 4px 6px;
-            font-size: 10pt;
+            font-size: 9.5pt;
             vertical-align: top;
         }
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
         .data-table th, .data-table td {
             border: 1px solid #cbd5e1;
             padding: 7px 10px;
-            font-size: 10pt;
+            font-size: 9.5pt;
         }
         .data-table th {
-            background-color: #f1f5f9;
-            color: #334155;
+            background-color: #093c30;
+            color: #ffffff;
             text-align: center;
             font-weight: bold;
         }
@@ -66,142 +67,192 @@
         .bold { font-weight: bold; }
         
         .section-title {
-            font-size: 11pt;
+            font-size: 10.5pt;
             font-weight: bold;
-            color: #0f766e;
+            color: #093c30;
             margin-bottom: 6px;
             text-transform: uppercase;
         }
         .notes-box {
             border: 1px solid #cbd5e1;
-            padding: 10px;
+            padding: 10px 12px;
             background-color: #f8fafc;
             border-radius: 4px;
             font-size: 9.5pt;
-            min-height: 40px;
+            min-height: 85px;
             margin-bottom: 16px;
         }
         .signatures {
             width: 100%;
-            margin-top: 30px;
+            margin-top: 28px;
             border-collapse: collapse;
         }
         .signatures td {
             text-align: center;
-            font-size: 10pt;
+            font-size: 9.5pt;
             vertical-align: top;
             width: 33.33%;
         }
         .sign-space {
-            height: 60px;
+            height: 55px;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>{{ $inst->name ?? 'Lembaga Pendidikan Pesantren' }}</h1>
-        <h2>Laporan Hasil Belajar Santri / Siswa (Rapor)</h2>
-        <p>{{ $inst->address ?? 'Komplek Pondok Pesantren' }} • Telp: {{ $inst->phone ?? '-' }}</p>
+        <h1>PONDOK PESANTREN MIFTAHUL ULUM PANYEPPEN</h1>
+        <h2>BAGIAN PENDIDIKAN DAN PENGAJARAN (TARBIYAH WA TA'LIM)</h2>
+        <p>Jl. Raya Panyeppen, Potoan Daya, Palengaan, Pamekasan, Jawa Timur 69362 • Website: panyeppen.id</p>
     </div>
 
     <table class="info-table">
         <tr>
-            <td width="18%" class="bold">Nama Siswa</td>
+            <td width="18%" class="bold">Nama Santri</td>
             <td width="2%">:</td>
             <td width="30%">{{ $student->name }}</td>
-            <td width="18%" class="bold">Kelas / Rombel</td>
+            <td width="18%" class="bold">Program / Jenjang</td>
             <td width="2%">:</td>
-            <td width="30%">{{ $classGroup->name }}</td>
+            <td width="30%">{{ $classGroup->program->name ?? $inst->short_name ?? 'Tarbiyah' }} — {{ $classGroup->education->name ?? '-' }}</td>
         </tr>
         <tr>
             <td class="bold">NIS / NISN</td>
             <td>:</td>
             <td>{{ $student->nis }} / {{ $student->nisn ?? '-' }}</td>
-            <td class="bold">Semester</td>
+            <td class="bold">Kelas / Rombel</td>
             <td>:</td>
-            <td>{{ ucfirst($report->semester) }} ({{ $report->academicYear->year ?? '2026/2027' }})</td>
+            <td>{{ $classGroup->name }}</td>
         </tr>
         <tr>
             <td class="bold">Status Kesiswaan</td>
             <td>:</td>
             <td>{{ $student->is_mukim ? 'Santri Mukim Pesantren' : 'Siswa Reguler Luar' }}</td>
+            <td class="bold">Periode / Tahun</td>
+            <td>:</td>
+            <td>{{ $report->academicQuarter->name ?? strtoupper(str_replace('_', ' ', $report->semester)) }} ({{ $report->academicYear->year ?? '1446/1447' }})</td>
+        </tr>
+        <tr>
+            <td class="bold">Wali Kelas</td>
+            <td>:</td>
+            <td>{{ $teacher->name ?? '-' }}</td>
             <td class="bold">Peringkat Kelas</td>
             <td>:</td>
-            <td><strong style="color: #0f766e;">Ke-{{ $report->rank ?? '-' }}</strong></td>
+            <td><strong style="color: #093c30;">Peringkat {{ $report->rank ?? '-' }}</strong></td>
+        </tr>
+        <tr>
+            <td class="bold">Progres Rata-rata</td>
+            <td>:</td>
+            <td>
+                @if($report->previous_average !== null)
+                    @php $delta = round((float)$report->average_score - (float)$report->previous_average, 1); @endphp
+                    {{ number_format((float)$report->previous_average, 1) }} &rarr; <strong>{{ number_format((float)$report->average_score, 1) }}</strong>
+                    ({{ $delta >= 0 ? '+' . $delta : $delta }})
+                @else
+                    <strong>{{ number_format((float)$report->average_score, 1) }}</strong> (Triwulan Awal)
+                @endif
+            </td>
+            <td class="bold">Status Kenaikan</td>
+            <td>:</td>
+            <td>
+                @php
+                    $promoLabel = match($report->promotion_status ?? '') {
+                        'layak_naik' => 'Layak Naik Kelas',
+                        'lulus_remidi' => 'Layak Naik (Tuntas Remidi)',
+                        'remidi_khusus' => 'Wajib Remidi Mapel Khusus',
+                        default => ($report->average_score >= 65 ? 'Layak Naik Kelas' : 'Perlu Evaluasi / Remidi'),
+                    };
+                @endphp
+                <strong style="color: #093c30;">{{ $promoLabel }}</strong>
+            </td>
         </tr>
     </table>
 
-    <div class="section-title">A. Capaian Nilai Akademik & Mata Pelajaran</div>
+    <div class="section-title">A. Capaian Nilai Akhir Triwulan &amp; Penunjang Muatan Lokal</div>
     <table class="data-table">
         <thead>
             <tr>
-                <th width="5%">No</th>
-                <th>Mata Pelajaran</th>
-                <th width="12%">KKM</th>
-                <th width="15%">Nilai Akhir</th>
-                <th width="12%">Predikat</th>
-                <th width="18%">Keterangan</th>
+                <th width="5%">No.</th>
+                <th>Mata Pelajaran / Fan Kitab</th>
+                <th width="18%">Kategori Mapel</th>
+                <th width="8%">KKM</th>
+                <th width="12%">Nilai Akhir</th>
+                <th width="9%">Predikat</th>
+                <th width="20%">Ketuntasan / Remidi</th>
             </tr>
         </thead>
         <tbody>
             @if(!empty($report->grades_summary))
                 @foreach($report->grades_summary as $idx => $g)
+                    @php
+                        $typeLabel = match($g['study_type'] ?? 'reguler') {
+                            'khusus' => 'Mapel Khusus (Inti)',
+                            'muatan_lokal' => 'Muatan Lokal (Penunjang)',
+                            default => 'Mapel Reguler',
+                        };
+                        $scoreVal = (float) ($g['score'] ?? 0);
+                        $kkmVal = (float) ($g['kkm'] ?? 65);
+                    @endphp
                     <tr>
                         <td class="text-center">{{ $idx + 1 }}</td>
                         <td>{{ $g['study_name'] }}</td>
-                        <td class="text-center">{{ number_format($g['kkm'], 0) }}</td>
-                        <td class="text-center bold">{{ number_format($g['score'], 1) }}</td>
-                        <td class="text-center bold">{{ $g['predicate'] }}</td>
-                        <td class="text-center" style="font-size: 9pt;">
-                            {{ $g['score'] >= $g['kkm'] ? 'Tuntas' : 'Perlu Bimbingan' }}
+                        <td class="text-center" style="font-size: 8.5pt;">{{ $typeLabel }}</td>
+                        <td class="text-center">{{ number_format($kkmVal, 0) }}</td>
+                        <td class="text-center bold">{{ number_format($scoreVal, 1) }}</td>
+                        <td class="text-center bold">{{ $g['predicate'] ?? '-' }}</td>
+                        <td class="text-center" style="font-size: 8.5pt;">
+                            @if(!empty($g['is_remedial']) && isset($g['remedial_score']) && $g['remedial_score'] !== null)
+                                Tuntas Remidi (Awal: {{ number_format((float)$g['original_score'], 0) }})
+                            @elseif(($g['study_type'] ?? '') === 'muatan_lokal')
+                                Penunjang Nilai
+                            @elseif($scoreVal >= $kkmVal)
+                                Tuntas
+                            @elseif(($g['study_type'] ?? '') === 'khusus')
+                                Wajib Remidi Khusus
+                            @else
+                                Belum Tuntas
+                            @endif
                         </td>
                     </tr>
                 @endforeach
                 <tr style="background-color: #f8fafc; font-weight: bold;">
-                    <td colspan="3" class="text-right">Rata-Rata Nilai Keseluruhan:</td>
-                    <td class="text-center" style="color: #0f766e; font-size: 11pt;">{{ number_format($report->average_score, 1) }}</td>
+                    <td colspan="4" class="text-right">Rata-Rata Nilai Akhir Triwulan:</td>
+                    <td class="text-center" style="color: #093c30; font-size: 10.5pt;">{{ number_format((float)$report->average_score, 1) }}</td>
                     <td colspan="2"></td>
                 </tr>
             @else
                 <tr>
-                    <td colspan="6" class="text-center" style="color: #94a3b8; padding: 20px;">Belum ada nilai terinput</td>
+                    <td colspan="7" class="text-center" style="color: #94a3b8; padding: 20px;">Belum ada nilai akhir triwulan terinput</td>
                 </tr>
             @endif
         </tbody>
     </table>
 
-    <div class="section-title">B. Capaian Hafalan Al-Qur'an (Tahfidz)</div>
-    <div class="notes-box">
-        {{ $report->tahfidz_notes ?? 'Santri aktif mengikuti setoran halaqah harian dan menjaga hafalan (muraja\'ah).' }}
-    </div>
-
     <div style="display: table; width: 100%;">
         <div style="display: table-cell; width: 45%; vertical-align: top;">
-            <div class="section-title">C. Rekapitulasi Kehadiran</div>
+            <div class="section-title">B. Rekapitulasi Kehadiran (KBM)</div>
             <table class="data-table" style="margin-bottom: 0;">
                 <tr>
-                    <td>Hadir</td>
-                    <td class="text-center bold">{{ $report->attendance_summary['hadir'] ?? 0 }} Hari</td>
+                    <td>Hadir (H)</td>
+                    <td class="text-center bold">{{ $report->attendance_summary['hadir'] ?? 0 }} Pertemuan</td>
                 </tr>
                 <tr>
-                    <td>Izin</td>
-                    <td class="text-center bold">{{ $report->attendance_summary['izin'] ?? 0 }} Hari</td>
+                    <td>Izin (I)</td>
+                    <td class="text-center bold">{{ $report->attendance_summary['izin'] ?? 0 }} Pertemuan</td>
                 </tr>
                 <tr>
-                    <td>Sakit</td>
-                    <td class="text-center bold">{{ $report->attendance_summary['sakit'] ?? 0 }} Hari</td>
+                    <td>Sakit (S)</td>
+                    <td class="text-center bold">{{ $report->attendance_summary['sakit'] ?? 0 }} Pertemuan</td>
                 </tr>
                 <tr>
-                    <td>Alpa (Tanpa Keterangan)</td>
-                    <td class="text-center bold">{{ $report->attendance_summary['alpa'] ?? 0 }} Hari</td>
+                    <td>Alpa / Tanpa Keterangan (A)</td>
+                    <td class="text-center bold">{{ $report->attendance_summary['alpa'] ?? 0 }} Pertemuan</td>
                 </tr>
             </table>
         </div>
         <div style="display: table-cell; width: 5%;"></div>
         <div style="display: table-cell; width: 50%; vertical-align: top;">
-            <div class="section-title">D. Catatan Wali Kelas</div>
-            <div class="notes-box" style="min-height: 95px;">
-                {{ $report->homeroom_notes ?? 'Tingkatkan terus semangat belajar dan kedisiplinan dalam menuntut ilmu di madrasah.' }}
+            <div class="section-title">C. Catatan & Evaluasi Wali Kelas</div>
+            <div class="notes-box">
+                {{ $report->homeroom_notes ?? 'Tingkatkan terus semangat belajar, muthala\'ah kitab, dan kedisiplinan dalam menuntut ilmu di pesantren.' }}
             </div>
         </div>
     </div>
@@ -214,14 +265,14 @@
                 ( ......................................... )
             </td>
             <td>
-                Diberikan di: Pesantren<br>Tanggal: {{ date('d F Y') }}<br>Wali Kelas
+                Pamekasan, {{ date('d F Y') }}<br>Wali Kelas / Musyrif Rombel
                 <div class="sign-space"></div>
                 <strong>{{ $teacher->name ?? '( ......................................... )' }}</strong>
             </td>
             <td>
-                Mengetahui,<br>Kepala Sekolah / Madrasah
+                Mengesahkan,<br>Kepala / Mudir Tarbiyah
                 <div class="sign-space"></div>
-                <strong>( ......................................... )</strong>
+                <strong>{{ $inst->headmaster_name ?? '( ......................................... )' }}</strong>
             </td>
         </tr>
     </table>

@@ -21,10 +21,10 @@ export const institutionApi = apiSlice.injectEndpoints({
             invalidatesTags: [{ type: 'Institution', id: 'LIST' }],
         }),
         updateInstitution: builder.mutation({
-            query: ({ id, ...data }) => ({
+            query: ({ id, body, ...rest }) => ({
                 url: `master/institutions/${id}`,
-                method: 'PUT',
-                body: data,
+                method: 'POST',
+                body: body !== undefined ? body : rest,
             }),
             invalidatesTags: (result, error, { id }) => [
                 { type: 'Institution', id },

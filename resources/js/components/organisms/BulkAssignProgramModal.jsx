@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import Modal from '../ui/Modal';
 import { GraduationCap, Users, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -7,12 +8,16 @@ import { useGetClassGroupsQuery } from '../../store/slices/classGroupApi';
 import { useGetEducationsQuery } from '../../store/slices/institutionApi';
 
 export default function BulkAssignProgramModal({ open, onClose, selectedStudents, onDone, programsFromParent }) {
+    const { selectedYearId } = useSelector((state) => state.academicContext || {});
     const [programId, setProgramId] = useState('');
     const [classGroupId, setClassGroupId] = useState('');
     const [note, setNote] = useState('');
 
     const [bulkAssignProgram, { isLoading: isSubmitting }] = useBulkAssignProgramMutation();
-    const { data: classGroupsData } = useGetClassGroupsQuery({ all: 'true' });
+    const { data: classGroupsData } = useGetClassGroupsQuery({
+        all: 'true',
+        ...(selectedYearId && { academic_year_id: selectedYearId }),
+    });
     const classGroups = classGroupsData?.data || classGroupsData || [];
     const { data: educationsData } = useGetEducationsQuery();
     const educations = educationsData?.data || educationsData || [];
@@ -111,7 +116,7 @@ export default function BulkAssignProgramModal({ open, onClose, selectedStudents
                             type="button"
                             onClick={handleSubmit}
                             disabled={isSubmitting || !selectedStudents || selectedStudents.length === 0}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white font-semibold text-xs rounded-md hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white font-semibold text-xs rounded-md hover:bg-[#0842a0] disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
                         >
                             {isSubmitting ? (
                                 <span className="animate-spin w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full" />

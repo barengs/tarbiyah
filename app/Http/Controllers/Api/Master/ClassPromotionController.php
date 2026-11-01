@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\Master;
 
+use App\Http\Controllers\Api\Main\AssessmentController;
 use App\Http\Controllers\Controller;
+use App\Models\AcademicQuarter;
 use App\Models\AcademicYear;
 use App\Models\ClassGroup;
 use App\Models\Student;
@@ -14,27 +16,51 @@ use Illuminate\Support\Facades\Log;
 class ClassPromotionController extends Controller
 {
     /**
-     * Ambil daftar santri dalam rombel asal beserta kandidat kenaikan kelas.
+     * Ambil daftar santri dalam rombel asal beserta evaluasi nilai akhir triwulan,
+     * progres nilai, status remidi mapel khusus, dan rekomendasi kenaikan kelas.
      */
-    public function candidates(string $classGroupId)
+    public function candidates(Request $request, string $classGroupId)
     {
         try {
             $classGroup = ClassGroup::with([
                 'academicYear',
                 'educationalInstitution',
+                'education',
+                'program',
                 'educationClass',
+                'homeroomTeacher',
             ])->findOrFail($classGroupId);
+
+            $yearId = (int) ($request->query('academic_year_id')
+                ?? $classGroup->academic_year_id
+                ?? AcademicYear::where('active', true)->value('id')
+                ?? AcademicYear::latest('id')->value('id'));
+
+            $quarter = $request->filled('academic_quarter_id')
+                ? AcademicQuarter::find($request->query('academic_quarter_id'))
+                : (AcademicQuarter::where('academic_year_id', $yearId)->where('active', true)->first()
+                    ?? AcademicQuarter::where('academic_year_id', $yearId)->latest('id')->first());
+
+            $eval = AssessmentController::buildQuarterlyEvaluation($classGroup, $yearId, $quarter);
+            $evalByStudent = collect($eval['students'] ?? [])->keyBy('student_id');
 
             $memberships = StudentClass::with(['student'])
                 ->where('class_group_id', $classGroupId)
                 ->where('status', 'aktif')
-                ->get();
+                ->get()
+                ->map(function ($m) use ($evalByStudent) {
+                    $ev = $evalByStudent->get($m->student_id);
+                    $m->evaluation = $ev;
+                    return $m;
+                });
 
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Data kandidat kenaikan kelas berhasil diambil',
+                'message' => 'Data kandidat kenaikan kelas beserta evaluasi nilai triwulan berhasil diambil',
                 'data'    => [
                     'class_group' => $classGroup,
+                    'quarter'     => $quarter,
+                    'summary'     => $eval['summary'] ?? [],
                     'candidates'  => $memberships,
                 ],
             ], 200);
@@ -53,21 +79,21 @@ class ClassPromotionController extends Controller
     public function bulkPromote(Request $request)
     {
         $validated = $request->validate([
-            'source_class_group_id'     => 'required|exists:class_groups,id',
-            'target_class_group_id'     => 'nullable|exists:class_groups,id',
-            'target_academic_year_id'   => 'nullable|exists:academic_years,id',
-            'students'                  => 'required|array|min:1',
-            'students.*.student_id'     => 'required|exists:students,id',
-            'students.*.action'         => 'required|in:naik_kelas,tinggal_kelas,lulus',
-            'students.*.note'           => 'nullable|string',
+            'source_class_group_id'   => 'required|exists:class_groups,id',
+            'target_class_group_id'   => 'nullable|exists:class_groups,id',
+            'target_academic_year_id' => 'nullable|exists:academic_years,id',
+            'students'                => 'required|array|min:1',
+            'students.*.student_id'   => 'required|exists:students,id',
+            'students.*.action'       => 'required|in:naik_kelas,tinggal_kelas,lulus',
+            'students.*.note'         => 'nullable|string',
         ]);
 
         $sourceGroup = ClassGroup::findOrFail($validated['source_class_group_id']);
-        $targetGroup = !empty($validated['target_class_group_id']) 
-            ? ClassGroup::find($validated['target_class_group_id']) 
+        $targetGroup = !empty($validated['target_class_group_id'])
+            ? ClassGroup::find($validated['target_class_group_id'])
             : null;
 
-        $targetAcademicYearId = $validated['target_academic_year_id'] 
+        $targetAcademicYearId = $validated['target_academic_year_id']
             ?? ($targetGroup ? $targetGroup->academic_year_id : $sourceGroup->academic_year_id);
 
         try {
@@ -110,30 +136,27 @@ class ClassPromotionController extends Controller
                             'class_group_id' => $targetGroup->id,
                         ],
                         [
-                            'academic_year_id'          => $targetAcademicYearId,
-                            'educational_institution_id'=> $targetGroup->educational_institution_id,
-                            'joined_at'                 => today(),
-                            'status'                    => 'aktif',
-                            'note'                      => $note ?? "Naik kelas dari {$sourceGroup->name}",
+                            'academic_year_id'           => $targetAcademicYearId,
+                            'educational_institution_id' => $targetGroup->educational_institution_id,
+                            'joined_at'                  => today(),
+                            'status'                     => 'aktif',
+                            'note'                       => $note ?? "Naik kelas dari {$sourceGroup->name}",
                         ]
                     );
 
                     $promotedCount++;
                 } elseif ($action === 'tinggal_kelas') {
-                    // Update catatan tinggal kelas
                     $currentMembership->update([
                         'note' => $note ?? "Tinggal kelas di {$sourceGroup->name}",
                     ]);
                     $retainedCount++;
                 } elseif ($action === 'lulus') {
-                    // 1. Tutup rombel
                     $currentMembership->update([
                         'status'  => 'selesai',
                         'left_at' => today(),
                         'note'    => $note ?? "Lulus pendidikan dari {$sourceGroup->name}",
                     ]);
 
-                    // 2. Ubah status santri menjadi lulus
                     Student::where('id', $studentId)->update([
                         'status' => 'lulus',
                     ]);

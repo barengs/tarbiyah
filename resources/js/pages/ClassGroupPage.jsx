@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
 import { 
     useGetClassGroupsQuery, 
     useGetClassGroupQuery,
@@ -18,35 +19,47 @@ import { useGetStudiesQuery } from '../store/slices/studyApi';
 import DataTable from '../components/ui/DataTable';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, Users, UserPlus, BookOpen, Layers, GraduationCap } from 'lucide-react';
+import { 
+    Plus, 
+    Edit2, 
+    Trash2, 
+    Users, 
+    UserPlus, 
+    BookOpen, 
+    Layers, 
+    GraduationCap, 
+    Eye, 
+    School, 
+    Clock, 
+    Award, 
+    ShieldCheck, 
+    CheckCircle2 
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function ClassGroupPage() {
+    const { selectedYearId } = useSelector((state) => state.academicContext || {});
     const [instFilter, setInstFilter] = useState('');
     const { data: instData } = useGetInstitutionsQuery();
     const institutions = instData?.data || [];
 
     const { data: groupsData, isLoading } = useGetClassGroupsQuery({
-        progression_type: 'semester',
+        ...(selectedYearId && { academic_year_id: selectedYearId }),
         ...(instFilter && { educational_institution_id: instFilter }),
     });
     const groups = groupsData?.data || [];
 
-    const { data: eduClassesData } = useGetEducationClassesQuery(
-        instFilter ? { educational_institution_id: instFilter } : undefined
-    );
-    const educationClasses = eduClassesData?.data || [];
-
-    const { data: teachersData } = useGetTeachersQuery();
-    const teachers = teachersData?.data || [];
-
-    const [createGroup, { isLoading: isCreating }] = useCreateClassGroupMutation();
-    const [updateGroup, { isLoading: isUpdating }] = useUpdateClassGroupMutation();
-    const [deleteGroup, { isLoading: isDeleting }] = useDeleteClassGroupMutation();
-
     const [modalOpen, setModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
+
+    // Rombel Detail Modal State
+    const [selectedGroupForDetail, setSelectedGroupForDetail] = useState(null);
+    const [detailTab, setDetailTab] = useState('guru_mapel'); // 'guru_mapel' | 'santri'
+    const { data: detailData, isLoading: isDetailLoading } = useGetClassGroupQuery(selectedGroupForDetail?.id, {
+        skip: !selectedGroupForDetail,
+    });
+    const groupDetailInfo = detailData?.data || selectedGroupForDetail;
 
     // Form fields
     const [name, setName] = useState('');
@@ -56,6 +69,19 @@ export default function ClassGroupPage() {
     const [homeroomTeacherId, setHomeroomTeacherId] = useState('');
     const [gender, setGender] = useState('campur');
     const [capacity, setCapacity] = useState(32);
+
+    const activeInstIdForClasses = institutionId || instFilter;
+    const { data: eduClassesData } = useGetEducationClassesQuery(
+        activeInstIdForClasses ? { educational_institution_id: activeInstIdForClasses } : undefined
+    );
+    const educationClasses = eduClassesData?.data || [];
+
+    const { data: teachersData } = useGetTeachersQuery();
+    const teachers = teachersData?.data || [];
+
+    const [createGroup, { isLoading: isCreating }] = useCreateClassGroupMutation();
+    const [updateGroup, { isLoading: isUpdating }] = useUpdateClassGroupMutation();
+    const [deleteGroup, { isLoading: isDeleting }] = useDeleteClassGroupMutation();
 
     // Student Member Modal State
     const [selectedGroupForStudents, setSelectedGroupForStudents] = useState(null);
@@ -74,12 +100,15 @@ export default function ClassGroupPage() {
 
     const { data: unassignedData, refetch: refetchUnassigned } = useGetUnassignedStudentsQuery({
         all: true,
+        ...(selectedYearId && { academic_year_id: selectedYearId }),
         ...(unassignedGender && { gender: unassignedGender }),
         ...(unassignedSearch && { search: unassignedSearch }),
     }, { skip: !selectedGroupForStudents || studentTab !== 'unassigned' });
     const unassignedStudents = unassignedData?.data || [];
 
-    const { data: allStudentsData } = useGetStudentsQuery();
+    const { data: allStudentsData } = useGetStudentsQuery(
+        selectedYearId ? { academic_year_id: selectedYearId } : undefined
+    );
     const allStudents = allStudentsData?.data || [];
 
     // Assign Subject Modal State
@@ -116,15 +145,16 @@ export default function ClassGroupPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const targetInst = institutions.find(i => String(i.id) === String(institutionId));
         const payload = {
             name,
             code: code || null,
-            academic_year_id: 1, // Default aktif tahun ajaran
+            academic_year_id: editingItem?.academic_year_id || selectedYearId || 1,
             educational_institution_id: institutionId,
             education_class_id: educationClassId ? Number(educationClassId) : null,
             homeroom_teacher_id: homeroomTeacherId || null,
             gender,
-            progression_type: 'semester',
+            progression_type: targetInst?.progression_type || 'triwulan',
             capacity: Number(capacity),
         };
 
@@ -219,11 +249,18 @@ export default function ClassGroupPage() {
         },
         {
             key: 'institution',
-            label: 'Lembaga',
+            label: 'Lembaga / Program',
             render: (row) => (
-                <span className="text-xs font-semibold text-slate-700">
-                    {row.educational_institution?.name || '-'}
-                </span>
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-semibold text-slate-800">
+                        {row.educational_institution?.name || '-'}
+                    </span>
+                    {row.program && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700">
+                            Program: <span className="font-bold">{row.program.name}</span>
+                        </span>
+                    )}
+                </div>
             ),
         },
         {
@@ -267,7 +304,7 @@ export default function ClassGroupPage() {
                     P: 'bg-rose-50 text-rose-700 border-rose-200',
                     campur: 'bg-slate-100 text-slate-700 border-slate-200',
                 };
-                const labels = { L: 'Putra (Banin)', P: 'Putri (Banat)', campur: 'Campur' };
+                const labels = { L: 'Putra', P: 'Putri', campur: 'Campur' };
                 return (
                     <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${badges[row.gender] || badges.campur}`}>
                         {labels[row.gender] || 'Campur'}
@@ -281,22 +318,29 @@ export default function ClassGroupPage() {
             render: (row) => (
                 <div className="flex items-center gap-1.5">
                     <button
+                        onClick={(e) => { e.stopPropagation(); setSelectedGroupForDetail(row); setDetailTab('guru_mapel'); }}
+                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                        title="Lihat Detil Rombel & Guru Mapel"
+                    >
+                        <Eye className="w-4 h-4" />
+                    </button>
+                    <button
                         onClick={(e) => { e.stopPropagation(); setSelectedGroupForSubjects(row); }}
-                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
                         title="Tugaskan Guru Mapel"
                     >
                         <BookOpen className="w-4 h-4" />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
                         title="Edit Rombel"
                     >
                         <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
                         title="Hapus Rombel"
                     >
                         <Trash2 className="w-4 h-4" />
@@ -323,7 +367,7 @@ export default function ClassGroupPage() {
                 <div>
                     <button
                         onClick={openCreateModal}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#0b57d0] text-white font-semibold text-sm rounded-md hover:bg-[#0842a0] transition shadow-sm"
                     >
                         <Plus className="w-4 h-4" />
                         Tambah Rombel
@@ -331,28 +375,369 @@ export default function ClassGroupPage() {
                 </div>
             </div>
 
-            {/* Filter Lembaga */}
-            <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Filter Lembaga:</span>
-                <select
-                    value={instFilter}
-                    onChange={(e) => setInstFilter(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-emerald-500"
-                >
-                    <option value="">Semua Lembaga</option>
-                    {institutions.map((inst) => (
-                        <option key={inst.id} value={inst.id}>{inst.name}</option>
-                    ))}
-                </select>
-            </div>
-
             {/* Table */}
             <DataTable
                 columns={columns}
                 data={groups}
                 isLoading={isLoading}
+                onRowClick={(row) => { setSelectedGroupForDetail(row); setDetailTab('guru_mapel'); }}
                 emptyMessage="Belum ada rombongan belajar terdaftar"
+                filters={
+                    <div className="flex items-center gap-1.5">
+                        <select
+                            value={instFilter}
+                            onChange={(e) => setInstFilter(e.target.value)}
+                            className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#093c30] focus:border-[#093c30] transition-colors cursor-pointer shadow-2xs"
+                        >
+                            <option value="">Semua Lembaga</option>
+                            {institutions.map((inst) => (
+                                <option key={inst.id} value={inst.id}>{inst.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                }
             />
+
+            {/* ═══════════════════ MODAL DETIL ROMBEL & DAFTAR GURU MAPEL ═══════════════════ */}
+            <Modal
+                open={!!selectedGroupForDetail}
+                maxWidth="max-w-4xl"
+                title={
+                    <div className="flex items-center gap-2.5">
+                        <span className="w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                            <Users className="w-4 h-4" />
+                        </span>
+                        <div>
+                            <span className="font-bold text-slate-900 text-base">
+                                Detil Rombel: {groupDetailInfo?.name || selectedGroupForDetail?.name}
+                            </span>
+                            <span className="text-xs text-slate-400 font-mono block">
+                                Kode: {groupDetailInfo?.code || selectedGroupForDetail?.code || '-'}
+                            </span>
+                        </div>
+                    </div>
+                }
+                onClose={() => setSelectedGroupForDetail(null)}
+                footer={
+                    <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const g = groupDetailInfo || selectedGroupForDetail;
+                                    setSelectedGroupForDetail(null);
+                                    setSelectedGroupForSubjects(g);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md cursor-pointer transition-colors"
+                            >
+                                <BookOpen className="w-3.5 h-3.5" />
+                                Tugaskan Guru Mapel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const g = groupDetailInfo || selectedGroupForDetail;
+                                    setSelectedGroupForDetail(null);
+                                    setSelectedGroupForStudents(g);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md cursor-pointer transition-colors"
+                            >
+                                <UserPlus className="w-3.5 h-3.5" />
+                                Kelola Santri
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const g = groupDetailInfo || selectedGroupForDetail;
+                                    setSelectedGroupForDetail(null);
+                                    openEditModal(g);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0b57d0] hover:bg-[#0842a0] rounded-md cursor-pointer transition-colors"
+                            >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                Edit Rombel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedGroupForDetail(null)}
+                                className="px-3.5 py-1.5 text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-100 rounded-md cursor-pointer transition-colors"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                }
+            >
+                <div className="space-y-5">
+                    {/* 1. Header Informasi Singkat (4 KPI Grid Cards) */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Lembaga / Jenjang</span>
+                            <p className="text-xs font-bold text-slate-800 mt-1 truncate">
+                                {groupDetailInfo?.educational_institution?.name || '-'}
+                            </p>
+                            <span className="text-[11px] text-emerald-700 font-semibold mt-0.5 block">
+                                {groupDetailInfo?.program?.name ? `Program: ${groupDetailInfo.program.name}` : 'Kurikulum Diniyah'}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Wali Kelas</span>
+                            <p className="text-xs font-bold text-slate-800 mt-1 truncate">
+                                {groupDetailInfo?.homeroom_teacher?.name || <span className="text-slate-400 font-normal italic">Belum ditentukan</span>}
+                            </p>
+                            <span className="text-[11px] text-slate-500 font-mono mt-0.5 block">
+                                {groupDetailInfo?.homeroom_teacher?.nip ? `NIP: ${groupDetailInfo.homeroom_teacher.nip}` : 'Pendidik Pesantren'}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Ruang & Kapasitas</span>
+                            <p className="text-xs font-bold text-slate-800 mt-1 truncate">
+                                {groupDetailInfo?.classroom?.name || 'Ruang Belajar'}
+                            </p>
+                            <span className="text-[11px] text-slate-600 font-medium mt-0.5 block">
+                                {groupDetailInfo?.student_classes?.length || 0} / {groupDetailInfo?.capacity || 35} Santri
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Kategori & Model</span>
+                            <p className="text-xs font-bold text-slate-800 mt-1 truncate">
+                                {groupDetailInfo?.gender === 'L' ? 'Khusus Putra' : groupDetailInfo?.gender === 'P' ? 'Khusus Putri' : 'Campur'}
+                            </p>
+                            <span className="text-[11px] text-slate-500 font-medium mt-0.5 block capitalize">
+                                {groupDetailInfo?.progression_type === 'triwulan' ? 'Triwulanan (Pesantren)' : (groupDetailInfo?.progression_type || 'Triwulanan')}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 2. Tab Navigasi: Guru Mata Pelajaran vs Santri Anggota */}
+                    <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
+                        <button
+                            type="button"
+                            onClick={() => setDetailTab('guru_mapel')}
+                            className={`px-3.5 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                                detailTab === 'guru_mapel'
+                                    ? 'bg-[#093c30] text-white shadow-xs'
+                                    : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                        >
+                            <BookOpen className="w-3.5 h-3.5" />
+                            Daftar Guru Mata Pelajaran ({groupDetailInfo?.teachers_list?.length || 0})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setDetailTab('santri')}
+                            className={`px-3.5 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                                detailTab === 'santri'
+                                    ? 'bg-[#093c30] text-white shadow-xs'
+                                    : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                        >
+                            <Users className="w-3.5 h-3.5" />
+                            Daftar Santri Anggota ({groupDetailInfo?.student_classes?.length || 0})
+                        </button>
+                    </div>
+
+                    {/* 3. Isi Tab: Guru Mata Pelajaran */}
+                    {detailTab === 'guru_mapel' && (
+                        <div className="space-y-3">
+                            {isDetailLoading ? (
+                                <div className="p-8 text-center text-xs text-slate-400">
+                                    Memuat daftar guru mata pelajaran...
+                                </div>
+                            ) : (!groupDetailInfo?.teachers_list || groupDetailInfo.teachers_list.length === 0) ? (
+                                <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg bg-slate-50/50 space-y-2">
+                                    <BookOpen className="w-8 h-8 text-slate-300 mx-auto" />
+                                    <p className="text-xs font-semibold text-slate-600">
+                                        Belum ada guru mata pelajaran yang terdaftar pada rombel ini.
+                                    </p>
+                                    <p className="text-[11px] text-slate-400">
+                                        Silakan tetapkan guru pengampu mata pelajaran untuk rombel ini.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const g = groupDetailInfo || selectedGroupForDetail;
+                                            setSelectedGroupForDetail(null);
+                                            setSelectedGroupForSubjects(g);
+                                        }}
+                                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md cursor-pointer transition shadow-xs mt-1"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Tugaskan Guru Mapel
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+                                    <div className="max-h-72 overflow-y-auto">
+                                        <table className="w-full text-left border-collapse text-xs">
+                                            <thead>
+                                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                                                    <th className="py-2.5 px-3 w-10 text-center">No</th>
+                                                    <th className="py-2.5 px-3">Mata Pelajaran</th>
+                                                    <th className="py-2.5 px-3">Guru Pengampu</th>
+                                                    <th className="py-2.5 px-3 text-center">Beban KBM</th>
+                                                    <th className="py-2.5 px-3 text-center">Aksi</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {groupDetailInfo.teachers_list.map((item, idx) => (
+                                                    <tr key={item.study_id || idx} className="hover:bg-slate-50/70 transition-colors">
+                                                        <td className="py-2.5 px-3 text-center font-mono text-slate-400 text-[11px]">
+                                                            {idx + 1}
+                                                        </td>
+                                                        <td className="py-2.5 px-3">
+                                                            <div className="font-bold text-slate-800">{item.study_name}</div>
+                                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                                <span className="font-mono text-[10px] text-slate-400">
+                                                                    Kode: {item.study_code || '-'}
+                                                                </span>
+                                                                {item.study_type === 'khusus' && (
+                                                                    <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                                                        Mapel Khusus
+                                                                    </span>
+                                                                )}
+                                                                {item.kkm && (
+                                                                    <span className="text-[10px] text-slate-400">
+                                                                        KKM: {Math.round(item.kkm)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2.5 px-3">
+                                                            {item.teacher_name ? (
+                                                                <div>
+                                                                    <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                                                                        <span>{item.teacher_name}</span>
+                                                                    </div>
+                                                                    <div className="text-[11px] text-slate-400 mt-0.5">
+                                                                        {item.teacher_spec || (item.teacher_nip ? `NIP: ${item.teacher_nip}` : 'Pendidik Pesantren')}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-amber-600 font-medium italic text-[11px]">
+                                                                    Belum ditugaskan
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-2.5 px-3 text-center">
+                                                            {item.total_hours > 0 ? (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                                    <Clock className="w-3 h-3 text-emerald-600" />
+                                                                    {item.total_hours} Jam / Pekan
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[11px] text-slate-400 italic">
+                                                                    Terjadwal KBM
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-2.5 px-3 text-center">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const g = groupDetailInfo || selectedGroupForDetail;
+                                                                    setSelectedGroupForDetail(null);
+                                                                    setSelectedGroupForSubjects(g);
+                                                                    setSelectedStudyId(String(item.study_id));
+                                                                    if (item.teacher_id) setSelectedTeacherId(String(item.teacher_id));
+                                                                }}
+                                                                className="px-2.5 py-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded cursor-pointer transition-colors"
+                                                                title="Ubah atau ganti guru pengampu mapel ini"
+                                                            >
+                                                                Ganti Guru
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
+                                        <span>
+                                            Total: <b className="text-slate-800">{groupDetailInfo.teachers_list.length}</b> Mata Pelajaran
+                                        </span>
+                                        <span>
+                                            Total Beban KBM: <b className="text-slate-800">{groupDetailInfo.teachers_list.reduce((acc, i) => acc + (i.total_hours || 0), 0)}</b> Jam Pelajaran / Pekan
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 4. Isi Tab: Santri Anggota */}
+                    {detailTab === 'santri' && (
+                        <div className="space-y-3">
+                            {(!groupDetailInfo?.student_classes || groupDetailInfo.student_classes.length === 0) ? (
+                                <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg bg-slate-50/50 space-y-2">
+                                    <Users className="w-8 h-8 text-slate-300 mx-auto" />
+                                    <p className="text-xs font-semibold text-slate-600">
+                                        Belum ada santri terdaftar pada rombel ini.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const g = groupDetailInfo || selectedGroupForDetail;
+                                            setSelectedGroupForDetail(null);
+                                            setSelectedGroupForStudents(g);
+                                        }}
+                                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-md cursor-pointer transition shadow-xs mt-1"
+                                    >
+                                        <UserPlus className="w-3.5 h-3.5" />
+                                        Kelola &amp; Masukkan Santri
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+                                    <div className="max-h-72 overflow-y-auto">
+                                        <table className="w-full text-left border-collapse text-xs">
+                                            <thead>
+                                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                                                    <th className="py-2 px-3 w-10 text-center">No</th>
+                                                    <th className="py-2 px-3">NIS</th>
+                                                    <th className="py-2 px-3">Nama Lengkap Santri</th>
+                                                    <th className="py-2 px-3">Kategori</th>
+                                                    <th className="py-2 px-3">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {groupDetailInfo.student_classes.map((sc, idx) => (
+                                                    <tr key={sc.id || idx} className="hover:bg-slate-50/70 transition-colors">
+                                                        <td className="py-2 px-3 text-center font-mono text-slate-400 text-[11px]">
+                                                            {idx + 1}
+                                                        </td>
+                                                        <td className="py-2 px-3 font-mono text-slate-600 font-semibold">
+                                                            {sc.student?.nis || '-'}
+                                                        </td>
+                                                        <td className="py-2 px-3 font-bold text-slate-800">
+                                                            {sc.student?.name || '-'}
+                                                        </td>
+                                                        <td className="py-2 px-3">
+                                                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-800 border border-sky-200">
+                                                                {sc.student?.gender === 'L' ? 'Putra' : 'Putri'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2 px-3">
+                                                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 capitalize">
+                                                                {sc.status || 'Aktif'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </Modal>
 
             {/* Modal Tambah/Edit Rombel */}
             <Modal
@@ -438,8 +823,8 @@ export default function ClassGroupPage() {
                                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                             >
                                 <option value="campur">Campur</option>
-                                <option value="L">Khusus Putra (Banin)</option>
-                                <option value="P">Khusus Putri (Banat)</option>
+                                <option value="L">Khusus Putra</option>
+                                <option value="P">Khusus Putri</option>
                             </select>
                         </div>
                         <div>
@@ -466,7 +851,7 @@ export default function ClassGroupPage() {
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-[#0b57d0] rounded-md hover:bg-[#0842a0] disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan'}
                         </button>
@@ -492,7 +877,7 @@ export default function ClassGroupPage() {
                             onClick={() => setStudentTab('members')}
                             className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
                                 studentTab === 'members'
-                                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50'
+                                    ? 'border-[#0b57d0] text-[#0b57d0] bg-[#0b57d0]/[0.08]'
                                     : 'border-transparent text-slate-500 hover:text-slate-800'
                             }`}
                         >
@@ -503,13 +888,13 @@ export default function ClassGroupPage() {
                             onClick={() => setStudentTab('unassigned')}
                             className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
                                 studentTab === 'unassigned'
-                                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50'
+                                    ? 'border-[#0b57d0] text-[#0b57d0] bg-[#0b57d0]/[0.08]'
                                     : 'border-transparent text-slate-500 hover:text-slate-800'
                             }`}
                         >
                             <span>+ Penempatan Santri Baru (Pool)</span>
                             {unassignedStudents.length > 0 && (
-                                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-800">
+                                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-100 text-[#0b57d0]">
                                     {unassignedStudents.length}
                                 </span>
                             )}
@@ -534,7 +919,7 @@ export default function ClassGroupPage() {
                                 </select>
                                 <button
                                     type="submit"
-                                    className="px-3.5 py-2 bg-emerald-700 text-white rounded-md text-xs font-semibold hover:bg-emerald-800 flex items-center gap-1 shrink-0"
+                                    className="px-3.5 py-2 bg-[#0b57d0] text-white rounded-md text-xs font-semibold hover:bg-[#0842a0] flex items-center gap-1 shrink-0"
                                 >
                                     <UserPlus className="w-4 h-4" /> Masukkan
                                 </button>
@@ -553,7 +938,7 @@ export default function ClassGroupPage() {
                                                     <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
                                                         sc.student?.gender === 'L' ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'
                                                     }`}>
-                                                        {sc.student?.gender === 'L' ? 'Banin' : 'Banat'}
+                                                        {sc.student?.gender === 'L' ? 'Putra' : 'Putri'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -599,23 +984,23 @@ export default function ClassGroupPage() {
                                     <button
                                         type="button"
                                         onClick={() => setUnassignedGender('')}
-                                        className={`px-2 py-1 text-[11px] rounded ${!unassignedGender ? 'bg-emerald-600 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
+                                        className={`px-2 py-1 text-[11px] rounded ${!unassignedGender ? 'bg-[#0b57d0] text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
                                     >
                                         Semua
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setUnassignedGender('L')}
-                                        className={`px-2 py-1 text-[11px] rounded ${unassignedGender === 'L' ? 'bg-emerald-600 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
+                                        className={`px-2 py-1 text-[11px] rounded ${unassignedGender === 'L' ? 'bg-[#0b57d0] text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
                                     >
-                                        Banin (L)
+                                        Putra (L)
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setUnassignedGender('P')}
-                                        className={`px-2 py-1 text-[11px] rounded ${unassignedGender === 'P' ? 'bg-emerald-600 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
+                                        className={`px-2 py-1 text-[11px] rounded ${unassignedGender === 'P' ? 'bg-[#0b57d0] text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
                                     >
-                                        Banat (P)
+                                        Putri (P)
                                     </button>
                                 </div>
                             </div>
@@ -657,7 +1042,7 @@ export default function ClassGroupPage() {
                                                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                                                         s.gender === 'L' ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'
                                                     }`}>
-                                                        {s.gender === 'L' ? 'Banin' : 'Banat'}
+                                                        {s.gender === 'L' ? 'Putra' : 'Putri'}
                                                     </span>
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                                                         {s.is_mukim ? 'Mukim' : 'Luar'}
@@ -700,7 +1085,7 @@ export default function ClassGroupPage() {
                                             toast.error(err?.data?.message || 'Gagal menempatkan santri ke rombel');
                                         }
                                     }}
-                                    className="px-4 py-2 bg-emerald-700 text-white rounded-md text-xs font-semibold hover:bg-emerald-800 disabled:opacity-50 transition shadow-sm"
+                                    className="px-4 py-2 bg-[#0b57d0] text-white rounded-md text-xs font-semibold hover:bg-[#0842a0] disabled:opacity-50 transition shadow-sm"
                                 >
                                     {isBulkAssigning ? 'Memproses...' : `Tempatkan (${selectedUnassignedIds.length}) Santri Terpilih`}
                                 </button>

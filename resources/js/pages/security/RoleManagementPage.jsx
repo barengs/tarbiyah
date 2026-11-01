@@ -206,7 +206,7 @@ export default function RoleManagementPage() {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => handleOpenRoleModal(null)}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#093c30] text-white font-semibold text-sm rounded-md hover:bg-[#072d24] transition shadow-xs"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#0b57d0] text-white font-semibold text-sm rounded-md hover:bg-[#0842a0] transition shadow-xs"
                     >
                         <Plus className="w-4 h-4" />
                         Tambah Role Baru
@@ -311,7 +311,7 @@ export default function RoleManagementPage() {
                                         <button
                                             onClick={handleSaveMenus}
                                             disabled={isSyncingMenus}
-                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#093c30] hover:bg-[#072d24] text-white text-xs font-semibold rounded-md shadow-2xs transition-colors disabled:opacity-50"
+                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-semibold rounded-md shadow-2xs transition-colors disabled:opacity-50"
                                         >
                                             {isSyncingMenus ? (
                                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -324,7 +324,7 @@ export default function RoleManagementPage() {
                                         <button
                                             onClick={handleSavePermissions}
                                             disabled={isSyncingPerms}
-                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#093c30] hover:bg-[#072d24] text-white text-xs font-semibold rounded-md shadow-2xs transition-colors disabled:opacity-50"
+                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-semibold rounded-md shadow-2xs transition-colors disabled:opacity-50"
                                         >
                                             {isSyncingPerms ? (
                                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -343,7 +343,7 @@ export default function RoleManagementPage() {
                                     onClick={() => setActiveTab('menus')}
                                     className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
                                         activeTab === 'menus'
-                                            ? 'border-[#093c30] text-[#093c30]'
+                                            ? 'border-[#0b57d0] text-[#0b57d0]'
                                             : 'border-transparent text-slate-500 hover:text-slate-800'
                                     }`}
                                 >
@@ -354,7 +354,7 @@ export default function RoleManagementPage() {
                                     onClick={() => setActiveTab('permissions')}
                                     className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
                                         activeTab === 'permissions'
-                                            ? 'border-[#093c30] text-[#093c30]'
+                                            ? 'border-[#0b57d0] text-[#0b57d0]'
                                             : 'border-transparent text-slate-500 hover:text-slate-800'
                                     }`}
                                 >
@@ -552,7 +552,7 @@ export default function RoleManagementPage() {
                         <button
                             type="submit"
                             disabled={isCreatingRole || isUpdatingRole}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#093c30] text-white text-sm font-semibold rounded-md hover:bg-[#072d24] transition-colors disabled:opacity-50 shadow-xs"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md hover:bg-[#0842a0] transition-colors disabled:opacity-50 shadow-xs"
                         >
                             {isCreatingRole || isUpdatingRole ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />

@@ -3,10 +3,17 @@ import { logOut } from './authSlice';
 
 const baseQuery = fetchBaseQuery({
     baseUrl: '/api/',
-    prepareHeaders: (headers) => {
+    prepareHeaders: (headers, { getState }) => {
         const token = localStorage.getItem('token');
         if (token) {
             headers.set('authorization', `Bearer ${token}`);
+        }
+        const academicContext = getState()?.academicContext;
+        if (academicContext?.selectedYearId) {
+            headers.set('X-Academic-Year-Id', String(academicContext.selectedYearId));
+        }
+        if (academicContext?.selectedQuarterId) {
+            headers.set('X-Academic-Quarter-Id', String(academicContext.selectedQuarterId));
         }
         headers.set('Accept', 'application/json');
         return headers;
@@ -34,6 +41,7 @@ export const apiSlice = createApi({
     reducerPath: 'api',
     baseQuery: baseQueryWithReauth,
     tagTypes: [
+        'Dashboard',
         'Institution',
         'EducationLevel',
         'Teacher',

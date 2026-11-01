@@ -171,7 +171,7 @@ export default function CopyScheduleModal({
                         onClick={() => setTab('period')}
                         className={`flex-1 py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition ${
                             tab === 'period'
-                                ? 'border-[#093c30] text-[#093c30] bg-emerald-50/50'
+                                ? 'border-[#0b57d0] text-[#0b57d0] bg-[#0b57d0]/[0.08]'
                                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                         }`}
                     >
@@ -183,7 +183,7 @@ export default function CopyScheduleModal({
                         onClick={() => setTab('academic_year')}
                         className={`flex-1 py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition ${
                             tab === 'academic_year'
-                                ? 'border-[#093c30] text-[#093c30] bg-emerald-50/50'
+                                ? 'border-[#0b57d0] text-[#0b57d0] bg-[#0b57d0]/[0.08]'
                                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                         }`}
                     >
@@ -339,7 +339,7 @@ export default function CopyScheduleModal({
                             <button
                                 type="submit"
                                 disabled={isCopyingPeriod || fromQuarterId === toQuarterId}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#093c30] hover:bg-[#064e3b] text-white text-xs font-bold rounded shadow-xs transition disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition disabled:opacity-50"
                             >
                                 {isCopyingPeriod ? (
                                     <>
@@ -521,7 +521,7 @@ export default function CopyScheduleModal({
                             <button
                                 type="submit"
                                 disabled={isCopyingYear || !toAcademicYearId || fromAcademicYearId === toAcademicYearId}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#093c30] hover:bg-[#064e3b] text-white text-xs font-bold rounded shadow-xs transition disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition disabled:opacity-50"
                             >
                                 {isCopyingYear ? (
                                     <>

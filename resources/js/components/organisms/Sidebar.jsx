@@ -97,7 +97,7 @@ const DEFAULT_NAVIGATION_ITEMS = [
         ],
     },
     {
-        name: 'Jadwal Pelajaran & Halaqah',
+        name: 'Jadwal Pelajaran (KBM)',
         to: '/kbm',
         icon: Clock,
     },
@@ -107,7 +107,7 @@ const DEFAULT_NAVIGATION_ITEMS = [
         icon: ClipboardCheck,
     },
     {
-        name: 'Rekap Tahfizh & Nilai',
+        name: 'Penilaian & Buku Rapor',
         to: '/rapor',
         icon: ScrollText,
     },
@@ -115,6 +115,7 @@ const DEFAULT_NAVIGATION_ITEMS = [
         name: 'Pengaturan & Akses',
         icon: Settings,
         children: [
+            { name: 'Masa Input Nilai', to: '/pengaturan/masa-nilai', icon: CalendarCheck2 },
             { name: 'Manajemen Pengguna', to: '/admin/pengguna', icon: UserCog },
             { name: 'Role & Hak Akses', to: '/admin/role', icon: ShieldCheck },
             { name: 'Manajemen Menu', to: '/admin/menu', icon: LayoutGrid },
@@ -249,8 +250,8 @@ export default function Sidebar({
                 </div>
 
                 {/* Navigation Body */}
-                <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-                    <nav className="space-y-1">
+                <div className="flex-1 overflow-y-auto py-3 space-y-6">
+                    <nav className="space-y-0.5">
                         {navigationItems.map((item) => {
                             const Icon = item.icon;
                             const hasChildren = Boolean(item.children && item.children.length > 0);
@@ -265,22 +266,22 @@ export default function Sidebar({
                                 );
 
                                 return (
-                                    <div key={item.name} className="space-y-1">
+                                    <div key={item.name} className="space-y-0.5">
                                         <button
                                             type="button"
                                             onClick={() => toggleMenu(item.name)}
                                             title={collapsed ? item.name : undefined}
-                                            className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 ${
+                                            className={`w-full flex items-center justify-between gap-3 py-2.5 text-[13px] font-medium transition-all duration-150 ${
                                                 isAnyChildActive
-                                                    ? 'text-[#093c30] font-semibold bg-emerald-50/70'
+                                                    ? 'text-slate-900 font-semibold bg-slate-100/80'
                                                     : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
-                                            } ${collapsed ? 'justify-center px-2' : ''}`}
+                                            } ${collapsed ? 'justify-center px-2' : 'px-5'}`}
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <Icon
                                                     className={`w-4 h-4 shrink-0 transition-colors ${
                                                         isAnyChildActive
-                                                            ? 'text-[#093c30]'
+                                                            ? 'text-slate-800'
                                                             : 'text-slate-400'
                                                     }`}
                                                 />
@@ -299,7 +300,8 @@ export default function Sidebar({
 
                                         {/* Sub Menu Children */}
                                         {!collapsed && isOpen && (
-                                            <div className="pl-4 ml-3 border-l-2 border-emerald-100/80 space-y-1 py-1">
+                                            <div className="relative space-y-0.5 py-0.5">
+                                                <div className="absolute left-7 top-1 bottom-1 w-0.5 bg-slate-200/80 pointer-events-none" />
                                                 {item.children.map((child) => {
                                                     const ChildIcon = child.icon;
                                                     const isThisActive =
@@ -320,15 +322,15 @@ export default function Sidebar({
                                                             key={child.to}
                                                             to={child.to}
                                                             onClick={handleItemClick}
-                                                            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                                                            className={`w-full flex items-center gap-2.5 pl-11 pr-5 py-2 text-xs font-medium transition-colors ${
                                                                 isThisActive
-                                                                    ? 'bg-[#093c30] text-white shadow-2xs font-semibold'
-                                                                    : 'text-slate-600 hover:text-[#093c30] hover:bg-slate-100/70'
+                                                                    ? 'bg-slate-700 text-white font-semibold'
+                                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
                                                             }`}
                                                         >
                                                             <ChildIcon
                                                                 className={`w-3.5 h-3.5 shrink-0 ${
-                                                                    isThisActive ? 'text-emerald-300' : 'text-slate-400'
+                                                                    isThisActive ? 'text-slate-200' : 'text-slate-400'
                                                                 }`}
                                                             />
                                                             <span className="truncate">{child.name}</span>
@@ -350,18 +352,18 @@ export default function Sidebar({
                                     onClick={handleItemClick}
                                     title={collapsed ? item.name : undefined}
                                     className={({ isActive }) =>
-                                        `flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 ${
+                                        `w-full flex items-center gap-3 py-2.5 text-[13px] font-medium transition-all duration-150 ${
                                             isActive
-                                                ? 'bg-[#093c30] text-white shadow-2xs font-semibold'
+                                                ? 'bg-slate-700 text-white font-semibold'
                                                 : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
-                                        } ${collapsed ? 'justify-center px-2' : ''}`
+                                        } ${collapsed ? 'justify-center px-2' : 'px-5'}`
                                     }
                                 >
                                     {({ isActive }) => (
                                         <>
                                             <Icon
                                                 className={`w-4 h-4 shrink-0 transition-colors ${
-                                                    isActive ? 'text-emerald-300' : 'text-slate-400'
+                                                    isActive ? 'text-slate-200' : 'text-slate-400'
                                                 }`}
                                             />
                                             {!collapsed && (

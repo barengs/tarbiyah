@@ -19,8 +19,8 @@ export default function Button({
     const baseStyles = 'inline-flex items-center justify-center font-medium rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.99]';
 
     const variants = {
-        primary: 'bg-[#093c30] hover:bg-[#062c23] text-white shadow-xs focus:ring-[#093c30]/40',
-        emerald: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs focus:ring-emerald-500/40',
+        primary: 'bg-[#0b57d0] hover:bg-[#0842a0] text-white shadow-xs focus:ring-[#0b57d0]/40',
+        emerald: 'bg-[#0b57d0] hover:bg-[#0842a0] text-white shadow-xs focus:ring-[#0b57d0]/40',
         terracotta: 'bg-[#b45309] hover:bg-[#92400e] text-white shadow-xs focus:ring-[#b45309]/40',
         secondary: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs focus:ring-slate-300',
         outline: 'bg-transparent hover:bg-slate-100 text-slate-700 border border-slate-300 focus:ring-slate-300',

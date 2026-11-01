@@ -12,9 +12,11 @@ class AcademicQuarter extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date'   => 'date',
-        'active'     => 'boolean',
+        'start_date'         => 'date',
+        'end_date'           => 'date',
+        'grading_start_date' => 'date',
+        'grading_end_date'   => 'date',
+        'active'             => 'boolean',
     ];
 
     public function academicYear()

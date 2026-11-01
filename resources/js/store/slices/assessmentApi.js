@@ -2,51 +2,51 @@ import { apiSlice } from './apiSlice';
 
 export const assessmentApi = apiSlice.injectEndpoints({
     endpoints: (builder) => ({
-        getAssessmentCategories: builder.query({
-            query: () => 'main/assessments/categories',
-            providesTags: ['Assessment'],
-        }),
-        getAssessments: builder.query({
+        getGradingPeriod: builder.query({
             query: (params) => ({
-                url: 'main/assessments',
+                url: 'main/assessments/grading-period',
                 params,
             }),
-            providesTags: ['Assessment'],
+            providesTags: ['AcademicQuarter'],
         }),
-        getAssessment: builder.query({
-            query: (id) => `main/assessments/${id}`,
-            providesTags: (result, error, id) => [{ type: 'Assessment', id }],
-        }),
-        createAssessment: builder.mutation({
+        updateGradingPeriod: builder.mutation({
             query: (data) => ({
-                url: 'main/assessments',
+                url: 'main/assessments/grading-period',
                 method: 'POST',
                 body: data,
             }),
-            invalidatesTags: ['Assessment'],
+            invalidatesTags: ['AcademicQuarter', 'Assessment'],
         }),
-        updateAssessment: builder.mutation({
-            query: ({ id, ...data }) => ({
-                url: `main/assessments/${id}`,
-                method: 'PUT',
-                body: data,
+        getQuarterlySheet: builder.query({
+            query: (params) => ({
+                url: 'main/assessments/quarterly-sheet',
+                params,
             }),
-            invalidatesTags: ['Assessment'],
+            providesTags: ['Assessment', 'ReportCard'],
         }),
-        deleteAssessment: builder.mutation({
-            query: (id) => ({
-                url: `main/assessments/${id}`,
-                method: 'DELETE',
-            }),
-            invalidatesTags: ['Assessment'],
-        }),
-        saveScores: builder.mutation({
-            query: ({ assessmentId, ...data }) => ({
-                url: `main/assessments/${assessmentId}/scores`,
+        saveQuarterlySheet: builder.mutation({
+            query: (data) => ({
+                url: 'main/assessments/quarterly-sheet',
                 method: 'POST',
                 body: data,
             }),
-            invalidatesTags: ['Assessment'],
+            invalidatesTags: ['Assessment', 'ReportCard', 'ClassGroup'],
+        }),
+        toggleScoreLock: builder.mutation({
+            query: (data) => ({
+                url: 'main/assessments/toggle-lock',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['Assessment', 'ReportCard'],
+        }),
+        saveRemedialScores: builder.mutation({
+            query: (data) => ({
+                url: 'main/assessments/remedial-scores',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['Assessment', 'ReportCard', 'ClassGroup'],
         }),
         getGradebook: builder.query({
             query: (params) => ({
@@ -55,16 +55,36 @@ export const assessmentApi = apiSlice.injectEndpoints({
             }),
             providesTags: ['Assessment'],
         }),
+        importCollectiveExcel: builder.mutation({
+            query: (formData) => ({
+                url: 'main/assessments/collective-import',
+                method: 'POST',
+                body: formData,
+            }),
+            invalidatesTags: ['Assessment', 'ReportCard'],
+        }),
+        getClassExamEligibility: builder.query({
+            query: (classGroupId) => `main/assessments/class-exam-eligibility/${classGroupId}`,
+            providesTags: ['Assessment'],
+        }),
+        getStudentExamEligibility: builder.query({
+            query: (nis) => ({
+                url: 'main/assessments/exam-eligibility',
+                params: { nis },
+            }),
+        }),
     }),
 });
 
 export const {
-    useGetAssessmentCategoriesQuery,
-    useGetAssessmentsQuery,
-    useGetAssessmentQuery,
-    useCreateAssessmentMutation,
-    useUpdateAssessmentMutation,
-    useDeleteAssessmentMutation,
-    useSaveScoresMutation,
+    useGetGradingPeriodQuery,
+    useUpdateGradingPeriodMutation,
+    useGetQuarterlySheetQuery,
+    useSaveQuarterlySheetMutation,
+    useToggleScoreLockMutation,
+    useSaveRemedialScoresMutation,
     useGetGradebookQuery,
+    useImportCollectiveExcelMutation,
+    useGetClassExamEligibilityQuery,
+    useLazyGetStudentExamEligibilityQuery,
 } = assessmentApi;

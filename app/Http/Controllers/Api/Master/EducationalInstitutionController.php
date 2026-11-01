@@ -7,13 +7,14 @@ use App\Models\EducationalInstitution;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class EducationalInstitutionController extends Controller
 {
     public function index()
     {
         try {
-            $institutions = EducationalInstitution::with(['educationType', 'educations', 'classrooms'])->get();
+            $institutions = EducationalInstitution::with(['educationType', 'educations', 'classrooms', 'classes'])->get();
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Data institusi pendidikan berhasil diambil',
@@ -35,7 +36,7 @@ class EducationalInstitutionController extends Controller
             'short_name'           => 'nullable|string|max:30',
             'education_type_id'    => 'nullable|exists:education_types,id',
             'registration_number'  => 'nullable|string|unique:educational_institutions,registration_number',
-            'progression_type'     => 'required|in:semester,leveling',
+            'progression_type'     => 'required|in:triwulan,semester,leveling',
             'address'              => 'nullable|string',
             'phone'                => 'nullable|string|max:30',
             'email'                => 'nullable|email|max:255',
@@ -44,10 +45,27 @@ class EducationalInstitutionController extends Controller
             'description'          => 'nullable|string',
             'headmaster_id'        => 'nullable|integer',
             'headmaster_name'      => 'nullable|string|max:255',
+            'logo'                 => 'nullable',
+            'letterhead'           => 'nullable',
         ]);
 
         try {
             DB::beginTransaction();
+
+            if ($request->hasFile('logo')) {
+                $request->validate(['logo' => 'image|mimes:jpeg,png,jpg,webp,svg|max:2048']);
+                $validated['logo'] = $request->file('logo')->store('institutions/logos', 'public');
+            } else {
+                unset($validated['logo']);
+            }
+
+            if ($request->hasFile('letterhead')) {
+                $request->validate(['letterhead' => 'image|mimes:jpeg,png,jpg,webp,svg|max:4096']);
+                $validated['letterhead'] = $request->file('letterhead')->store('institutions/letterheads', 'public');
+            } else {
+                unset($validated['letterhead']);
+            }
+
             $institution = EducationalInstitution::create($validated);
             DB::commit();
 
@@ -68,7 +86,7 @@ class EducationalInstitutionController extends Controller
 
     public function show(string $id)
     {
-        $institution = EducationalInstitution::with(['educationType', 'educations', 'classrooms'])->find($id);
+        $institution = EducationalInstitution::with(['educationType', 'educations', 'classrooms', 'classes'])->find($id);
 
         if (!$institution) {
             return response()->json([
@@ -100,7 +118,7 @@ class EducationalInstitutionController extends Controller
             'short_name'           => 'nullable|string|max:30',
             'education_type_id'    => 'nullable|exists:education_types,id',
             'registration_number'  => 'nullable|string|unique:educational_institutions,registration_number,' . $id,
-            'progression_type'     => 'sometimes|required|in:semester,leveling',
+            'progression_type'     => 'sometimes|required|in:triwulan,semester,leveling',
             'address'              => 'nullable|string',
             'phone'                => 'nullable|string|max:30',
             'email'                => 'nullable|email|max:255',
@@ -109,24 +127,63 @@ class EducationalInstitutionController extends Controller
             'description'          => 'nullable|string',
             'headmaster_id'        => 'nullable|integer',
             'headmaster_name'      => 'nullable|string|max:255',
+            'logo'                 => 'nullable',
+            'letterhead'           => 'nullable',
+            'remove_logo'          => 'nullable|boolean',
+            'remove_letterhead'    => 'nullable|boolean',
         ]);
 
         try {
             DB::beginTransaction();
+
+            // Handle upload / hapus logo
+            if ($request->hasFile('logo')) {
+                $request->validate(['logo' => 'image|mimes:jpeg,png,jpg,webp,svg|max:2048']);
+                if ($institution->logo && Storage::disk('public')->exists($institution->logo)) {
+                    Storage::disk('public')->delete($institution->logo);
+                }
+                $validated['logo'] = $request->file('logo')->store('institutions/logos', 'public');
+            } elseif ($request->boolean('remove_logo')) {
+                if ($institution->logo && Storage::disk('public')->exists($institution->logo)) {
+                    Storage::disk('public')->delete($institution->logo);
+                }
+                $validated['logo'] = null;
+            } else {
+                unset($validated['logo']);
+            }
+
+            // Handle upload / hapus letterhead (kop surat)
+            if ($request->hasFile('letterhead')) {
+                $request->validate(['letterhead' => 'image|mimes:jpeg,png,jpg,webp,svg|max:4096']);
+                if ($institution->letterhead && Storage::disk('public')->exists($institution->letterhead)) {
+                    Storage::disk('public')->delete($institution->letterhead);
+                }
+                $validated['letterhead'] = $request->file('letterhead')->store('institutions/letterheads', 'public');
+            } elseif ($request->boolean('remove_letterhead')) {
+                if ($institution->letterhead && Storage::disk('public')->exists($institution->letterhead)) {
+                    Storage::disk('public')->delete($institution->letterhead);
+                }
+                $validated['letterhead'] = null;
+            } else {
+                unset($validated['letterhead']);
+            }
+
+            unset($validated['remove_logo'], $validated['remove_letterhead']);
+
             $institution->update($validated);
             DB::commit();
 
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Institusi pendidikan berhasil diperbarui',
-                'data'    => $institution,
+                'data'    => $institution->fresh(['educationType', 'educations', 'classrooms']),
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error updating institution: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Gagal memperbarui institusi',
+                'message' => 'Gagal memperbarui institusi: ' . $e->getMessage(),
             ], 500);
         }
     }

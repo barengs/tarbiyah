@@ -37,4 +37,19 @@ class Study extends Model
     {
         return $query->where('is_active', true);
     }
+
+    public function scopeSchedulable($query)
+    {
+        return $query->whereIn('study_type', ['reguler', 'khusus']);
+    }
+
+    public function isSpecial(): bool
+    {
+        return $this->study_type === 'khusus';
+    }
+
+    public function isMulok(): bool
+    {
+        return $this->study_type === 'muatan_lokal';
+    }
 }

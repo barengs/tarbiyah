@@ -1,26 +1,50 @@
-import React, { useState } from 'react';
-import { 
-    useGetStudiesQuery, 
-    useCreateStudyMutation, 
-    useUpdateStudyMutation, 
-    useDeleteStudyMutation 
+import React, { useState, useMemo } from 'react';
+import {
+    useGetStudiesQuery,
+    useCreateStudyMutation,
+    useUpdateStudyMutation,
+    useDeleteStudyMutation,
 } from '../../store/slices/studyApi';
 import { useGetInstitutionsQuery } from '../../store/slices/institutionApi';
 import DataTable from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, BookOpen, Layers } from 'lucide-react';
+import ActionDropdown from '../../components/molecules/ActionDropdown';
+import { Plus, Edit2, Trash2, BookOpen, Layers, ShieldAlert, Sparkles } from 'lucide-react';
 import { toast } from 'react-toastify';
+
+const STUDY_TYPE_META = {
+    khusus: {
+        label: 'Mapel Khusus (Inti)',
+        desc: 'Masuk Jadwal KBM • Wajib Remidi bila nilai < KKM',
+        badgeClass: 'bg-emerald-50 text-[#093c30] border-emerald-300',
+    },
+    reguler: {
+        label: 'Mapel Reguler',
+        desc: 'Masuk Jadwal KBM • Penilaian Akhir Triwulan',
+        badgeClass: 'bg-sky-50 text-sky-800 border-sky-200',
+    },
+    muatan_lokal: {
+        label: 'Muatan Lokal (Non-Kelas)',
+        desc: 'Tidak Masuk Jadwal KBM • Penunjang Nilai Triwulan',
+        badgeClass: 'bg-amber-50 text-amber-800 border-amber-300',
+    },
+};
 
 export default function StudyPage() {
     const [instFilter, setInstFilter] = useState('');
+    const [typeFilter, setTypeFilter] = useState('all');
     const { data: instData } = useGetInstitutionsQuery();
     const institutions = instData?.data || [];
 
     const { data: studyData, isLoading } = useGetStudiesQuery(
         instFilter ? { educational_institution_id: instFilter } : undefined
     );
-    const studies = studyData?.data || [];
+    const studies = useMemo(() => {
+        const raw = studyData?.data || [];
+        if (typeFilter === 'all') return raw;
+        return raw.filter((s) => (s.study_type || 'reguler') === typeFilter);
+    }, [studyData, typeFilter]);
 
     const [createStudy, { isLoading: isCreating }] = useCreateStudyMutation();
     const [updateStudy, { isLoading: isUpdating }] = useUpdateStudyMutation();
@@ -33,6 +57,7 @@ export default function StudyPage() {
     // Form fields
     const [name, setName] = useState('');
     const [code, setCode] = useState('');
+    const [studyType, setStudyType] = useState('reguler');
     const [kkm, setKkm] = useState(75);
     const [institutionId, setInstitutionId] = useState('');
     const [description, setDescription] = useState('');
@@ -41,6 +66,7 @@ export default function StudyPage() {
         setEditingItem(null);
         setName('');
         setCode('');
+        setStudyType('reguler');
         setKkm(75);
         setInstitutionId(instFilter || '');
         setDescription('');
@@ -51,6 +77,7 @@ export default function StudyPage() {
         setEditingItem(item);
         setName(item.name || '');
         setCode(item.code || '');
+        setStudyType(item.study_type || 'reguler');
         setKkm(item.kkm || 75);
         setInstitutionId(item.educational_institution_id || '');
         setDescription(item.description || '');
@@ -62,6 +89,7 @@ export default function StudyPage() {
         const payload = {
             name,
             code: code || null,
+            study_type: studyType,
             kkm: Number(kkm),
             educational_institution_id: institutionId || null,
             description: description || null,
@@ -95,10 +123,10 @@ export default function StudyPage() {
     const columns = [
         {
             key: 'name',
-            label: 'Mata Pelajaran',
+            label: 'Mata Pelajaran / Fan Kitab',
             render: (row) => (
                 <div className="flex items-center gap-2.5">
-                    <span className="w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                    <span className="w-8 h-8 rounded-md bg-emerald-50 text-[#093c30] flex items-center justify-center shrink-0">
                         <BookOpen className="w-4 h-4" />
                     </span>
                     <div>
@@ -111,8 +139,28 @@ export default function StudyPage() {
             ),
         },
         {
+            key: 'study_type',
+            label: 'Jenis Mata Pelajaran',
+            render: (row) => {
+                const t = row.study_type || 'reguler';
+                const meta = STUDY_TYPE_META[t] || STUDY_TYPE_META.reguler;
+                return (
+                    <div>
+                        <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded border text-xs font-bold ${meta.badgeClass}`}
+                        >
+                            {t === 'khusus' && <ShieldAlert className="w-3 h-3" />}
+                            {t === 'muatan_lokal' && <Sparkles className="w-3 h-3" />}
+                            {meta.label}
+                        </span>
+                        <span className="block text-[10px] text-slate-400 mt-0.5">{meta.desc}</span>
+                    </div>
+                );
+            },
+        },
+        {
             key: 'institution',
-            label: 'Lembaga / Jenjang',
+            label: 'Lembaga / Program',
             render: (row) => {
                 const inst = institutions.find((i) => i.id === row.educational_institution_id);
                 return (
@@ -136,7 +184,7 @@ export default function StudyPage() {
             key: 'teachers',
             label: 'Guru Pengampu',
             render: (row) => (
-                <span className="text-xs text-slate-600">
+                <span className="text-xs text-slate-600 font-medium">
                     {row.teachers?.length ? `${row.teachers.length} Guru` : 'Belum Ditugaskan'}
                 </span>
             ),
@@ -145,64 +193,57 @@ export default function StudyPage() {
             key: 'actions',
             label: 'Aksi',
             render: (row) => (
-                <div className="flex items-center gap-1.5">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
-                        title="Edit Mapel"
-                    >
-                        <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                        title="Hapus Mapel"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
+                <div onClick={(e) => e.stopPropagation()}>
+                    <ActionDropdown
+                        label="Aksi"
+                        size="sm"
+                        variant="outline"
+                        items={[
+                            {
+                                id: 'edit',
+                                label: 'Edit Mata Pelajaran',
+                                icon: Edit2,
+                                iconColor: 'text-[#093c30]',
+                                onClick: () => openEditModal(row),
+                            },
+                            {
+                                id: 'delete',
+                                label: 'Hapus Mata Pelajaran',
+                                icon: Trash2,
+                                danger: true,
+                                dividerBefore: true,
+                                onClick: () => setDeleteTarget(row),
+                            },
+                        ]}
+                    />
                 </div>
             ),
         },
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                        <span className="p-2 bg-emerald-50 text-emerald-700 rounded-md">
+                        <span className="p-2 bg-emerald-50 text-[#093c30] rounded-md">
                             <BookOpen className="w-5 h-5" />
                         </span>
                         Mata Pelajaran &amp; Silabus
                     </h1>
                     <p className="text-sm text-slate-500 mt-1">
-                        Kelola katalog mata pelajaran Diniyah &amp; Umum, standar KKM minimal, dan silabus madrasah.
+                        Kelola Mata Pelajaran Khusus (Inti &amp; Remidi), Mata Pelajaran Reguler, serta Muatan Lokal (Non-Kelas / Penunjang Nilai).
                     </p>
                 </div>
                 <div>
                     <button
                         onClick={openCreateModal}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#0b57d0] text-white font-semibold text-sm rounded-md hover:bg-[#0842a0] transition shadow-sm cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
                         Tambah Mapel
                     </button>
                 </div>
-            </div>
-
-            {/* Filter Lembaga */}
-            <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Filter Lembaga:</span>
-                <select
-                    value={instFilter}
-                    onChange={(e) => setInstFilter(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-emerald-500"
-                >
-                    <option value="">Semua Lembaga</option>
-                    {institutions.map((inst) => (
-                        <option key={inst.id} value={inst.id}>{inst.name}</option>
-                    ))}
-                </select>
             </div>
 
             {/* Table */}
@@ -211,6 +252,33 @@ export default function StudyPage() {
                 data={studies}
                 isLoading={isLoading}
                 emptyMessage="Belum ada mata pelajaran terdaftar"
+                filters={
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <select
+                            value={typeFilter}
+                            onChange={(e) => setTypeFilter(e.target.value)}
+                            className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#093c30] focus:border-[#093c30] transition-colors cursor-pointer shadow-2xs"
+                        >
+                            <option value="all">Semua Jenis Mapel</option>
+                            <option value="khusus">Mapel Khusus (Wajib Tuntas / Remidi)</option>
+                            <option value="reguler">Mapel Reguler (Jadwal KBM)</option>
+                            <option value="muatan_lokal">Muatan Lokal (Non-Kelas / Penunjang)</option>
+                        </select>
+
+                        <select
+                            value={instFilter}
+                            onChange={(e) => setInstFilter(e.target.value)}
+                            className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#093c30] focus:border-[#093c30] transition-colors cursor-pointer shadow-2xs"
+                        >
+                            <option value="">Semua Lembaga</option>
+                            {institutions.map((inst) => (
+                                <option key={inst.id} value={inst.id}>
+                                    {inst.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                }
             />
 
             {/* Modal Tambah/Edit Mapel */}
@@ -221,30 +289,61 @@ export default function StudyPage() {
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Nama Mata Pelajaran *</label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Nama Mata Pelajaran / Fan Kitab *
+                        </label>
                         <input
                             type="text"
                             required
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Contoh: Fiqih Ibadah / Matematika"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            placeholder="Contoh: Fiqih Ibadah / Nahwu Shorof / Muhadharah"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none"
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Jenis Mata Pelajaran *
+                        </label>
+                        <select
+                            required
+                            value={studyType}
+                            onChange={(e) => setStudyType(e.target.value)}
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-white font-semibold"
+                        >
+                            <option value="khusus">
+                                Mata Pelajaran Khusus (Masuk Jadwal KBM • Wajib Remidi bila tidak memenuhi KKM)
+                            </option>
+                            <option value="reguler">
+                                Mata Pelajaran Reguler (Masuk Jadwal KBM • Penilaian Akhir Triwulan)
+                            </option>
+                            <option value="muatan_lokal">
+                                Mata Pelajaran Non-Kelas / Muatan Lokal (Tidak masuk Jadwal KBM • Penunjang Nilai)
+                            </option>
+                        </select>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                            {STUDY_TYPE_META[studyType]?.desc}
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Kode Mapel</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                Kode Mapel
+                            </label>
                             <input
                                 type="text"
                                 value={code}
                                 onChange={(e) => setCode(e.target.value)}
-                                placeholder="Contoh: FIQ-01"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                placeholder="Contoh: FQH-07 / MLK-01"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">KKM Minimal *</label>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                KKM Minimal *
+                            </label>
                             <input
                                 type="number"
                                 min={0}
@@ -252,33 +351,39 @@ export default function StudyPage() {
                                 required
                                 value={kkm}
                                 onChange={(e) => setKkm(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Institusi / Lembaga</label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Institusi / Lembaga
+                        </label>
                         <select
                             value={institutionId}
                             onChange={(e) => setInstitutionId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-white"
                         >
                             <option value="">Umum (Berlaku Semua Lembaga)</option>
                             {institutions.map((inst) => (
-                                <option key={inst.id} value={inst.id}>{inst.name}</option>
+                                <option key={inst.id} value={inst.id}>
+                                    {inst.name}
+                                </option>
                             ))}
                         </select>
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Keterangan / Silabus</label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Keterangan / Silabus
+                        </label>
                         <textarea
                             rows={2}
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Deskripsi materi pelajaran..."
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            placeholder="Deskripsi kitab atau materi pelajaran..."
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none"
                         />
                     </div>
 
@@ -286,14 +391,14 @@ export default function StudyPage() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
+                            className="px-4 py-2 text-xs font-semibold text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-xs font-bold text-white bg-[#0b57d0] rounded-md hover:bg-[#0842a0] disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan'}
                         </button>

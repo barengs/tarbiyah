@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { 
     useGetStudentsQuery, 
     useCreateStudentMutation, 
@@ -33,6 +34,8 @@ export default function StudentPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const { selectedYearId } = useSelector((state) => state.academicContext || {});
+
     const [mukimFilter, setMukimFilter] = useState('all'); // 'all', 'mukim', 'luar'
     const [statusFilter, setStatusFilter] = useState('');
     const [search, setSearch] = useState('');
@@ -42,7 +45,14 @@ export default function StudentPage() {
     const [educationFilter, setEducationFilter] = useState('');
     const [classGroupFilter, setClassGroupFilter] = useState('');
 
+    useEffect(() => {
+        setClassGroupFilter('');
+        setPeriodFilter('');
+        setSelectedIds([]);
+    }, [selectedYearId]);
+
     const queryParams = {
+        ...(selectedYearId && { academic_year_id: selectedYearId }),
         ...(mukimFilter === 'mukim' && { is_mukim: 'true' }),
         ...(mukimFilter === 'luar' && { is_mukim: 'false' }),
         ...(statusFilter && { status: statusFilter }),
@@ -65,7 +75,10 @@ export default function StudentPage() {
     const programs = filterOptions.programs || [];
 
     // Master data untuk filter lanjutan
-    const { data: classGroupsData } = useGetClassGroupsQuery({ all: 'true' });
+    const { data: classGroupsData } = useGetClassGroupsQuery({
+        all: 'true',
+        ...(selectedYearId && { academic_year_id: selectedYearId }),
+    });
     const classGroups = classGroupsData?.data || classGroupsData || [];
     const { data: educationsData } = useGetEducationsQuery();
     const educations = educationsData?.data || educationsData || [];
@@ -220,7 +233,7 @@ export default function StudentPage() {
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
                             row.gender === 'L' ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-rose-50 text-rose-700 border border-rose-300'
                         }`}>
-                            {row.gender === 'L' ? 'L (Banin)' : 'P (Kesalahan Algoritma)'}
+                            {row.gender === 'L' ? 'L (Putra)' : 'P (Putri)'}
                         </span>
                     </div>
                 </div>
@@ -356,11 +369,11 @@ export default function StudentPage() {
                     <button
                         type="button"
                         onClick={() => setActionDropdownOpen((v) => !v)}
-                        className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#093c30] text-white font-semibold text-xs sm:text-sm rounded-md hover:bg-[#072d24] transition shadow-xs"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0b57d0] text-white font-semibold text-xs sm:text-sm rounded-md hover:bg-[#0842a0] transition shadow-xs"
                     >
                         <span>Aksi Siswa</span>
                         {selectedIds.length > 0 && (
-                            <span className="px-1.5 py-0.2 bg-emerald-500 text-white text-[11px] font-bold rounded-full">
+                            <span className="px-1.5 py-0.2 bg-white/20 text-white text-[11px] font-bold rounded-full">
                                 {selectedIds.length}
                             </span>
                         )}
@@ -687,7 +700,7 @@ export default function StudentPage() {
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-[#0b57d0] rounded-md hover:bg-[#0842a0] disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan Siswa'}
                         </button>

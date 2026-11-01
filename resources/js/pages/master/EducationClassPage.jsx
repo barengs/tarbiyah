@@ -5,26 +5,21 @@ import {
     useUpdateEducationClassMutation, 
     useDeleteEducationClassMutation 
 } from '../../store/slices/educationClassApi';
-import { useGetInstitutionsQuery, useGetEducationsQuery } from '../../store/slices/institutionApi';
+import { useGetInstitutionsQuery } from '../../store/slices/institutionApi';
 import DataTable from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, GraduationCap, School, Layers, Users } from 'lucide-react';
+import { Plus, Edit2, Trash2, GraduationCap, School, Users } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function EducationClassPage() {
     const [instFilter, setInstFilter] = useState('');
-    const [educationFilter, setEducationFilter] = useState('');
 
     const { data: instData } = useGetInstitutionsQuery();
     const institutions = instData?.data || [];
 
-    const { data: eduData } = useGetEducationsQuery(instFilter || undefined);
-    const educations = eduData?.data || [];
-
     const { data: classesData, isLoading } = useGetEducationClassesQuery({
         ...(instFilter && { educational_institution_id: instFilter }),
-        ...(educationFilter && { education_id: educationFilter }),
     });
     const classes = classesData?.data || [];
 
@@ -39,13 +34,13 @@ export default function EducationClassPage() {
     // Form fields
     const [name, setName] = useState('');
     const [code, setCode] = useState('');
-    const [educationId, setEducationId] = useState('');
+    const [institutionId, setInstitutionId] = useState('');
 
     const openCreateModal = () => {
         setEditingItem(null);
         setName('');
         setCode('');
-        setEducationId(educationFilter || (educations[0]?.id ? String(educations[0].id) : ''));
+        setInstitutionId(instFilter || (institutions[0]?.id ? String(institutions[0].id) : ''));
         setModalOpen(true);
     };
 
@@ -53,7 +48,11 @@ export default function EducationClassPage() {
         setEditingItem(item);
         setName(item.name || '');
         setCode(item.code || '');
-        setEducationId(item.education_id ? String(item.education_id) : '');
+        setInstitutionId(
+            item.educational_institution_id 
+                ? String(item.educational_institution_id) 
+                : (item.education?.educational_institution_id ? String(item.education.educational_institution_id) : '')
+        );
         setModalOpen(true);
     };
 
@@ -62,7 +61,7 @@ export default function EducationClassPage() {
         const payload = {
             name,
             code,
-            education_id: educationId ? Number(educationId) : null,
+            educational_institution_id: institutionId ? Number(institutionId) : null,
         };
 
         try {
@@ -109,29 +108,26 @@ export default function EducationClassPage() {
             ),
         },
         {
-            key: 'education',
-            label: 'Jenjang Pendidikan',
-            render: (row) => (
-                row.education ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                        {row.education.name} (Tingkat {row.education.level})
-                    </span>
-                ) : (
-                    <span className="text-xs text-slate-400 italic">Tanpa Jenjang Khusus</span>
-                )
-            ),
-        },
-        {
             key: 'institution',
-            label: 'Lembaga / Naungan',
+            label: 'Institusi / Lembaga',
             render: (row) => {
-                const instName = row.education?.institution?.name;
+                const inst = row.institution || row.education?.institution;
                 return (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium">
-                        <School className="w-3.5 h-3.5 text-slate-400" />
-                        {instName || 'Umum (Lintas Lembaga)'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0">
+                            <School className="w-3.5 h-3.5 text-emerald-700" />
+                        </span>
+                        <div>
+                            <span className="font-semibold text-slate-800 text-xs block">
+                                {inst?.name || row.education?.name || 'Umum'}
+                            </span>
+                            {inst?.registration_number && (
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                    NSP: {inst.registration_number}
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 );
             },
         },
@@ -181,51 +177,17 @@ export default function EducationClassPage() {
                         Tingkat Kelas (Jenjang Belajar)
                     </h1>
                     <p className="text-sm text-slate-500 mt-1">
-                        Kelola tingkatan kelas formal &amp; diniyah (contoh: Kelas 7, 8, 9, Ula 1, 2, 3, Wustha, Ulya) per jenjang pendidikan.
+                        Kelola tingkatan kelas diniyah &amp; formal (contoh: Ula Kelas 1, 2, 3, Wustha, Ulya, Takhossus) per institusi pendidikan.
                     </p>
                 </div>
                 <div>
                     <button
                         onClick={openCreateModal}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#0b57d0] text-white font-semibold text-sm rounded-md hover:bg-[#0842a0] transition shadow-sm cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
                         Tambah Tingkat Kelas
                     </button>
-                </div>
-            </div>
-
-            {/* Filter Section */}
-            <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Lembaga:</span>
-                    <select
-                        value={instFilter}
-                        onChange={(e) => {
-                            setInstFilter(e.target.value);
-                            setEducationFilter('');
-                        }}
-                        className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-emerald-500"
-                    >
-                        <option value="">Semua Lembaga</option>
-                        {institutions.map((inst) => (
-                            <option key={inst.id} value={inst.id}>{inst.name}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Jenjang:</span>
-                    <select
-                        value={educationFilter}
-                        onChange={(e) => setEducationFilter(e.target.value)}
-                        className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-emerald-500"
-                    >
-                        <option value="">Semua Jenjang</option>
-                        {educations.map((edu) => (
-                            <option key={edu.id} value={edu.id}>{edu.name} (Tk. {edu.level})</option>
-                        ))}
-                    </select>
                 </div>
             </div>
 
@@ -235,6 +197,20 @@ export default function EducationClassPage() {
                 data={classes}
                 isLoading={isLoading}
                 emptyMessage="Belum ada tingkat kelas terdaftar"
+                filters={
+                    <div className="flex items-center gap-1.5">
+                        <select
+                            value={instFilter}
+                            onChange={(e) => setInstFilter(e.target.value)}
+                            className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#093c30] focus:border-[#093c30] transition-colors cursor-pointer shadow-2xs"
+                        >
+                            <option value="">Semua Lembaga</option>
+                            {institutions.map((inst) => (
+                                <option key={inst.id} value={inst.id}>{inst.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                }
             />
 
             {/* Modal Tambah/Edit Kelas */}
@@ -253,7 +229,7 @@ export default function EducationClassPage() {
                             required
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Contoh: Kelas 7, Kelas 8, Ula Kelas 1"
+                            placeholder="Contoh: Ula Kelas 1, Wustha Kelas 2, Kelas 7"
                             className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                     </div>
@@ -267,24 +243,25 @@ export default function EducationClassPage() {
                             required
                             value={code}
                             onChange={(e) => setCode(e.target.value)}
-                            placeholder="Contoh: KLS-7, ULA-1, WST-2"
+                            placeholder="Contoh: ULA-1, WST-2, TK-1"
                             className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono"
                         />
                     </div>
 
                     <div>
                         <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                            Jenjang Pendidikan (Education) *
+                            Institusi / Lembaga *
                         </label>
                         <select
-                            value={educationId}
-                            onChange={(e) => setEducationId(e.target.value)}
+                            required
+                            value={institutionId}
+                            onChange={(e) => setInstitutionId(e.target.value)}
                             className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                         >
-                            <option value="">-- Pilih Jenjang Pendidikan --</option>
-                            {educations.map((edu) => (
-                                <option key={edu.id} value={edu.id}>
-                                    {edu.name} (Tingkat {edu.level}) {edu.institution ? `- ${edu.institution.name}` : ''}
+                            <option value="">-- Pilih Institusi / Lembaga --</option>
+                            {institutions.map((inst) => (
+                                <option key={inst.id} value={inst.id}>
+                                    {inst.name} ({inst.short_name || inst.name})
                                 </option>
                             ))}
                         </select>
@@ -294,14 +271,14 @@ export default function EducationClassPage() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
+                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 cursor-pointer"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-[#0b57d0] rounded-md hover:bg-[#0842a0] disabled:opacity-50 cursor-pointer"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan'}
                         </button>

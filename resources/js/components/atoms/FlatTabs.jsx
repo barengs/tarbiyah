@@ -28,14 +28,14 @@ export default function FlatTabs({
                         onClick={() => onChange(tabVal)}
                         className={`group px-4 py-2.5 text-xs sm:text-sm font-semibold transition-all duration-150 inline-flex items-center gap-2 rounded-none border-b-2 border-r border-slate-200 first:border-l select-none -mb-px cursor-pointer ${
                             isActive
-                                ? 'bg-[#093c30]/[0.08] text-[#093c30] border-b-[#093c30] font-bold'
+                                ? 'bg-[#0b57d0]/[0.08] text-[#0b57d0] border-b-[#0b57d0] font-bold'
                                 : 'bg-transparent text-slate-500 border-b-transparent hover:text-slate-800 hover:bg-slate-100/60'
                         }`}
                     >
                         {Icon && (
                             <Icon
                                 className={`w-4 h-4 transition-colors ${
-                                    isActive ? 'text-[#093c30]' : 'text-slate-400 group-hover:text-slate-600'
+                                    isActive ? 'text-[#0b57d0]' : 'text-slate-400 group-hover:text-slate-600'
                                 }`}
                             />
                         )}
@@ -45,7 +45,7 @@ export default function FlatTabs({
                             <span
                                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
                                     isActive
-                                        ? 'bg-[#093c30] text-white'
+                                        ? 'bg-[#0b57d0] text-white'
                                         : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300'
                                 }`}
                             >

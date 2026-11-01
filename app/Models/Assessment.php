@@ -22,6 +22,11 @@ class Assessment extends Model
         return $this->belongsTo(AcademicYear::class);
     }
 
+    public function academicQuarter()
+    {
+        return $this->belongsTo(AcademicQuarter::class, 'academic_quarter_id');
+    }
+
     public function classGroup()
     {
         return $this->belongsTo(ClassGroup::class);

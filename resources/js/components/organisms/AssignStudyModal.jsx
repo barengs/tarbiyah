@@ -124,7 +124,7 @@ export default function AssignStudyModal({ open, onClose, teacher, onSuccess }) 
                             type="button"
                             onClick={handleSubmit}
                             disabled={isAssigning}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#093c30] hover:bg-[#072d24] rounded-md transition-colors disabled:opacity-50 shadow-2xs"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#0b57d0] hover:bg-[#0842a0] rounded-md transition-colors disabled:opacity-50 shadow-2xs"
                         >
                             {isAssigning ? (
                                 <>

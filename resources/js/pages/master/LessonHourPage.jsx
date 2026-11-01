@@ -225,27 +225,12 @@ export default function LessonHourPage() {
                 <div>
                     <button
                         onClick={openCreateModal}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-md hover:bg-emerald-700 transition shadow-sm"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#0b57d0] text-white font-semibold text-sm rounded-md hover:bg-[#0842a0] transition shadow-sm"
                     >
                         <Plus className="w-4 h-4" />
                         Tambah Jam Pelajaran
                     </button>
                 </div>
-            </div>
-
-            {/* Filter Lembaga */}
-            <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Filter Lembaga:</span>
-                <select
-                    value={instFilter}
-                    onChange={(e) => setInstFilter(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-emerald-500"
-                >
-                    <option value="">Semua Lembaga</option>
-                    {institutions.map((inst) => (
-                        <option key={inst.id} value={inst.id}>{inst.name}</option>
-                    ))}
-                </select>
             </div>
 
             {/* Table */}
@@ -254,6 +239,20 @@ export default function LessonHourPage() {
                 data={lessonHours}
                 isLoading={isLoading}
                 emptyMessage="Belum ada slot jam pelajaran diset"
+                filters={
+                    <div className="flex items-center gap-1.5">
+                        <select
+                            value={instFilter}
+                            onChange={(e) => setInstFilter(e.target.value)}
+                            className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#093c30] focus:border-[#093c30] transition-colors cursor-pointer shadow-2xs"
+                        >
+                            <option value="">Semua Lembaga</option>
+                            {institutions.map((inst) => (
+                                <option key={inst.id} value={inst.id}>{inst.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                }
             />
 
             {/* Modal Tambah/Edit Jam Pelajaran */}
@@ -360,7 +359,7 @@ export default function LessonHourPage() {
                         <button
                             type="submit"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-[#0b57d0] rounded-md hover:bg-[#0842a0] disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan'}
                         </button>

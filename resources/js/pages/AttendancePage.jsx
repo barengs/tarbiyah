@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import { 
     useGetAttendanceSheetQuery,
     useGetDayGridQuery,
@@ -80,13 +81,21 @@ export default function AttendancePage() {
     // ═══════════════════════════════════════════════════════════
     // ACTIVE TAB UTAMA: FORMULIR vs LEMBAR MATRIKS P1-P16
     // ═══════════════════════════════════════════════════════════
+    const { selectedYearId, selectedQuarterId } = useSelector((state) => state.academicContext || {});
     const [activeTab, setActiveTab] = useState('attendance_form'); // 'attendance_form' | 'matrix_sheet'
     const [printModalOpen, setPrintModalOpen] = useState(false);
 
-    // Master Rombel
-    const { data: groupsData } = useGetClassGroupsQuery();
+    // Master Rombel sesuai tahun akademik terpilih
+    const { data: groupsData } = useGetClassGroupsQuery(
+        selectedYearId ? { academic_year_id: selectedYearId } : undefined
+    );
     const groups = groupsData?.data || [];
     const [selectedGroupId, setSelectedGroupId] = useState('');
+
+    useEffect(() => {
+        setSelectedGroupId('');
+    }, [selectedYearId]);
+
     const currentGroup = useMemo(() => {
         if (selectedGroupId) {
             return groups.find(g => Number(g.id) === Number(selectedGroupId)) || groups[0];
@@ -129,7 +138,9 @@ export default function AttendancePage() {
         currentGroup?.id ? {
             class_group_id: currentGroup.id,
             start_date: effectiveStartDate,
-            end_date: effectiveEndDate
+            end_date: effectiveEndDate,
+            ...(selectedYearId && { academic_year_id: selectedYearId }),
+            ...(selectedQuarterId && { academic_quarter_id: selectedQuarterId }),
         } : undefined,
         { skip: !currentGroup?.id || !effectiveStartDate || !effectiveEndDate }
     );
@@ -414,7 +425,9 @@ export default function AttendancePage() {
     } = useGetAttendanceSheetQuery(
         currentGroup?.id ? {
             class_group_id: currentGroup.id,
-            study_id: selectedStudyId || undefined
+            study_id: selectedStudyId || undefined,
+            ...(selectedYearId && { academic_year_id: selectedYearId }),
+            ...(selectedQuarterId && { academic_quarter_id: selectedQuarterId }),
         } : undefined,
         { skip: !currentGroup?.id }
     );
@@ -514,11 +527,11 @@ export default function AttendancePage() {
                                 onClick={() => setActiveTab('attendance_form')}
                                 className={`px-3.5 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
                                     activeTab === 'attendance_form'
-                                        ? 'bg-[#093c30] text-white shadow-xs'
+                                        ? 'bg-[#0b57d0] text-white shadow-xs'
                                         : 'text-slate-600 hover:text-slate-900'
                                 }`}
                             >
-                                <Clock className="w-3.5 h-3.5 text-emerald-300" />
+                                <Clock className={`w-3.5 h-3.5 ${activeTab === 'attendance_form' ? 'text-blue-200' : 'text-slate-500'}`} />
                                 Formulir Absen (Per Jam)
                             </button>
                             <button
@@ -526,11 +539,11 @@ export default function AttendancePage() {
                                 onClick={() => setActiveTab('matrix_sheet')}
                                 className={`px-3.5 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
                                     activeTab === 'matrix_sheet'
-                                        ? 'bg-[#093c30] text-white shadow-xs'
+                                        ? 'bg-[#0b57d0] text-white shadow-xs'
                                         : 'text-slate-600 hover:text-slate-900'
                                 }`}
                             >
-                                <FileText className="w-3.5 h-3.5 text-emerald-300" />
+                                <FileText className={`w-3.5 h-3.5 ${activeTab === 'matrix_sheet' ? 'text-blue-200' : 'text-slate-500'}`} />
                                 Lembar Matriks (P1 - P16)
                             </button>
                         </div>
@@ -642,7 +655,7 @@ export default function AttendancePage() {
                                     onClick={() => setEntryMode('daily')}
                                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
                                         entryMode === 'daily'
-                                            ? 'bg-[#093c30] text-white shadow-xs'
+                                            ? 'bg-[#0b57d0] text-white shadow-xs'
                                             : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                     }`}
                                 >
@@ -655,12 +668,12 @@ export default function AttendancePage() {
                                     onClick={handleSetWeeklyMode}
                                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
                                         entryMode === 'weekly'
-                                            ? 'bg-[#093c30] text-white shadow-xs'
-                                            : 'bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                                            ? 'bg-[#0b57d0] text-white shadow-xs'
+                                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                     }`}
                                     title="Rekap sepekan penuh (Sabtu s.d. Kamis) di akhir pekan"
                                 >
-                                    <CalendarDays className="w-3.5 h-3.5 text-amber-300" />
+                                    <CalendarDays className={`w-3.5 h-3.5 ${entryMode === 'weekly' ? 'text-blue-200' : 'text-slate-500'}`} />
                                     Rekap Akhir Pekan (Kamis / Sepekan)
                                 </button>
 
@@ -669,7 +682,7 @@ export default function AttendancePage() {
                                     onClick={() => setEntryMode('range')}
                                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
                                         entryMode === 'range'
-                                            ? 'bg-[#093c30] text-white shadow-xs'
+                                            ? 'bg-[#0b57d0] text-white shadow-xs'
                                             : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                     }`}
                                     title="Pilih rentang hari yang berdekatan/berurutan"
@@ -718,9 +731,9 @@ export default function AttendancePage() {
                                     type="button"
                                     onClick={handleSaveAllDays}
                                     disabled={isSavingMultiDay}
-                                    className="px-4 py-2 bg-[#093c30] hover:bg-[#064e3b] text-white text-xs font-bold rounded shadow-xs transition flex items-center gap-1.5"
+                                    className="px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition flex items-center gap-1.5"
                                 >
-                                    <Save className="w-4 h-4 text-emerald-300" />
+                                    <Save className="w-4 h-4 text-blue-200" />
                                     {isSavingMultiDay 
                                         ? 'Menyimpan...' 
                                         : entryMode === 'weekly' 
@@ -757,7 +770,7 @@ export default function AttendancePage() {
                                         <Clock className="w-3 h-3 text-emerald-600" />
                                         Hari Ini
                                     </button>
-                                    <span className="px-2.5 py-1 rounded bg-[#093c30] text-white font-bold">
+                                    <span className="px-2.5 py-1 rounded bg-[#0b57d0] text-white font-bold">
                                         Hari {currentDayObj?.day_name || getDayNameFromDate(singleDate) || 'Hari Ini'}
                                     </span>
                                 </div>
@@ -826,17 +839,17 @@ export default function AttendancePage() {
                                         onClick={() => setActiveDayIndex(idx)}
                                         className={`px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-2 shrink-0 ${
                                             isActive
-                                                ? 'bg-[#093c30] text-white shadow-xs'
+                                                ? 'bg-[#0b57d0] text-white shadow-xs'
                                                 : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
                                         }`}
                                     >
-                                        <Calendar className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
+                                        <Calendar className={`w-3.5 h-3.5 ${isActive ? 'text-blue-200' : 'text-slate-400'}`} />
                                         <span>{idx + 1}. {d.day_name}</span>
-                                        <span className={`text-[10px] font-mono ${isActive ? 'text-emerald-200' : 'text-slate-400'}`}>
+                                        <span className={`text-[10px] font-mono ${isActive ? 'text-blue-100' : 'text-slate-400'}`}>
                                             ({d.date.substring(5)})
                                         </span>
                                         {d.date === todayStr && (
-                                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${isActive ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'}`}>
+                                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-blue-50 text-[#0b57d0] border border-blue-200'}`}>
                                                 Hari Ini
                                             </span>
                                         )}
@@ -1116,9 +1129,9 @@ export default function AttendancePage() {
                                 type="button"
                                 onClick={handleSaveAllDays}
                                 disabled={isSavingMultiDay}
-                                className="px-5 py-2.5 bg-[#093c30] hover:bg-[#064e3b] text-white text-xs font-bold rounded shadow-xs transition flex items-center justify-center gap-2"
+                                className="px-5 py-2.5 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition flex items-center justify-center gap-2"
                             >
-                                <Save className="w-4 h-4 text-emerald-300" />
+                                <Save className="w-4 h-4 text-blue-200" />
                                 {isSavingMultiDay 
                                     ? 'Menyimpan...' 
                                     : entryMode === 'weekly' 
@@ -1530,9 +1543,9 @@ export default function AttendancePage() {
                         </button>
                         <button
                             type="submit"
-                            className="px-5 py-2 bg-[#093c30] text-white text-xs font-bold rounded-md hover:bg-[#064e3b] shadow-xs flex items-center gap-1.5"
+                            className="px-5 py-2 bg-[#0b57d0] text-white text-xs font-bold rounded-md hover:bg-[#0842a0] shadow-xs flex items-center gap-1.5"
                         >
-                            <Check className="w-4 h-4 text-emerald-300" />
+                            <Check className="w-4 h-4 text-blue-200" />
                             Terapkan ke Rentang Hari
                         </button>
                     </div>
@@ -1632,7 +1645,7 @@ export default function AttendancePage() {
                         <button
                             type="submit"
                             disabled={isSubmittingSingle}
-                            className="px-5 py-2 bg-[#093c30] text-white text-xs font-bold rounded-md hover:bg-[#064e3b] shadow-xs"
+                            className="px-5 py-2 bg-[#0b57d0] text-white text-xs font-bold rounded-md hover:bg-[#0842a0] shadow-xs"
                         >
                             Simpan Presensi Pertemuan
                         </button>

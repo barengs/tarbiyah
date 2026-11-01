@@ -35,6 +35,11 @@ class TeachingJournalController extends Controller
                 'presences as alpa_count'  => function ($q) { $q->where('status', 'alpa'); },
             ]);
 
+            $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
+            if ($targetYearId) {
+                $query->where('academic_year_id', $targetYearId);
+            }
+
             if ($request->has('class_group_id')) {
                 $query->where('class_group_id', $request->query('class_group_id'));
             }
@@ -934,9 +939,17 @@ class TeachingJournalController extends Controller
                 $dayName = $dayNames[$isoDay] ?? 'Hari Belajar';
                 $curDateStr = $cur->format('Y-m-d');
 
-                // Jadwal pada hari tersebut
+                $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
+                $targetQuarterId = $request->query('academic_quarter_id') ?: $request->header('X-Academic-Quarter-Id');
+
+                // Jadwal pada hari tersebut sesuai tahun akademik & triwulan
                 $schedules = LessonSchedule::with(['lessonHour', 'study', 'teacher'])
                     ->where('class_group_id', $classGroup->id)
+                    ->when($targetYearId, fn($q) => $q->where('academic_year_id', $targetYearId))
+                    ->when($targetQuarterId, fn($q) => $q->where(function ($sub) use ($targetQuarterId) {
+                        $sub->where('academic_quarter_id', $targetQuarterId)
+                            ->orWhereNull('academic_quarter_id');
+                    }))
                     ->where('day', $isoDay)
                     ->where('is_active', true)
                     ->get()
@@ -1168,6 +1181,11 @@ class TeachingJournalController extends Controller
                 'presences as alpa_count'  => function ($q) { $q->where('status', 'alpa'); },
                 'presences as total_presented'
             ]);
+
+            $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
+            if ($targetYearId) {
+                $query->where('academic_year_id', $targetYearId);
+            }
 
             if ($request->has('class_group_id')) {
                 $query->where('class_group_id', $request->query('class_group_id'));

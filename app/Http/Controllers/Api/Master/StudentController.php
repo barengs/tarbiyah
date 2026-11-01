@@ -18,7 +18,30 @@ class StudentController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Student::query();
+            $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
+            $selectedYear = $targetYearId
+                ? AcademicYear::find($targetYearId)
+                : (AcademicYear::where('active', true)->first() ?? AcademicYear::latest('id')->first());
+
+            $yearPeriodDash = $selectedYear ? str_replace('/', '-', trim($selectedYear->year)) : null;
+            $yearPeriodSlash = $selectedYear ? trim($selectedYear->year) : null;
+
+            $yearScope = function ($q) use ($selectedYear, $yearPeriodDash, $yearPeriodSlash) {
+                if (!$selectedYear) {
+                    return;
+                }
+                if ($selectedYear->active) {
+                    $q->whereHas('studentClasses', fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                      ->orWhereNull('period')
+                      ->orWhere('period', '<=', $yearPeriodDash)
+                      ->orWhere('period', $yearPeriodSlash);
+                } else {
+                    $q->whereHas('studentClasses', fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                      ->orWhereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]));
+                }
+            };
+
+            $query = Student::query()->where($yearScope);
 
             // Filter tipe siswa: mukim (santri) vs luar (reguler kalong)
             if ($request->has('is_mukim') && $request->query('is_mukim') !== '' && $request->query('is_mukim') !== 'all') {
@@ -62,8 +85,9 @@ class StudentController extends Controller
 
             // Filter berdasarkan jenjang pendidikan (melalui rombel aktif: class_group -> education_id)
             if ($request->has('education_id')) {
-                $query->whereHas('studentClasses', function ($q) use ($request) {
+                $query->whereHas('studentClasses', function ($q) use ($request, $selectedYear) {
                     $q->where('status', 'aktif')
+                      ->when($selectedYear, fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
                       ->whereHas('classGroup', function ($cg) use ($request) {
                           $cg->where('education_id', $request->query('education_id'));
                       });
@@ -72,8 +96,9 @@ class StudentController extends Controller
 
             // Filter berdasarkan kelas (melalui rombel aktif: class_group -> education_class_id)
             if ($request->has('education_class_id')) {
-                $query->whereHas('studentClasses', function ($q) use ($request) {
+                $query->whereHas('studentClasses', function ($q) use ($request, $selectedYear) {
                     $q->where('status', 'aktif')
+                      ->when($selectedYear, fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
                       ->whereHas('classGroup', function ($cg) use ($request) {
                           $cg->where('education_class_id', $request->query('education_class_id'));
                       });
@@ -82,25 +107,32 @@ class StudentController extends Controller
 
             // Filter berdasarkan rombel (class_group)
             if ($request->has('class_group_id')) {
-                $query->whereHas('studentClasses', function ($q) use ($request) {
+                $query->whereHas('studentClasses', function ($q) use ($request, $selectedYear) {
                     $q->where('status', 'aktif')
+                      ->when($selectedYear, fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
                       ->where('class_group_id', $request->query('class_group_id'));
                 });
             }
 
-            // Eager load rombel aktif untuk kolom Kelas/Rombel di frontend
+            // Eager load rombel aktif sesuai tahun akademik terpilih untuk kolom Kelas/Rombel di frontend
             $query->with([
-                'activeClass',
+                'activeClass' => function ($q) use ($selectedYear) {
+                    if ($selectedYear) {
+                        $q->where('academic_year_id', $selectedYear->id);
+                    }
+                },
                 'activeClass.classGroup',
+                'activeClass.classGroup.academicYear',
                 'activeClass.classGroup.education',
                 'activeClass.classGroup.program',
                 'activeClass.classGroup.educationClass',
                 'program',
             ]);
 
-            // Ringkasan komposisi siswa (dinamis, dihitung dari seluruh populasi siswa)
-            $summaryTotal = Student::count();
-            $summaryMukim = Student::where('is_mukim', true)->count();
+            // Ringkasan komposisi siswa (dinamis sesuai tahun akademik terpilih)
+            $summaryBase = Student::query()->where($yearScope);
+            $summaryTotal = (clone $summaryBase)->count();
+            $summaryMukim = (clone $summaryBase)->where('is_mukim', true)->count();
             $summaryLuar  = $summaryTotal - $summaryMukim;
             $summary = [
                 'total'         => $summaryTotal,
@@ -110,8 +142,8 @@ class StudentController extends Controller
                 'luar_percent'  => $summaryTotal > 0 ? round(($summaryLuar / $summaryTotal) * 100, 1) : 0,
             ];
 
-            // Opsi filter: angkatan yang tersedia (dinamis dari data)
-            $periodOptions = DB::table('students')->select('period')->whereNotNull('period')->distinct()->orderBy('period')->pluck('period')->all();
+            // Opsi filter: angkatan yang tersedia (dinamis dari data tahun akademik terpilih)
+            $periodOptions = (clone $summaryBase)->select('period')->whereNotNull('period')->distinct()->orderBy('period')->pluck('period')->all();
             $filterOptions = [
                 'periods' => $periodOptions,
                 'programs' => \App\Models\Program::query()->orderBy('name')->get(['id', 'name', 'code']),
@@ -480,7 +512,7 @@ class StudentController extends Controller
 
             $hasAnomaly = $femaleAnomalyCount > 0;
             $anomalyMessage = $hasAnomaly 
-                ? "Terdeteksi {$femaleAnomalyCount} data berindikasi jenis kelamin perempuan (kesalahan algoritma). Sesuai ketentuan pesantren saat ini seluruh santri adalah Banin (L). Sistem otomatis menstandarkan menjadi Banin (L)."
+                ? "Terdeteksi {$femaleAnomalyCount} data berindikasi jenis kelamin perempuan (kesalahan algoritma). Sesuai ketentuan pesantren saat ini seluruh santri adalah Laki-laki / Putra (L). Sistem otomatis menstandarkan menjadi Laki-laki / Putra (L)."
                 : null;
 
             return response()->json([
@@ -613,7 +645,7 @@ class StudentController extends Controller
                     'total_fetched'       => count($students),
                     'created'             => $created,
                     'updated'             => $updated,
-                    'gender_audit'        => '100% Banin (L)',
+                    'gender_audit'        => '100% Putra (L)',
                     'anomalies_corrected' => $anomalyCount,
                 ],
             ], 200);
@@ -674,6 +706,17 @@ class StudentController extends Controller
 
     public function store(Request $request)
     {
+        $targetYearId = $request->input('academic_year_id') ?: $request->header('X-Academic-Year-Id');
+        $selectedYear = $targetYearId
+            ? AcademicYear::find($targetYearId)
+            : AcademicYear::where('active', true)->first();
+
+        if (empty($request->period) && $selectedYear) {
+            $request->merge([
+                'period' => str_replace('/', '-', trim($selectedYear->year)),
+            ]);
+        }
+
         // Jika NIS kosong, bentuk otomatis dari sistem
         if (empty($request->nis)) {
             $request->merge([

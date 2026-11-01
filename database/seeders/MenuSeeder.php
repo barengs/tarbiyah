@@ -18,9 +18,9 @@ class MenuSeeder extends Seeder
         $this->seedGroup('kurikulum', 'Jenjang & Kurikulum', 'Building2', 2);
         $this->seedGroup('kelas-rombel', 'Kelas & Rombel', 'Layers', 3);
         $this->seedGroup('santri', 'Santri & Kenaikan Kelas', 'Users', 4);
-        $this->seedTop('kbm', 'Jadwal Pelajaran & Halaqah', '/kbm', 'Clock', 5, 'kbm');
+        $this->seedTop('kbm', 'Jadwal Pelajaran (KBM)', '/kbm', 'Clock', 5, 'kbm');
         $this->seedTop('presensi', 'Presensi & Disiplin', '/presensi', 'ClipboardCheck', 6, 'presensi');
-        $this->seedTop('rapor', 'Rekap Tahfizh & Nilai', '/rapor', 'ScrollText', 7, 'rapor');
+        $this->seedTop('rapor', 'Penilaian & Buku Rapor', '/rapor', 'ScrollText', 7, 'rapor');
         $this->seedGroup('pengaturan', 'Pengaturan', 'Settings', 8);
 
         // --- Jenjang & Kurikulum ---
@@ -39,9 +39,10 @@ class MenuSeeder extends Seeder
         $this->seedChild('santri', 'kenaikan-kelas', 'Kenaikan Kelas & Mutasi', '/kurikulum/kenaikan-kelas', 'TrendingUp', 2, 'kenaikan_kelas');
 
         // --- Pengaturan (admin) ---
-        $this->seedChild('pengaturan', 'user', 'Manajemen Pengguna', '/admin/pengguna', 'UserCog', 1, 'user');
-        $this->seedChild('pengaturan', 'menu', 'Manajemen Menu', '/admin/menu', 'LayoutGrid', 2, 'menu');
-        $this->seedChild('pengaturan', 'role', 'Role & Hak Akses', '/admin/role', 'ShieldCheck', 3, 'role');
+        $this->seedChild('pengaturan', 'masa-nilai', 'Masa Input Nilai', '/pengaturan/masa-nilai', 'CalendarCheck2', 1, 'pengaturan');
+        $this->seedChild('pengaturan', 'user', 'Manajemen Pengguna', '/admin/pengguna', 'UserCog', 2, 'user');
+        $this->seedChild('pengaturan', 'menu', 'Manajemen Menu', '/admin/menu', 'LayoutGrid', 3, 'menu');
+        $this->seedChild('pengaturan', 'role', 'Role & Hak Akses', '/admin/role', 'ShieldCheck', 4, 'role');
     }
 
     private function seedTop(string $slug, string $name, ?string $path, string $icon, int $order, ?string $perm): void

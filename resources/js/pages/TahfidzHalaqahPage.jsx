@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
 import { 
     useGetClassGroupsQuery, 
     useGetClassGroupQuery,
@@ -19,8 +20,10 @@ import { Plus, Edit2, Trash2, Award, ArrowUpRight, Users, UserPlus, Sparkles, Bo
 import { toast } from 'react-toastify';
 
 export default function TahfidzHalaqahPage() {
+    const { selectedYearId } = useSelector((state) => state.academicContext || {});
     const { data: groupsData, isLoading } = useGetClassGroupsQuery({
         progression_type: 'leveling',
+        ...(selectedYearId && { academic_year_id: selectedYearId }),
     });
     const groups = groupsData?.data || [];
 
@@ -89,7 +92,7 @@ export default function TahfidzHalaqahPage() {
         const payload = {
             name,
             target_level: targetLevel,
-            academic_year_id: 1,
+            academic_year_id: editingItem?.academic_year_id || selectedYearId || 1,
             educational_institution_id: tahfidzInst?.id || 1,
             homeroom_teacher_id: homeroomTeacherId || null,
             progression_type: 'leveling',
@@ -368,7 +371,7 @@ export default function TahfidzHalaqahPage() {
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => setPromotingStudent(sc.student)}
-                                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white font-semibold rounded-md hover:bg-emerald-700 shadow-xs text-xs"
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#0b57d0] text-white font-semibold rounded-md hover:bg-[#0842a0] shadow-xs text-xs"
                                             title="Promosikan Santri ke Halaqah Lebih Tinggi"
                                         >
                                             <ArrowUpRight className="w-3.5 h-3.5" /> Naik Level
@@ -446,7 +449,7 @@ export default function TahfidzHalaqahPage() {
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-[#0b57d0] rounded-md hover:bg-[#0842a0]"
                         >
                             Konfirmasi Naik Level
                         </button>

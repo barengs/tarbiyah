@@ -68,8 +68,20 @@ export const classGroupApi = apiSlice.injectEndpoints({
             invalidatesTags: ['ClassGroup'],
         }),
         getPromotionCandidates: builder.query({
-            query: (classGroupId) => `master/class-groups/${classGroupId}/promotion-candidates`,
-            providesTags: (result, error, id) => [{ type: 'ClassGroup', id: `candidates-${id}` }],
+            query: (arg) => {
+                if (typeof arg === 'object' && arg !== null) {
+                    const { id, ...params } = arg;
+                    return {
+                        url: `master/class-groups/${id}/promotion-candidates`,
+                        params,
+                    };
+                }
+                return `master/class-groups/${arg}/promotion-candidates`;
+            },
+            providesTags: (result, error, arg) => {
+                const id = typeof arg === 'object' && arg !== null ? arg.id : arg;
+                return ['ClassGroup', { type: 'ClassGroup', id: `candidates-${id}` }];
+            },
         }),
         bulkPromoteStudents: builder.mutation({
             query: (data) => ({

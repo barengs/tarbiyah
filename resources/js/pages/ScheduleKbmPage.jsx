@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { 
     useGetSchedulesQuery, 
     useCreateScheduleMutation, 
@@ -37,29 +38,38 @@ export default function ScheduleKbmPage() {
     const [viewMode, setViewMode] = useState('inverted_matrix'); // 'inverted_matrix' | 'weekly_matrix' | 'list_table'
 
     // ═══════════════════════════════════════════════════════════
-    // KALENDER AKADEMIK HIJRIYAH BERBASIS TRIWULAN
+    // KALENDER AKADEMIK HIJRIYAH BERBASIS TRIWULAN (SINKRON DENGAN NAVBAR)
     // ═══════════════════════════════════════════════════════════
+    const { selectedYearId: globalYearId, selectedQuarterId: globalQuarterId } = useSelector(
+        (state) => state.academicContext || {}
+    );
     const { data: yearsData } = useGetAcademicYearsQuery();
     const academicYears = yearsData?.data || [];
     const activeYearObj = useMemo(() => academicYears.find(y => y.active) || academicYears[0], [academicYears]);
 
     const [selectedYearId, setSelectedYearId] = useState('');
     useEffect(() => {
-        if (activeYearObj?.id && !selectedYearId) {
+        if (globalYearId) {
+            setSelectedYearId(String(globalYearId));
+        } else if (activeYearObj?.id && !selectedYearId) {
             setSelectedYearId(String(activeYearObj.id));
         }
-    }, [activeYearObj, selectedYearId]);
+    }, [globalYearId, activeYearObj]);
 
     const { data: quartersData } = useGetAcademicQuartersQuery(selectedYearId || undefined);
     const quarters = quartersData?.data || [];
 
     const [selectedQuarterId, setSelectedQuarterId] = useState('');
     useEffect(() => {
-        if (quarters.length > 0 && !selectedQuarterId) {
+        if (globalQuarterId && quarters.some(q => String(q.id) === String(globalQuarterId))) {
+            setSelectedQuarterId(String(globalQuarterId));
+        } else if (quarters.length > 0) {
             const activeQ = quarters.find(q => q.active) || quarters[0];
             if (activeQ) setSelectedQuarterId(String(activeQ.id));
+        } else {
+            setSelectedQuarterId('');
         }
-    }, [quarters, selectedQuarterId]);
+    }, [globalQuarterId, quarters]);
 
     const { data: educationsData } = useGetEducationsQuery();
     const educations = educationsData?.data || [];
@@ -85,7 +95,9 @@ export default function ScheduleKbmPage() {
     const [itemsPerPage, setItemsPerPage] = useState(8);
 
     // Fetch Master Data
-    const { data: groupsData, isLoading: isLoadingGroups } = useGetClassGroupsQuery();
+    const { data: groupsData, isLoading: isLoadingGroups } = useGetClassGroupsQuery(
+        selectedYearId ? { academic_year_id: selectedYearId } : undefined
+    );
     const allGroups = groupsData?.data || [];
 
     const { data: hoursData } = useGetLessonHoursQuery();
@@ -94,8 +106,11 @@ export default function ScheduleKbmPage() {
         return [...raw].sort((a, b) => (a.order || 0) - (b.order || 0));
     }, [hoursData]);
 
-    const { data: studiesData } = useGetStudiesQuery();
-    const studies = studiesData?.data || [];
+    const { data: studiesData } = useGetStudiesQuery({ for_schedule: 1 });
+    const studies = useMemo(() => {
+        const raw = studiesData?.data || [];
+        return raw.filter(s => s.study_type !== 'muatan_lokal');
+    }, [studiesData]);
 
     const { data: teachersData } = useGetTeachersQuery();
     const teachers = teachersData?.data || [];
@@ -498,7 +513,7 @@ export default function ScheduleKbmPage() {
                             onClick={() => { setSelectedProgram('all'); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
                             className={`px-3 py-1.5 text-xs font-bold rounded transition ${
                                 selectedProgram === 'all'
-                                    ? 'bg-white text-slate-900 shadow-xs'
+                                    ? 'bg-[#0b57d0] text-white shadow-xs'
                                     : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
@@ -508,7 +523,7 @@ export default function ScheduleKbmPage() {
                             onClick={() => { setSelectedProgram('Kubar'); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
                             className={`px-3 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
                                 selectedProgram === 'Kubar'
-                                    ? 'bg-[#093c30] text-white shadow-xs'
+                                    ? 'bg-[#0b57d0] text-white shadow-xs'
                                     : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
@@ -518,7 +533,7 @@ export default function ScheduleKbmPage() {
                             onClick={() => { setSelectedProgram('Tibyan'); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
                             className={`px-3 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
                                 selectedProgram === 'Tibyan'
-                                    ? 'bg-[#093c30] text-white shadow-xs'
+                                    ? 'bg-[#0b57d0] text-white shadow-xs'
                                     : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
@@ -889,7 +904,7 @@ export default function ScheduleKbmPage() {
                                                 onClick={() => setCurrentPage(pg)}
                                                 className={`px-3 py-1 text-xs font-semibold rounded ${
                                                     currentPage === pg
-                                                        ? 'bg-[#093c30] text-white'
+                                                        ? 'bg-[#0b57d0] text-white'
                                                         : 'text-slate-600 hover:bg-slate-100'
                                                 }`}
                                             >
@@ -1163,9 +1178,9 @@ export default function ScheduleKbmPage() {
                                             setJNotes('');
                                             setJournalModalOpen(true);
                                         }}
-                                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#093c30] text-white text-xs font-bold rounded-md hover:bg-[#064e3b] shadow-xs transition"
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b57d0] text-white text-xs font-bold rounded-md hover:bg-[#0842a0] shadow-xs transition"
                                     >
-                                        <Plus className="w-4 h-4 text-emerald-300" /> Buka Jurnal Pertemuan Baru
+                                        <Plus className="w-4 h-4 text-blue-200" /> Buka Jurnal Pertemuan Baru
                                     </button>
                                 </div>
                             </div>
@@ -1254,7 +1269,7 @@ export default function ScheduleKbmPage() {
                                             setJTopic('KBM Perdana Tatap Muka');
                                             setJournalModalOpen(true);
                                         }}
-                                        className="px-3.5 py-2 bg-[#093c30] text-white text-xs font-semibold rounded hover:bg-[#064e3b] transition"
+                                        className="px-3.5 py-2 bg-[#0b57d0] text-white text-xs font-semibold rounded hover:bg-[#0842a0] transition"
                                     >
                                         + Buka Jurnal Pertemuan Baru
                                     </button>
@@ -1746,7 +1761,7 @@ export default function ScheduleKbmPage() {
                         <button
                             type="submit"
                             disabled={isCreatingSchedule || !schedStudyId || !schedTeacherId || !schedHourId}
-                            className="px-4 py-2 bg-[#093c30] text-white text-sm font-semibold rounded-md disabled:opacity-50 hover:bg-[#064e3b]"
+                            className="px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md disabled:opacity-50 hover:bg-[#0842a0]"
                         >
                             Simpan Jadwal
                         </button>
@@ -1853,7 +1868,7 @@ export default function ScheduleKbmPage() {
                         <button
                             type="submit"
                             disabled={isCreatingJournal}
-                            className="px-4 py-2 bg-[#093c30] text-white text-sm font-semibold rounded-md disabled:opacity-50 hover:bg-[#064e3b]"
+                            className="px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md disabled:opacity-50 hover:bg-[#0842a0]"
                         >
                             Buka Jurnal & Absensi
                         </button>
@@ -1901,7 +1916,7 @@ export default function ScheduleKbmPage() {
                             <button
                                 type="submit"
                                 disabled={isSavingPresences}
-                                className="px-4 py-2 bg-[#093c30] text-white text-sm font-semibold rounded-md disabled:opacity-50 hover:bg-[#064e3b]"
+                                className="px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md disabled:opacity-50 hover:bg-[#0842a0]"
                             >
                                 Simpan Absensi Santri
                             </button>

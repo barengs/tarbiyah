@@ -259,26 +259,11 @@ export default function TeacherPage() {
                 </div>
                 <button
                     onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#093c30] text-white text-sm font-semibold rounded-md hover:bg-[#072d24] transition-colors shadow-sm self-start sm:self-auto"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md hover:bg-[#0842a0] transition-colors shadow-sm self-start sm:self-auto"
                 >
                     <Plus className="w-4 h-4" />
                     Daftarkan Guru Baru
                 </button>
-            </div>
-
-            {/* Filter */}
-            <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-slate-500">Filter Status:</span>
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="text-xs border border-slate-300 rounded-md px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#093c30]"
-                >
-                    <option value="">Semua Status Guru</option>
-                    <option value="tetap">Guru Tetap Pesantren</option>
-                    <option value="honorer">Honorer</option>
-                    <option value="luar">Guru Luar (Mandiri)</option>
-                </select>
             </div>
 
             {/* Note banner */}
@@ -296,6 +281,20 @@ export default function TeacherPage() {
                 isLoading={isLoading}
                 emptyMessage="Belum ada data guru terdaftar"
                 onRowClick={(row) => navigate("/guru/" + row.id)}
+                filters={
+                    <div className="flex items-center gap-1.5">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#093c30] focus:border-[#093c30] transition-colors cursor-pointer shadow-2xs"
+                        >
+                            <option value="">Semua Status Guru</option>
+                            <option value="tetap">Guru Tetap Pesantren</option>
+                            <option value="honorer">Honorer</option>
+                            <option value="luar">Guru Luar (Mandiri)</option>
+                        </select>
+                    </div>
+                }
             />
 
             {/* Form Modal Tambah / Edit Guru */}
@@ -316,7 +315,7 @@ export default function TeacherPage() {
                             type="submit"
                             form="teacher-form"
                             disabled={isCreating || isUpdating}
-                            className="px-4 py-2 text-xs font-semibold text-white bg-[#093c30] hover:bg-[#072d24] rounded-md transition-colors disabled:opacity-50"
+                            className="px-4 py-2 text-xs font-semibold text-white bg-[#0b57d0] hover:bg-[#0842a0] rounded-md transition-colors disabled:opacity-50"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan Data'}
                         </button>

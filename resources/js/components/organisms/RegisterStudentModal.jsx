@@ -282,7 +282,7 @@ export default function RegisterStudentModal({
                             <button
                                 type="button"
                                 onClick={() => setActiveTab(activeTab === 'personal' ? 'parents' : 'academic')}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#093c30] hover:bg-[#072d24] rounded-md transition shadow-xs"
+                                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#0b57d0] hover:bg-[#0842a0] rounded-md transition shadow-xs"
                             >
                                 Lanjut
                                 <ArrowRight className="w-3.5 h-3.5" />
@@ -292,7 +292,7 @@ export default function RegisterStudentModal({
                                 type="button"
                                 onClick={handleSubmit}
                                 disabled={isSubmitting}
-                                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-[#093c30] hover:bg-[#072d24] rounded-md transition shadow-xs disabled:opacity-50"
+                                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-[#0b57d0] hover:bg-[#0842a0] rounded-md transition shadow-xs disabled:opacity-50"
                             >
                                 {isSubmitting ? (
                                     <>
@@ -373,7 +373,7 @@ export default function RegisterStudentModal({
                         onClick={() => setActiveTab('personal')}
                         className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all ${
                             activeTab === 'personal'
-                                ? 'border-[#093c30] text-[#093c30] bg-emerald-50/30'
+                                ? 'border-[#0b57d0] text-[#0b57d0] bg-[#0b57d0]/[0.08]'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -385,7 +385,7 @@ export default function RegisterStudentModal({
                         onClick={() => setActiveTab('parents')}
                         className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all ${
                             activeTab === 'parents'
-                                ? 'border-[#093c30] text-[#093c30] bg-emerald-50/30'
+                                ? 'border-[#0b57d0] text-[#0b57d0] bg-[#0b57d0]/[0.08]'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -397,7 +397,7 @@ export default function RegisterStudentModal({
                         onClick={() => setActiveTab('academic')}
                         className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all ${
                             activeTab === 'academic'
-                                ? 'border-[#093c30] text-[#093c30] bg-emerald-50/30'
+                                ? 'border-[#0b57d0] text-[#0b57d0] bg-[#0b57d0]/[0.08]'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -475,8 +475,8 @@ export default function RegisterStudentModal({
                                     onChange={(e) => setGender(e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                 >
-                                    <option value="L">Laki-laki (Banin)</option>
-                                    <option value="P">Perempuan (Banat)</option>
+                                    <option value="L">Laki-laki (Putra)</option>
+                                    <option value="P">Perempuan (Putri)</option>
                                 </select>
                             </div>
 

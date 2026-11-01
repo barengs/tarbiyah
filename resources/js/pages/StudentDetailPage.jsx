@@ -143,7 +143,7 @@ export default function StudentDetailPage() {
                 <p className="text-slate-600 font-semibold mb-4">Data siswa tidak ditemukan atau telah dihapus.</p>
                 <Link
                     to="/siswa"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#093c30] text-white rounded-md text-sm font-semibold hover:bg-[#072d24] transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white rounded-md text-sm font-semibold hover:bg-[#0842a0] transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Siswa
                 </Link>
@@ -203,9 +203,9 @@ export default function StudentDetailPage() {
                     </button>
                     <button
                         onClick={openEditModal}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-[#093c30] text-xs font-semibold text-white hover:bg-[#072d24] transition-colors shadow-2xs"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-[#0b57d0] text-xs font-semibold text-white hover:bg-[#0842a0] transition-colors shadow-2xs"
                     >
-                        <Edit2 className="w-3.5 h-3.5 text-emerald-200" />
+                        <Edit2 className="w-3.5 h-3.5 text-blue-200" />
                         Edit Data Siswa
                     </button>
                     <button
@@ -250,7 +250,7 @@ export default function StudentDetailPage() {
                                         ? 'bg-sky-50 text-sky-800 border-sky-200' 
                                         : 'bg-rose-50 text-rose-800 border-rose-200'
                                 }`}>
-                                    {student.gender === 'L' ? 'Laki-laki (Banin)' : 'Perempuan (Banat)'}
+                                    {student.gender === 'L' ? 'Laki-laki (Putra)' : 'Perempuan (Putri)'}
                                 </span>
                             </div>
 
@@ -350,7 +350,7 @@ export default function StudentDetailPage() {
                                         <div>
                                             <dt className="text-slate-400 font-medium">Jenis Kelamin</dt>
                                             <dd className="text-slate-800 font-semibold mt-0.5">
-                                                {student.gender === 'L' ? 'Laki-laki (Banin)' : 'Perempuan (Banat)'}
+                                                {student.gender === 'L' ? 'Laki-laki (Putra)' : 'Perempuan (Putri)'}
                                             </dd>
                                         </div>
                                         <div>
@@ -535,7 +535,7 @@ export default function StudentDetailPage() {
                             type="submit"
                             form="edit-student-form"
                             disabled={isUpdating}
-                            className="px-4 py-2 text-xs font-semibold text-white bg-[#093c30] hover:bg-[#072d24] rounded-md transition-colors disabled:opacity-50"
+                            className="px-4 py-2 text-xs font-semibold text-white bg-[#0b57d0] hover:bg-[#0842a0] rounded-md transition-colors disabled:opacity-50"
                         >
                             {isUpdating ? 'Menyimpan...' : 'Simpan Perubahan'}
                         </button>
@@ -599,8 +599,8 @@ export default function StudentDetailPage() {
                                 onChange={(e) => setGender(e.target.value)}
                                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-[#093c30] focus:border-transparent outline-none bg-white"
                             >
-                                <option value="L">Laki-laki (Banin)</option>
-                                <option value="P">Perempuan (Banat)</option>
+                                <option value="L">Laki-laki (Putra)</option>
+                                <option value="P">Perempuan (Putri)</option>
                             </select>
                         </div>
                         <div>

@@ -71,11 +71,11 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
                             type="button"
                             onClick={handleExecutePull}
                             disabled={isPreviewLoading || isPulling || !preview}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-[#093c30] hover:bg-[#062c23] rounded-md transition shadow-xs disabled:opacity-50"
+                            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-[#0b57d0] hover:bg-[#0842a0] rounded-md transition shadow-xs disabled:opacity-50"
                         >
                             {isPulling ? (
                                 <>
-                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-300" />
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-200" />
                                     <span>Sedang Menarik Data...</span>
                                 </>
                             ) : (
@@ -179,7 +179,7 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
                             </div>
                         </div>
 
-                        {/* Validasi Integritas Gender: Santri 100% Banin / Putra */}
+                        {/* Validasi Integritas Gender: Santri 100% Putra */}
                         {preview.has_female_anomaly ? (
                             <div className="p-3.5 rounded-lg border border-rose-300 bg-rose-50 text-rose-900 flex items-start gap-3 text-xs animate-in fade-in">
                                 <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
@@ -188,7 +188,7 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
                                         Peringatan: Kesalahan Algoritma Terdeteksi ({preview.female_anomaly_count} Santri Perempuan)
                                     </p>
                                     <p className="mt-0.5 text-rose-700 leading-relaxed">
-                                        {preview.anomaly_message || 'Sesuai ketentuan pesantren saat ini, tidak ada santri berjenis kelamin perempuan. Seluruh data otomatis distandarkan sebagai Banin (Laki-laki) saat disimpan.'}
+                                        {preview.anomaly_message || 'Sesuai ketentuan pesantren saat ini, tidak ada santri berjenis kelamin perempuan. Seluruh data otomatis distandarkan sebagai Putra (Laki-laki) saat disimpan.'}
                                     </p>
                                 </div>
                             </div>
@@ -198,7 +198,7 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
                                     <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                                     <div>
                                         <span className="font-bold text-slate-800">Validasi Integritas Gender: </span>
-                                        <span className="text-emerald-800 font-semibold">100% Banin (Laki-laki)</span>
+                                        <span className="text-emerald-800 font-semibold">100% Putra (Laki-laki)</span>
                                         <span className="text-slate-500 text-[11px] block sm:inline sm:ml-1">
                                             &bull; Tidak ditemukan santri perempuan (sesuai ketentuan pesantren).
                                         </span>
@@ -255,7 +255,7 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
                                                 </td>
                                                 <td className="py-2 px-3">
                                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
-                                                        L (Banin)
+                                                        L (Putra)
                                                     </span>
                                                 </td>
                                                 <td className="py-2 px-3 text-slate-500 truncate max-w-[140px]">

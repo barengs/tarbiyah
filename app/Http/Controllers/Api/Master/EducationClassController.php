@@ -15,7 +15,7 @@ class EducationClassController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = EducationClass::with(['education.institution', 'classGroups']);
+            $query = EducationClass::with(['education.institution', 'institution', 'classGroups']);
 
             if ($request->has('education_id') && $request->query('education_id')) {
                 $query->where('education_id', $request->query('education_id'));
@@ -23,8 +23,11 @@ class EducationClassController extends Controller
 
             if ($request->has('educational_institution_id') && $request->query('educational_institution_id')) {
                 $instId = $request->query('educational_institution_id');
-                $query->whereHas('education', function ($q) use ($instId) {
-                    $q->where('educational_institution_id', $instId);
+                $query->where(function ($q) use ($instId) {
+                    $q->where('educational_institution_id', $instId)
+                      ->orWhereHas('education', function ($sq) use ($instId) {
+                          $sq->where('educational_institution_id', $instId);
+                      });
                 });
             }
 
@@ -50,18 +53,27 @@ class EducationClassController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'education_id' => 'nullable|exists:educations,id',
-            'code'         => 'required|string|max:50|unique:education_classes,code',
-            'name'         => 'required|string|max:100',
+            'educational_institution_id' => 'nullable|exists:educational_institutions,id',
+            'education_id'               => 'nullable|exists:educations,id',
+            'code'                       => 'required|string|max:50|unique:education_classes,code',
+            'name'                       => 'required|string|max:100',
         ]);
 
         try {
+            if (!empty($validated['educational_institution_id']) && empty($validated['education_id'])) {
+                $edu = \App\Models\Education::where('educational_institution_id', $validated['educational_institution_id'])->first();
+                $validated['education_id'] = $edu?->id;
+            } elseif (!empty($validated['education_id']) && empty($validated['educational_institution_id'])) {
+                $edu = \App\Models\Education::find($validated['education_id']);
+                $validated['educational_institution_id'] = $edu?->educational_institution_id;
+            }
+
             $class = EducationClass::create($validated);
 
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Kelas pendidikan berhasil ditambahkan',
-                'data'    => $class->load('education.institution'),
+                'data'    => $class->load(['education.institution', 'institution']),
             ], 201);
         } catch (\Exception $e) {
             Log::error('Error creating education class: ' . $e->getMessage());
@@ -108,18 +120,27 @@ class EducationClassController extends Controller
         }
 
         $validated = $request->validate([
-            'education_id' => 'nullable|exists:educations,id',
-            'code'         => 'sometimes|required|string|max:50|unique:education_classes,code,' . $id,
-            'name'         => 'sometimes|required|string|max:100',
+            'educational_institution_id' => 'nullable|exists:educational_institutions,id',
+            'education_id'               => 'nullable|exists:educations,id',
+            'code'                       => 'sometimes|required|string|max:50|unique:education_classes,code,' . $id,
+            'name'                       => 'sometimes|required|string|max:100',
         ]);
 
         try {
+            if (!empty($validated['educational_institution_id']) && empty($validated['education_id'])) {
+                $edu = \App\Models\Education::where('educational_institution_id', $validated['educational_institution_id'])->first();
+                $validated['education_id'] = $edu?->id;
+            } elseif (!empty($validated['education_id']) && empty($validated['educational_institution_id'])) {
+                $edu = \App\Models\Education::find($validated['education_id']);
+                $validated['educational_institution_id'] = $edu?->educational_institution_id;
+            }
+
             $class->update($validated);
 
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Kelas pendidikan berhasil diperbarui',
-                'data'    => $class->fresh('education.institution'),
+                'data'    => $class->fresh(['education.institution', 'institution']),
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error updating education class: ' . $e->getMessage());

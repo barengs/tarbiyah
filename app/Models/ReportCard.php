@@ -12,15 +12,21 @@ class ReportCard extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
-        'average_score'     => 'decimal:2',
-        'grades_summary'    => 'array',
+        'average_score'      => 'decimal:2',
+        'previous_average'   => 'decimal:2',
+        'grades_summary'     => 'array',
         'attendance_summary' => 'array',
-        'is_published'      => 'boolean',
+        'is_published'       => 'boolean',
     ];
 
     public function academicYear()
     {
         return $this->belongsTo(AcademicYear::class);
+    }
+
+    public function academicQuarter()
+    {
+        return $this->belongsTo(AcademicQuarter::class, 'academic_quarter_id');
     }
 
     public function classGroup()

@@ -61,11 +61,11 @@ export default function ActionDropdown({
     }, [isOpen]);
 
     // Variant Style Buttons
-    let btnStyle = 'bg-[#093c30] text-white hover:bg-[#064e3b] shadow-xs border border-transparent';
+    let btnStyle = 'bg-[#0b57d0] text-white hover:bg-[#0842a0] shadow-xs border border-transparent';
     if (variant === 'secondary') {
         btnStyle = 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 shadow-xs';
     } else if (variant === 'emerald') {
-        btnStyle = 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs border border-transparent';
+        btnStyle = 'bg-[#0b57d0] hover:bg-[#0842a0] text-white shadow-xs border border-transparent';
     } else if (variant === 'outline') {
         btnStyle = 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-xs';
     } else if (variant === 'amber') {

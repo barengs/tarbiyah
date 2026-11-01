@@ -4,6 +4,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../at
 const JENJANG_COLORS = [
     { bg: 'bg-[#093c30]', dot: 'bg-[#093c30]' },
     { bg: 'bg-emerald-600', dot: 'bg-emerald-600' },
+    { bg: 'bg-blue-600', dot: 'bg-blue-600' },
+    { bg: 'bg-amber-600', dot: 'bg-amber-600' },
 ];
 
 /**

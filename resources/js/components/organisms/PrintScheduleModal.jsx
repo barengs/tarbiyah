@@ -323,7 +323,7 @@ export default function PrintScheduleModal({
                         type="button"
                         onClick={handleDownload}
                         disabled={isGenerating}
-                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#093c30] hover:bg-[#064e3b] text-white text-xs font-bold rounded shadow-xs transition order-1 sm:order-3 disabled:opacity-50"
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition order-1 sm:order-3 disabled:opacity-50"
                     >
                         {isGenerating ? (
                             <>

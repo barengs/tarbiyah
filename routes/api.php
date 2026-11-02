@@ -1,28 +1,29 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\SecurityController;
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\Master\EducationalInstitutionController;
-use App\Http\Controllers\Api\Master\EducationTypeController;
-use App\Http\Controllers\Api\Master\EducationController;
-use App\Http\Controllers\Api\Master\AcademicYearController;
+use App\Http\Controllers\Api\Internal\InternalStudentController;
+use App\Http\Controllers\Api\Main\AssessmentController;
+use App\Http\Controllers\Api\Main\DashboardController;
+use App\Http\Controllers\Api\Main\ReportCardController;
+use App\Http\Controllers\Api\Main\TeachingJournalController;
 use App\Http\Controllers\Api\Master\AcademicQuarterController;
-use App\Http\Controllers\Api\Master\ClassroomController;
-use App\Http\Controllers\Api\Master\TeacherController;
-use App\Http\Controllers\Api\Master\StudentController;
-use App\Http\Controllers\Api\Master\StudyController;
-use App\Http\Controllers\Api\Master\LessonHourController;
+use App\Http\Controllers\Api\Master\AcademicYearController;
 use App\Http\Controllers\Api\Master\ClassGroupController;
 use App\Http\Controllers\Api\Master\ClassPromotionController;
+use App\Http\Controllers\Api\Master\ClassroomController;
+use App\Http\Controllers\Api\Master\EducationalInstitutionController;
 use App\Http\Controllers\Api\Master\EducationClassController;
+use App\Http\Controllers\Api\Master\EducationController;
+use App\Http\Controllers\Api\Master\EducationTypeController;
+use App\Http\Controllers\Api\Master\LessonHourController;
 use App\Http\Controllers\Api\Master\LessonScheduleController;
-use App\Http\Controllers\Api\Main\DashboardController;
-use App\Http\Controllers\Api\Main\TeachingJournalController;
-use App\Http\Controllers\Api\Main\AssessmentController;
-use App\Http\Controllers\Api\Main\ReportCardController;
-use App\Http\Controllers\Api\Internal\InternalStudentController;
+use App\Http\Controllers\Api\Master\ProgramController;
+use App\Http\Controllers\Api\Master\StudentController;
+use App\Http\Controllers\Api\Master\StudyController;
+use App\Http\Controllers\Api\Master\TeacherController;
+use App\Http\Controllers\Api\SecurityController;
+use App\Http\Controllers\Api\UserController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,23 +34,23 @@ use App\Http\Controllers\Api\Internal\InternalStudentController;
 // Health Check
 Route::get('ping', function () {
     return response()->json([
-        'status'    => 'ok',
-        'service'   => 'tarbiyah-education-be',
-        'version'   => '1.0.0',
+        'status' => 'ok',
+        'service' => 'tarbiyah-education-be',
+        'version' => '1.0.0',
         'timestamp' => now()->toIso8601String(),
     ]);
 });
 
 // Authentication Routes
 Route::prefix('auth')->group(function () {
-    Route::post('login',   [AuthController::class, 'login']);
+    Route::post('login', [AuthController::class, 'login']);
     Route::post('refresh', [AuthController::class, 'refresh']);
-    Route::post('sso',     [AuthController::class, 'ssoHandover']);
+    Route::post('sso', [AuthController::class, 'ssoHandover']);
 
     Route::middleware('auth:api')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('profile', [AuthController::class, 'me']);
-        Route::get('menus',   [AuthController::class, 'menus']);
+        Route::get('menus', [AuthController::class, 'menus']);
     });
 });
 
@@ -57,7 +58,7 @@ Route::prefix('auth')->group(function () {
 Route::prefix('internal')->middleware('internal.key')->group(function () {
     Route::get('health', function () {
         return response()->json([
-            'status'  => 'ok',
+            'status' => 'ok',
             'service' => 'tarbiyah',
             'message' => 'Internal communication channel established.',
         ]);
@@ -97,12 +98,11 @@ Route::prefix('security')->middleware(['autoprovision', 'auth:api'])->group(func
 // Master Data Routes (Protected by JWT & AutoProvision)
 Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(function () {
     // Program Pesantren (Kubar, Tibyan - Tersinkronisasi dari SMPT)
-    Route::get('programs', [\App\Http\Controllers\Api\Master\ProgramController::class, 'index']);
-    Route::post('programs/sync-from-smpt', [\App\Http\Controllers\Api\Master\ProgramController::class, 'syncFromSmpt']);
+    Route::get('programs', [ProgramController::class, 'index']);
+    Route::post('programs/sync-from-smpt', [ProgramController::class, 'syncFromSmpt']);
 
     // Kelompok Pendidikan (Formal, Nonformal, Diniyah, Salafiyah, dll)
     Route::apiResource('education-types', EducationTypeController::class);
-    Route::apiResource('education-type', EducationTypeController::class);
 
     // Institusi Pendidikan & Jenjang (Export, Template & Import)
     Route::get('institutions/export', [EducationalInstitutionController::class, 'export']);
@@ -113,7 +113,6 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
 
     // Ruang Kelas Fisik (Gedung, Ruangan Belajar, Lab)
     Route::apiResource('classrooms', ClassroomController::class);
-    Route::apiResource('classroom', ClassroomController::class);
 
     // Jenjang Pendidikan per Institusi
     Route::apiResource('educations', EducationController::class);
@@ -151,7 +150,6 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
 
     // Tingkat Kelas (Education Classes)
     Route::apiResource('education-classes', EducationClassController::class);
-    Route::apiResource('education-class', EducationClassController::class);
 
     // Kenaikan Kelas (Class Promotion) & Mutasi Santri
     Route::get('class-groups/{id}/promotion-candidates', [ClassPromotionController::class, 'candidates']);
@@ -168,7 +166,7 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
 // Main Academic, KBM & Penilaian Routes (Protected by JWT & AutoProvision)
 Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function () {
     Route::get('dashboard/stats', [DashboardController::class, 'stats']);
-    
+
     // Jadwal Pelajaran (Lesson Schedules)
     Route::post('schedules/copy-period', [LessonScheduleController::class, 'copyPeriod']);
     Route::post('schedules/copy-academic-year', [LessonScheduleController::class, 'copyAcademicYear']);
@@ -206,5 +204,5 @@ Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function
     Route::post('reports/generate', [ReportCardController::class, 'generate']);
     Route::get('reports/{id}/pdf', [ReportCardController::class, 'exportPdf']);
     Route::patch('reports/{id}/notes', [ReportCardController::class, 'updateNotes']);
-    Route::apiResource('reports', ReportCardController::class);
+    Route::apiResource('reports', ReportCardController::class)->only(['index', 'show']);
 });

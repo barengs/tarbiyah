@@ -26,14 +26,15 @@ class AcademicQuarterController extends Controller
             $quarters = $query->orderBy('academic_year_id', 'desc')->orderBy('id', 'asc')->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data periode triwulan berhasil diambil',
-                'data'    => $quarters,
+                'data' => $quarters,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error retrieving academic quarters: ' . $e->getMessage());
+            Log::error('Error retrieving academic quarters: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil data periode triwulan',
             ], 500);
         }
@@ -46,16 +47,16 @@ class AcademicQuarterController extends Controller
     {
         $validated = $request->validate([
             'academic_year_id' => 'required|exists:academic_years,id',
-            'name'             => 'required|string|max:100',
-            'start_date'       => 'nullable|date',
-            'end_date'         => 'nullable|date|after_or_equal:start_date',
-            'active'           => 'nullable|boolean',
+            'name' => 'required|string|max:100',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'active' => 'nullable|boolean',
         ]);
 
         try {
             DB::beginTransaction();
 
-            if (!empty($validated['active']) && $validated['active'] == true) {
+            if (! empty($validated['active']) && $validated['active'] == true) {
                 // Nonaktifkan triwulan lain
                 AcademicQuarter::query()->update(['active' => false]);
                 // Pastikan tahun induknya juga aktif
@@ -66,18 +67,40 @@ class AcademicQuarterController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Periode triwulan berhasil ditambahkan',
-                'data'    => $quarter->load('academicYear'),
+                'data' => $quarter->load('academicYear'),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error creating academic quarter: ' . $e->getMessage());
+            Log::error('Error creating academic quarter: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal membuat periode triwulan: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal membuat periode triwulan: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Detail periode triwulan
+     */
+    public function show(string $id)
+    {
+        $quarter = AcademicQuarter::with('academicYear')->find($id);
+
+        if (! $quarter) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Periode triwulan tidak ditemukan',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Data periode triwulan berhasil diambil',
+            'data' => $quarter,
+        ], 200);
     }
 
     /**
@@ -88,16 +111,16 @@ class AcademicQuarterController extends Controller
     {
         $quarter = AcademicQuarter::find($id);
 
-        if (!$quarter) {
+        if (! $quarter) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Periode triwulan tidak ditemukan',
             ], 404);
         }
 
         try {
             DB::beginTransaction();
-            
+
             // 1. Nonaktifkan semua triwulan
             AcademicQuarter::query()->update(['active' => false]);
             $quarter->update(['active' => true]);
@@ -109,15 +132,16 @@ class AcademicQuarterController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Periode {$quarter->name} berhasil diaktifkan",
-                'data'    => $quarter->load('academicYear'),
+                'data' => $quarter->load('academicYear'),
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error activating academic quarter: ' . $e->getMessage());
+            Log::error('Error activating academic quarter: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengaktifkan periode triwulan',
             ], 500);
         }
@@ -130,25 +154,25 @@ class AcademicQuarterController extends Controller
     {
         $quarter = AcademicQuarter::find($id);
 
-        if (!$quarter) {
+        if (! $quarter) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Periode triwulan tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
             'academic_year_id' => 'sometimes|required|exists:academic_years,id',
-            'name'             => 'sometimes|required|string|max:100',
-            'start_date'       => 'nullable|date',
-            'end_date'         => 'nullable|date|after_or_equal:start_date',
-            'active'           => 'nullable|boolean',
+            'name' => 'sometimes|required|string|max:100',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'active' => 'nullable|boolean',
         ]);
 
         try {
             DB::beginTransaction();
 
-            if (!empty($validated['active']) && $validated['active'] == true) {
+            if (! empty($validated['active']) && $validated['active'] == true) {
                 AcademicQuarter::where('id', '!=', $id)->update(['active' => false]);
                 $targetYearId = $validated['academic_year_id'] ?? $quarter->academic_year_id;
                 AcademicYear::where('id', $targetYearId)->update(['active' => true]);
@@ -158,15 +182,16 @@ class AcademicQuarterController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Periode triwulan berhasil diperbarui',
-                'data'    => $quarter->fresh('academicYear'),
+                'data' => $quarter->fresh('academicYear'),
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error updating academic quarter: ' . $e->getMessage());
+            Log::error('Error updating academic quarter: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui periode triwulan',
             ], 500);
         }
@@ -179,23 +204,25 @@ class AcademicQuarterController extends Controller
     {
         $quarter = AcademicQuarter::find($id);
 
-        if (!$quarter) {
+        if (! $quarter) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Periode triwulan tidak ditemukan',
             ], 404);
         }
 
         try {
             $quarter->delete();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Periode triwulan berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting academic quarter: ' . $e->getMessage());
+            Log::error('Error deleting academic quarter: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghapus periode triwulan',
             ], 500);
         }

@@ -32,6 +32,14 @@ export const studyApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: ['Study'],
         }),
+        importStudies: builder.mutation({
+            query: (formData) => ({
+                url: 'master/studies/import',
+                method: 'POST',
+                body: formData,
+            }),
+            invalidatesTags: ['Study'],
+        }),
     }),
 });
 
@@ -40,4 +48,5 @@ export const {
     useCreateStudyMutation,
     useUpdateStudyMutation,
     useDeleteStudyMutation,
+    useImportStudiesMutation,
 } = studyApi;

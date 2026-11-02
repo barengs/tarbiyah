@@ -38,6 +38,14 @@ export const institutionApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: [{ type: 'Institution', id: 'LIST' }],
         }),
+        importInstitutions: builder.mutation({
+            query: (formData) => ({
+                url: 'master/institutions/import',
+                method: 'POST',
+                body: formData,
+            }),
+            invalidatesTags: [{ type: 'Institution', id: 'LIST' }, { type: 'EducationLevel', id: 'LIST' }, { type: 'EducationType', id: 'LIST' }],
+        }),
         getEducations: builder.query({
             query: (institutionId) =>
                 institutionId
@@ -60,6 +68,43 @@ export const institutionApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: [{ type: 'EducationLevel', id: 'LIST' }, { type: 'Institution', id: 'LIST' }],
         }),
+        // Kelompok Pendidikan (Formal, Nonformal, Diniyah, Salafiyah, dll)
+        getEducationTypes: builder.query({
+            query: () => 'master/education-types',
+            providesTags: (result) =>
+                result?.data
+                    ? [
+                          ...result.data.map(({ id }) => ({ type: 'EducationType', id })),
+                          { type: 'EducationType', id: 'LIST' },
+                      ]
+                    : [{ type: 'EducationType', id: 'LIST' }],
+        }),
+        createEducationType: builder.mutation({
+            query: (data) => ({
+                url: 'master/education-types',
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: [{ type: 'EducationType', id: 'LIST' }],
+        }),
+        updateEducationType: builder.mutation({
+            query: ({ id, ...body }) => ({
+                url: `master/education-types/${id}`,
+                method: 'PUT',
+                body,
+            }),
+            invalidatesTags: (result, error, { id }) => [
+                { type: 'EducationType', id },
+                { type: 'EducationType', id: 'LIST' },
+            ],
+        }),
+        deleteEducationType: builder.mutation({
+            query: (id) => ({
+                url: `master/education-types/${id}`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: [{ type: 'EducationType', id: 'LIST' }],
+        }),
     }),
 });
 
@@ -68,7 +113,12 @@ export const {
     useCreateInstitutionMutation,
     useUpdateInstitutionMutation,
     useDeleteInstitutionMutation,
+    useImportInstitutionsMutation,
     useGetEducationsQuery,
     useCreateEducationMutation,
     useDeleteEducationMutation,
+    useGetEducationTypesQuery,
+    useCreateEducationTypeMutation,
+    useUpdateEducationTypeMutation,
+    useDeleteEducationTypeMutation,
 } = institutionApi;

@@ -23,6 +23,7 @@ import {
     Lock,
     Folder,
     FileText,
+    DoorOpen,
     X,
 } from 'lucide-react';
 import { useGetSidebarMenusQuery } from '../../store/slices/securityApi';
@@ -49,6 +50,7 @@ const ICON_MAP = {
     Lock,
     Folder,
     FileText,
+    DoorOpen,
     X,
 };
 
@@ -85,6 +87,7 @@ const DEFAULT_NAVIGATION_ITEMS = [
         icon: Layers,
         children: [
             { name: 'Tingkat Kelas', to: '/kurikulum/kelas', icon: Layers },
+            { name: 'Ruang Kelas', to: '/kurikulum/ruang-kelas', icon: DoorOpen },
             { name: 'Rombongan Belajar (Rombel)', to: '/kurikulum/rombel', icon: Users },
         ],
     },

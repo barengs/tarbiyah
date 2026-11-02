@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage';
 import InstitutionPage from './pages/master/InstitutionPage';
 import AcademicYearPage from './pages/master/AcademicYearPage';
 import EducationClassPage from './pages/master/EducationClassPage';
+import ClassroomPage from './pages/master/ClassroomPage';
 import ClassGroupPage from './pages/ClassGroupPage';
 import ClassPromotionPage from './pages/ClassPromotionPage';
 import StudyPage from './pages/master/StudyPage';
@@ -51,6 +52,7 @@ const App = () => {
                             <Route path="tahun-akademik" element={<AcademicYearPage />} />
                             <Route path="kurikulum/jenjang" element={<InstitutionPage />} />
                             <Route path="kurikulum/kelas" element={<EducationClassPage />} />
+                            <Route path="kurikulum/ruang-kelas" element={<ClassroomPage />} />
                             <Route path="kurikulum/rombel" element={<ClassGroupPage />} />
                             <Route path="kurikulum/kenaikan-kelas" element={<ClassPromotionPage />} />
                             <Route path="kurikulum/mapel" element={<StudyPage />} />
@@ -61,6 +63,9 @@ const App = () => {
                             <Route path="institusi" element={<InstitutionPage />} />
                             <Route path="kelas" element={<EducationClassPage />} />
                             <Route path="master/kelas" element={<EducationClassPage />} />
+                            <Route path="ruang-kelas" element={<ClassroomPage />} />
+                            <Route path="master/ruang-kelas" element={<ClassroomPage />} />
+                            <Route path="master/classrooms" element={<ClassroomPage />} />
                             <Route path="rombel" element={<ClassGroupPage />} />
                             <Route path="master/rombel" element={<ClassGroupPage />} />
                             <Route path="kenaikan-kelas" element={<ClassPromotionPage />} />

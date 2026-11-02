@@ -1,30 +1,39 @@
 import React, { useState } from 'react';
-import { 
-    useGetInstitutionsQuery, 
-    useCreateInstitutionMutation, 
-    useUpdateInstitutionMutation, 
+import {
+    useGetInstitutionsQuery,
+    useCreateInstitutionMutation,
+    useUpdateInstitutionMutation,
     useDeleteInstitutionMutation,
+    useImportInstitutionsMutation,
     useGetEducationsQuery,
     useCreateEducationMutation,
-    useDeleteEducationMutation
+    useDeleteEducationMutation,
+    useGetEducationTypesQuery,
+    useCreateEducationTypeMutation,
+    useUpdateEducationTypeMutation,
+    useDeleteEducationTypeMutation,
 } from '../../store/slices/institutionApi';
 import DataTable from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { 
-    Plus, 
-    Edit2, 
-    Trash2, 
-    Layers, 
-    Building2, 
-    Upload, 
-    Image as ImageIcon, 
-    Phone, 
-    Mail, 
-    MapPin, 
-    Calendar, 
-    CheckCircle2, 
-    X
+import {
+    Plus,
+    Edit2,
+    Trash2,
+    Layers,
+    Building2,
+    Upload,
+    Download,
+    FileSpreadsheet,
+    FileDown,
+    Image as ImageIcon,
+    Phone,
+    Mail,
+    MapPin,
+    Calendar,
+    CheckCircle2,
+    Tag,
+    X,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -50,21 +59,33 @@ const PROGRESSION_TYPES = {
 };
 
 export default function InstitutionPage() {
+    const [activeTab, setActiveTab] = useState('institutions'); // 'institutions' | 'education_types'
+
+    // ================== INSTITUSI & JENJANG ==================
     const { data: response, isLoading } = useGetInstitutionsQuery();
     const institutions = response?.data || [];
+
+    const { data: typeRes } = useGetEducationTypesQuery();
+    const educationTypes = typeRes?.data || [];
 
     const [createInstitution, { isLoading: isCreating }] = useCreateInstitutionMutation();
     const [updateInstitution, { isLoading: isUpdating }] = useUpdateInstitutionMutation();
     const [deleteInstitution, { isLoading: isDeleting }] = useDeleteInstitutionMutation();
+    const [importInstitutions, { isLoading: isImporting }] = useImportInstitutionsMutation();
 
     const [modalOpen, setModalOpen] = useState(false);
+    const [importModalOpen, setImportModalOpen] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [isExporting, setIsExporting] = useState(false);
+
     const [editingItem, setEditingItem] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [selectedInstForDetail, setSelectedInstForDetail] = useState(null);
 
-    // Form state
+    // Form state Institusi
     const [name, setName] = useState('');
     const [shortName, setShortName] = useState('');
+    const [educationTypeId, setEducationTypeId] = useState('');
     const [progressionType, setProgressionType] = useState('triwulan');
     const [regNumber, setRegNumber] = useState('');
     const [phone, setPhone] = useState('');
@@ -91,10 +112,22 @@ export default function InstitutionPage() {
     const [createEducation] = useCreateEducationMutation();
     const [deleteEducation] = useDeleteEducationMutation();
 
+    // ================== KELOMPOK PENDIDIKAN (EDUCATION TYPES) ==================
+    const [typeModalOpen, setTypeModalOpen] = useState(false);
+    const [editingType, setEditingType] = useState(null);
+    const [deleteTypeTarget, setDeleteTypeTarget] = useState(null);
+    const [typeName, setTypeName] = useState('');
+    const [typeDesc, setTypeDesc] = useState('');
+
+    const [createEducationType, { isLoading: isCreatingType }] = useCreateEducationTypeMutation();
+    const [updateEducationType, { isLoading: isUpdatingType }] = useUpdateEducationTypeMutation();
+    const [deleteEducationType, { isLoading: isDeletingType }] = useDeleteEducationTypeMutation();
+
     const openCreateModal = () => {
         setEditingItem(null);
         setName('');
         setShortName('');
+        setEducationTypeId('');
         setProgressionType('triwulan');
         setRegNumber('');
         setPhone('');
@@ -113,6 +146,7 @@ export default function InstitutionPage() {
         setEditingItem(item);
         setName(item.name || '');
         setShortName(item.short_name || '');
+        setEducationTypeId(item.education_type_id ? String(item.education_type_id) : '');
         setProgressionType(item.progression_type || 'triwulan');
         setRegNumber(item.registration_number || '');
         setPhone(item.phone || '');
@@ -169,6 +203,7 @@ export default function InstitutionPage() {
         const formData = new FormData();
         formData.append('name', name);
         if (shortName) formData.append('short_name', shortName);
+        if (educationTypeId) formData.append('education_type_id', educationTypeId);
         formData.append('progression_type', progressionType);
         if (regNumber) formData.append('registration_number', regNumber);
         if (phone) formData.append('phone', phone);
@@ -196,11 +231,12 @@ export default function InstitutionPage() {
                 toast.success('Institusi berhasil ditambahkan');
             }
             setModalOpen(false);
-            if (selectedInstForDetail && editingItem && selectedInstForDetail.id === editingItem.id) {
+            if (selectedInstForDetail && selectedInstForDetail.id === editingItem?.id) {
                 setSelectedInstForDetail((prev) => ({
                     ...prev,
                     name,
                     short_name: shortName,
+                    education_type_id: educationTypeId,
                     progression_type: progressionType,
                     registration_number: regNumber,
                     phone,
@@ -229,6 +265,75 @@ export default function InstitutionPage() {
         }
     };
 
+    const handleExport = async () => {
+        setIsExporting(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/master/institutions/export', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                },
+            });
+            if (!res.ok) throw new Error('Gagal mengekspor data institusi');
+            const blob = await res.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `Master_Institusi_Pendidikan_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+            toast.success('Data institusi & jenjang berhasil diekspor');
+        } catch (e) {
+            toast.error(e.message || 'Gagal mengekspor data');
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleDownloadTemplate = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/master/institutions/template', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error('Gagal mengunduh template');
+            const blob = await res.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = 'Template_Import_Institusi_Pendidikan.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (e) {
+            toast.error(e.message || 'Gagal mengunduh template');
+        }
+    };
+
+    const handleImportSubmit = async (e) => {
+        e.preventDefault();
+        if (!importFile) {
+            toast.error('Pilih file Excel terlebih dahulu');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', importFile);
+
+        try {
+            const res = await importInstitutions(formData).unwrap();
+            toast.success(res.message || 'Import data institusi berhasil');
+            setImportModalOpen(false);
+            setImportFile(null);
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal mengimpor data institusi');
+        }
+    };
+
     const handleAddEducation = async (e) => {
         e.preventDefault();
         if (!newLevelName) return;
@@ -246,7 +351,54 @@ export default function InstitutionPage() {
         }
     };
 
-    const columns = [
+    // ================== KELOMPOK PENDIDIKAN HANDLERS ==================
+    const openCreateTypeModal = () => {
+        setEditingType(null);
+        setTypeName('');
+        setTypeDesc('');
+        setTypeModalOpen(true);
+    };
+
+    const openEditTypeModal = (t) => {
+        setEditingType(t);
+        setTypeName(t.name || '');
+        setTypeDesc(t.description || '');
+        setTypeModalOpen(true);
+    };
+
+    const handleTypeSubmit = async (e) => {
+        e.preventDefault();
+        const payload = {
+            name: typeName,
+            description: typeDesc,
+        };
+
+        try {
+            if (editingType) {
+                await updateEducationType({ id: editingType.id, ...payload }).unwrap();
+                toast.success('Kelompok pendidikan berhasil diperbarui');
+            } else {
+                await createEducationType(payload).unwrap();
+                toast.success('Kelompok pendidikan berhasil ditambahkan');
+            }
+            setTypeModalOpen(false);
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal menyimpan kelompok pendidikan');
+        }
+    };
+
+    const handleTypeDelete = async () => {
+        if (!deleteTypeTarget) return;
+        try {
+            await deleteEducationType(deleteTypeTarget.id).unwrap();
+            toast.success('Kelompok pendidikan berhasil dihapus');
+            setDeleteTypeTarget(null);
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal menghapus kelompok pendidikan');
+        }
+    };
+
+    const institutionColumns = [
         {
             key: 'name',
             label: 'Nama Lembaga',
@@ -270,7 +422,7 @@ export default function InstitutionPage() {
                                 {row.name}
                             </div>
                             <div className="text-xs text-slate-400 font-mono mt-0.5">
-                                NSP/NPSN: {row.registration_number || '-'}
+                                NPSN/NSM: {row.registration_number || '-'}
                             </div>
                         </div>
                     </div>
@@ -281,6 +433,16 @@ export default function InstitutionPage() {
             key: 'short_name',
             label: 'Singkatan',
             render: (row) => <span className="font-medium text-slate-700">{row.short_name || '-'}</span>,
+        },
+        {
+            key: 'education_type',
+            label: 'Kelompok',
+            render: (row) => (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                    <Tag className="w-3 h-3 text-slate-400" />
+                    {row.education_type?.name || '-'}
+                </span>
+            ),
         },
         {
             key: 'progression_type',
@@ -335,407 +497,433 @@ export default function InstitutionPage() {
         },
     ];
 
+    const typeColumns = [
+        {
+            key: 'name',
+            label: 'Nama Kelompok Pendidikan',
+            render: (row) => (
+                <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-200">
+                        <Tag className="w-4 h-4" />
+                    </span>
+                    <div>
+                        <span className="font-bold text-slate-900 text-sm block">{row.name}</span>
+                        {row.description && (
+                            <span className="text-xs text-slate-400 block line-clamp-1">{row.description}</span>
+                        )}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: 'usage',
+            label: 'Institusi Terhubung',
+            render: (row) => (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <Building2 className="w-3.5 h-3.5" />
+                    {row.institutions_count || 0} Lembaga
+                </span>
+            ),
+        },
+        {
+            key: 'actions',
+            label: 'Aksi',
+            render: (row) => (
+                <div className="flex items-center justify-end gap-1">
+                    <button
+                        onClick={() => openEditTypeModal(row)}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                        title="Edit Kelompok"
+                    >
+                        <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setDeleteTypeTarget(row)}
+                        disabled={row.institutions_count > 0}
+                        className={`p-1.5 rounded transition-colors ${
+                            row.institutions_count > 0
+                                ? 'text-slate-300 cursor-not-allowed'
+                                : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                        }`}
+                        title={
+                            row.institutions_count > 0
+                                ? 'Masih digunakan oleh institusi'
+                                : 'Hapus Kelompok'
+                        }
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </div>
+            ),
+        },
+    ];
+
     return (
         <div className="space-y-6 max-w-7xl">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Header & Subtitle */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Institusi &amp; Jenjang Pendidikan</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        <Building2 className="w-6 h-6 text-[#093c30]" />
+                        Institusi &amp; Kelompok Pendidikan
+                    </h2>
                     <p className="text-sm text-slate-500 mt-1">
-                        Kelola data lembaga pendidikan pesantren &amp; formal beserta logo, kop surat, dan mekanisme kenaikan kelas (Triwulanan / Semesteran / Leveling).
+                        Kelola lembaga pendidikan formal &amp; kepesantrenan, tingkat/jenjang, kelompok pendidikan, dan mekanisme kenaikan kelas.
                     </p>
                 </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {activeTab === 'institutions' ? (
+                        <>
+                            <button
+                                onClick={handleExport}
+                                disabled={isExporting}
+                                className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                                title="Ekspor seluruh institusi ke Excel"
+                            >
+                                <Download className="w-4 h-4 text-emerald-600" />
+                                {isExporting ? 'Mengekspor...' : 'Ekspor Excel'}
+                            </button>
+                            <button
+                                onClick={() => setImportModalOpen(true)}
+                                className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                                title="Impor institusi dari Excel"
+                            >
+                                <Upload className="w-4 h-4 text-blue-600" /> Impor Excel
+                            </button>
+                            <button
+                                onClick={openCreateModal}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white rounded-md text-xs font-semibold hover:bg-[#0842a0] shadow-xs transition-colors cursor-pointer"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Tambah Lembaga
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            onClick={openCreateTypeModal}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white rounded-md text-xs font-semibold hover:bg-[#0842a0] shadow-xs transition-colors cursor-pointer"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Tambah Kelompok
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Sub-tab navigation */}
+            <div className="flex items-center gap-2 border-b border-slate-200">
                 <button
-                    onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#0b57d0] text-white rounded-md text-sm font-semibold hover:bg-[#0842a0] shadow-sm transition-colors cursor-pointer"
+                    onClick={() => setActiveTab('institutions')}
+                    className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+                        activeTab === 'institutions'
+                            ? 'border-[#093c30] text-[#093c30]'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
                 >
-                    <Plus className="w-4 h-4" />
-                    Tambah Lembaga
+                    <Building2 className="w-4 h-4" />
+                    Institusi &amp; Jenjang ({institutions.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('education_types')}
+                    className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+                        activeTab === 'education_types'
+                            ? 'border-[#093c30] text-[#093c30]'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                >
+                    <Tag className="w-4 h-4" />
+                    Kelompok Pendidikan ({educationTypes.length})
                 </button>
             </div>
 
-            {/* Tabel Lembaga dengan fitur klik baris untuk melihat detail */}
-            <DataTable 
-                columns={columns} 
-                data={institutions} 
-                isLoading={isLoading} 
-                emptyMessage="Belum ada lembaga terdaftar"
-                onRowClick={(row) => setSelectedInstForDetail(row)}
-            />
+            {/* TAB CONTENT 1: INSTITUSI PENDIDIKAN */}
+            {activeTab === 'institutions' && (
+                <>
+                    <DataTable
+                        columns={institutionColumns}
+                        data={institutions}
+                        isLoading={isLoading}
+                        searchPlaceholder="Cari nama atau singkatan institusi..."
+                        onRowClick={(row) => setSelectedInstForDetail(row)}
+                    />
 
-            {/* ═══════════════════ MODAL DETIL INSTITUSI PENDIDIKAN ═══════════════════ */}
-            <Modal
-                open={!!selectedInstForDetail}
-                title="Rincian Institusi Pendidikan"
-                maxWidth="max-w-3xl"
-                onClose={() => setSelectedInstForDetail(null)}
-                footer={
-                    <div className="flex items-center justify-between w-full">
-                        <span className="text-xs text-slate-400">
-                            ID Lembaga: #{selectedInstForDetail?.id}
-                        </span>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const inst = selectedInstForDetail;
-                                    setSelectedInstForDetail(null);
-                                    setSelectedInstForLevels(inst);
-                                    setNewLevelOrder((inst.educations?.length || 0) + 1);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md cursor-pointer"
-                            >
-                                <Layers className="w-3.5 h-3.5" />
-                                Kelola Tingkat / Jenjang
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const inst = selectedInstForDetail;
-                                    setSelectedInstForDetail(null);
-                                    openEditModal(inst);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0b57d0] hover:bg-[#0842a0] rounded-md cursor-pointer"
-                            >
-                                <Edit2 className="w-3.5 h-3.5" />
-                                Edit Data Lembaga
-                            </button>
-                        </div>
-                    </div>
-                }
-            >
-                {selectedInstForDetail && (
-                    <div className="space-y-5">
-                        {/* 1. Header Kop Surat / Banner */}
-                        {selectedInstForDetail.letterhead_url || selectedInstForDetail.letterhead ? (
-                            <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50 shadow-xs">
-                                <div className="text-[11px] font-bold text-slate-500 uppercase px-3 py-1.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
-                                    <span>Kop Surat Resmi Lembaga</span>
-                                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-semibold">
-                                        Aktif
+                    {/* Preview Detail Panel jika ada institusi yang diklik */}
+                    {selectedInstForDetail && (
+                        <div className="border border-slate-200 bg-white rounded-lg p-5 shadow-xs space-y-4">
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                    {selectedInstForDetail.logo ? (
+                                        <img
+                                            src={`/storage/${selectedInstForDetail.logo}`}
+                                            alt={selectedInstForDetail.name}
+                                            className="w-12 h-12 object-contain rounded-md border border-slate-200 p-1"
+                                        />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-md bg-emerald-50 text-[#093c30] border border-emerald-200 flex items-center justify-center font-bold text-sm">
+                                            {selectedInstForDetail.short_name || <Building2 className="w-6 h-6" />}
+                                        </div>
+                                    )}
+                                    <div>
+                                        <h3 className="text-base font-bold text-slate-900">{selectedInstForDetail.name}</h3>
+                                        <p className="text-xs text-slate-500">
+                                            {selectedInstForDetail.short_name} • {selectedInstForDetail.education_type?.name || 'Kelompok Umum'} • Model Kenaikan:{' '}
+                                            <span className="font-semibold text-slate-700">
+                                                {PROGRESSION_TYPES[selectedInstForDetail.progression_type]?.badgeLabel}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedInstForDetail(null)}
+                                    className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-100 text-xs">
+                                <div>
+                                    <span className="text-slate-400 block font-medium">No. Registrasi / NPSN / NSM</span>
+                                    <span className="text-slate-800 font-mono font-bold mt-0.5 block">
+                                        {selectedInstForDetail.registration_number || '-'}
                                     </span>
                                 </div>
-                                <div className="p-3 bg-white flex items-center justify-center max-h-48 overflow-hidden">
+                                <div>
+                                    <span className="text-slate-400 block font-medium">Kontak (Telepon &amp; Email)</span>
+                                    <span className="text-slate-800 mt-0.5 block">
+                                        {selectedInstForDetail.phone || '-'}{' '}
+                                        {selectedInstForDetail.email ? `(${selectedInstForDetail.email})` : ''}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-slate-400 block font-medium">Alamat Lembaga</span>
+                                    <span className="text-slate-800 mt-0.5 block">
+                                        {selectedInstForDetail.address || '-'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {selectedInstForDetail.letterhead && (
+                                <div className="pt-3 border-t border-slate-100">
+                                    <span className="text-xs font-semibold text-slate-500 block mb-1.5">
+                                        Pratinjau Kop Surat Resmi Rapor:
+                                    </span>
                                     <img
-                                        src={selectedInstForDetail.letterhead_url || `/storage/${selectedInstForDetail.letterhead}`}
+                                        src={`/storage/${selectedInstForDetail.letterhead}`}
                                         alt="Kop Surat"
-                                        className="w-full object-contain max-h-40"
+                                        className="w-full max-h-24 object-contain rounded border border-slate-200 bg-slate-50 p-1"
                                     />
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="p-3 bg-slate-50 border border-dashed border-slate-200 rounded-lg text-center text-xs text-slate-400">
-                                Belum ada kop surat resmi yang diunggah untuk lembaga ini.
-                            </div>
-                        )}
-
-                        {/* 2. Informasi Utama & Logo */}
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-slate-50/70 border border-slate-200 rounded-lg">
-                            {selectedInstForDetail.logo_url || selectedInstForDetail.logo ? (
-                                <img
-                                    src={selectedInstForDetail.logo_url || `/storage/${selectedInstForDetail.logo}`}
-                                    alt={selectedInstForDetail.name}
-                                    className="w-16 h-16 rounded-lg object-contain bg-white border border-slate-200 p-1 shrink-0 shadow-2xs"
-                                />
-                            ) : (
-                                <div className="w-16 h-16 rounded-lg bg-emerald-100 text-[#093c30] border border-emerald-200 flex items-center justify-center shrink-0 font-bold text-xl uppercase">
-                                    {selectedInstForDetail.short_name?.substring(0, 2) || <Building2 className="w-8 h-8" />}
-                                </div>
-                            )}
-
-                            <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <h3 className="text-lg font-bold text-slate-900 leading-snug">
-                                        {selectedInstForDetail.name}
-                                    </h3>
-                                    {selectedInstForDetail.short_name && (
-                                        <span className="px-2 py-0.5 text-xs font-semibold bg-slate-200 text-slate-700 rounded">
-                                            {selectedInstForDetail.short_name}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="text-xs text-slate-500 font-mono mt-1 flex flex-wrap items-center gap-3">
-                                    <span>NSP / NPSN: <strong>{selectedInstForDetail.registration_number || '-'}</strong></span>
-                                    <span>•</span>
-                                    <span>Status: <strong className="text-emerald-700 uppercase">Aktif</strong></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 3. Kartu Model Kenaikan Kelas */}
-                        {(() => {
-                            const conf = PROGRESSION_TYPES[selectedInstForDetail.progression_type] || PROGRESSION_TYPES.triwulan;
-                            return (
-                                <div className="p-3.5 bg-white border border-slate-200 rounded-lg space-y-1.5 shadow-2xs">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                            <Calendar className="w-4 h-4 text-[#0b57d0]" />
-                                            Mekanisme Kenaikan Kelas
-                                        </span>
-                                        <span className={`px-2.5 py-0.5 rounded text-xs font-bold border ${conf.badgeCls}`}>
-                                            {conf.badgeLabel}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-slate-600 leading-relaxed">
-                                        {conf.desc}
-                                    </p>
-                                </div>
-                            );
-                        })()}
-
-                        {/* 4. Grid Kontak & Alamat */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
-                                <span className="text-slate-400 font-semibold uppercase text-[10px] block">Kontak Lembaga</span>
-                                <div className="flex items-center gap-2 text-slate-700 font-medium pt-1">
-                                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                    <span>{selectedInstForDetail.phone || 'Belum diisi'}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-slate-700 font-medium">
-                                    <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                    <span>{selectedInstForDetail.email || 'Belum diisi'}</span>
-                                </div>
-                            </div>
-
-                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
-                                <span className="text-slate-400 font-semibold uppercase text-[10px] block">Alamat Domisili</span>
-                                <div className="flex items-start gap-2 text-slate-700 font-medium pt-1">
-                                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                                    <span className="leading-snug">{selectedInstForDetail.address || 'Belum diisi'}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 5. Daftar Jenjang / Tingkat Kelas yang Bernaung */}
-                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                                <span className="flex items-center gap-1.5">
-                                    <Layers className="w-3.5 h-3.5 text-emerald-700" />
-                                    Tingkat / Jenjang Kelas Terdaftar ({selectedInstForDetail.educations?.length || 0}):
-                                </span>
-                            </div>
-
-                            {(!selectedInstForDetail.educations || selectedInstForDetail.educations.length === 0) ? (
-                                <p className="text-xs text-slate-400 italic">
-                                    Belum ada tingkat/jenjang yang ditambahkan pada lembaga ini.
-                                </p>
-                            ) : (
-                                <div className="flex flex-wrap gap-2 pt-1">
-                                    {selectedInstForDetail.educations.map((item) => (
-                                        <span
-                                            key={item.id}
-                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-800 shadow-2xs"
-                                        >
-                                            <span className="w-4 h-4 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center justify-center">
-                                                {item.level}
-                                            </span>
-                                            <span>{item.name}</span>
-                                        </span>
-                                    ))}
-                                </div>
                             )}
                         </div>
+                    )}
+                </>
+            )}
+
+            {/* TAB CONTENT 2: KELOMPOK PENDIDIKAN */}
+            {activeTab === 'education_types' && (
+                <div className="space-y-4">
+                    <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-md text-xs text-blue-800">
+                        <p className="font-semibold">Informasi Kelompok Pendidikan</p>
+                        <p className="mt-0.5 text-blue-700">
+                            Kelompok pendidikan mendefinisikan kategori entitas pendidikan di lingkungan pesantren (seperti Pendidikan Formal, Madrasah Diniyah Salafiyah, Tahfidz Al-Qur'an, dll).
+                        </p>
                     </div>
-                )}
-            </Modal>
 
-            {/* ═══════════════════ MODAL TAMBAH / EDIT INSTITUSI ═══════════════════ */}
+                    <DataTable
+                        columns={typeColumns}
+                        data={educationTypes}
+                        isLoading={isLoading}
+                        searchPlaceholder="Cari nama kelompok pendidikan..."
+                    />
+                </div>
+            )}
+
+            {/* ═══════════════════ MODAL TAMBAH/EDIT INSTITUSI ═══════════════════ */}
             <Modal
                 open={modalOpen}
-                title={editingItem ? 'Edit Institusi Pendidikan' : 'Tambah Institusi Pendidikan'}
-                maxWidth="max-w-2xl"
+                title={editingItem ? 'Edit Institusi Pendidikan' : 'Tambah Institusi Pendidikan Baru'}
                 onClose={() => setModalOpen(false)}
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Nama Lembaga & Singkatan */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="sm:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="md:col-span-2">
                             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                                Nama Lembaga *
+                                Nama Lembaga Pendidikan *
                             </label>
                             <input
                                 type="text"
                                 required
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                placeholder="Contoh: Kubar (Kuliyyah Tarbiyah Pesantren)"
+                                placeholder="Contoh: SMP Islam / Madrasah Diniyah Ula"
                                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
+
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                                Singkatan
+                                Singkatan / Kode
                             </label>
                             <input
                                 type="text"
                                 value={shortName}
                                 onChange={(e) => setShortName(e.target.value)}
-                                placeholder="Kubar / Tibyan / MTs"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                placeholder="Contoh: SMP-IT / MD-ULA"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono"
                             />
                         </div>
                     </div>
 
-                    {/* NSP / NPSN & Model Kenaikan Kelas */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                                NSP / NPSN
+                                Kelompok Pendidikan
+                            </label>
+                            <select
+                                value={educationTypeId}
+                                onChange={(e) => setEducationTypeId(e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium"
+                            >
+                                <option value="">-- Pilih Kelompok Pendidikan --</option>
+                                {educationTypes.map((t) => (
+                                    <option key={t.id} value={t.id}>
+                                        {t.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                                Model Evaluasi &amp; Kenaikan *
+                            </label>
+                            <select
+                                value={progressionType}
+                                onChange={(e) => setProgressionType(e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium"
+                            >
+                                <option value="triwulan">Triwulanan (Pesantren Salaf / Diniyah)</option>
+                                <option value="semester">Semesteran (Formal - SMP/SMA/MTs)</option>
+                                <option value="leveling">Leveling Dinamis (Tahfidz / Milestone)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                                No. Registrasi / NPSN / NSM
                             </label>
                             <input
                                 type="text"
                                 value={regNumber}
                                 onChange={(e) => setRegNumber(e.target.value)}
-                                placeholder="KBR-PANYEPPEN-01"
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                placeholder="Nomor resmi lembaga"
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono"
                             />
                         </div>
 
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                                Model Kenaikan Kelas *
+                                Nomor Telepon / WA
                             </label>
-                            <select
-                                value={progressionType}
-                                onChange={(e) => setProgressionType(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium text-slate-900"
-                            >
-                                <option value="triwulan">Triwulanan (Pesantren Salaf / Diniyah - Triwulan I s/d IV)</option>
-                                <option value="semester">Semesteran (Formal - SMP/SMA/MTs/MA)</option>
-                                <option value="leveling">Leveling Dinamis (Tahfidz / Milestone Mingguan)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-600">
-                        <strong className="text-slate-800">Mekanisme Kenaikan: </strong>
-                        {PROGRESSION_TYPES[progressionType]?.desc}
-                    </div>
-
-                    {/* Upload Logo Lembaga & Kop Surat */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                        {/* 1. Upload Logo */}
-                        <div className="space-y-2">
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                                Logo Lembaga
-                            </label>
-                            <div className="flex items-center gap-3">
-                                {logoPreview && !removeLogo ? (
-                                    <div className="relative w-16 h-16 rounded-md border border-slate-200 bg-white p-1 shrink-0">
-                                        <img src={logoPreview} alt="Logo Preview" className="w-full h-full object-contain" />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setLogoFile(null);
-                                                setLogoPreview(null);
-                                                setRemoveLogo(true);
-                                            }}
-                                            className="absolute -top-1.5 -right-1.5 p-0.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 cursor-pointer"
-                                            title="Hapus Logo"
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="w-16 h-16 rounded-md border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
-                                        <ImageIcon className="w-6 h-6" />
-                                    </div>
-                                )}
-                                <div className="flex-1">
-                                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 cursor-pointer shadow-2xs">
-                                        <Upload className="w-3.5 h-3.5 text-slate-500" />
-                                        Pilih Logo (PNG/JPG)
-                                        <input
-                                            type="file"
-                                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                            onChange={handleLogoChange}
-                                            className="hidden"
-                                        />
-                                    </label>
-                                    <p className="text-[10px] text-slate-400 mt-1">Maks. 2MB. Format persegi 1:1 direkomendasikan.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 2. Upload Kop Surat */}
-                        <div className="space-y-2">
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                                Kop Surat Resmi
-                            </label>
-                            <div className="flex items-center gap-3">
-                                {letterheadPreview && !removeLetterhead ? (
-                                    <div className="relative w-24 h-16 rounded-md border border-slate-200 bg-white p-1 shrink-0">
-                                        <img src={letterheadPreview} alt="Kop Surat Preview" className="w-full h-full object-contain" />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setLetterheadFile(null);
-                                                setLetterheadPreview(null);
-                                                setRemoveLetterhead(true);
-                                            }}
-                                            className="absolute -top-1.5 -right-1.5 p-0.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 cursor-pointer"
-                                            title="Hapus Kop Surat"
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="w-24 h-16 rounded-md border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
-                                        <ImageIcon className="w-6 h-6" />
-                                    </div>
-                                )}
-                                <div className="flex-1">
-                                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 cursor-pointer shadow-2xs">
-                                        <Upload className="w-3.5 h-3.5 text-slate-500" />
-                                        Pilih Kop Surat (PNG/JPG)
-                                        <input
-                                            type="file"
-                                            accept="image/png,image/jpeg,image/webp"
-                                            onChange={handleLetterheadChange}
-                                            className="hidden"
-                                        />
-                                    </label>
-                                    <p className="text-[10px] text-slate-400 mt-1">Maks. 4MB. Digunakan sebagai header dokumen/rapor.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Kontak & Alamat */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Telepon</label>
                             <input
                                 type="text"
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
-                                placeholder="021-..."
+                                placeholder="08xxxxxxxxxx"
                                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
+
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Email</label>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                                Alamat Email
+                            </label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="admin@pesantren.id"
+                                placeholder="madrasah@pesantren.id"
                                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Alamat Lembaga</label>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            Alamat Lembaga
+                        </label>
                         <textarea
                             rows={2}
                             value={address}
                             onChange={(e) => setAddress(e.target.value)}
-                            placeholder="Alamat lengkap pondok pesantren / madrasah..."
+                            placeholder="Alamat lengkap lokasi madrasah/gedung..."
                             className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                     </div>
 
-                    <div className="pt-2 flex justify-end gap-3 border-t border-slate-100">
+                    {/* Logo & Kop Surat Upload */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                                Logo Resmi Lembaga
+                            </label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleLogoChange}
+                                className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-300 rounded-md p-1"
+                            />
+                            {logoPreview && (
+                                <div className="mt-2 flex items-center gap-2">
+                                    <img src={logoPreview} alt="Logo" className="w-10 h-10 object-contain rounded border p-1" />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setLogoFile(null);
+                                            setLogoPreview(null);
+                                            setRemoveLogo(true);
+                                        }}
+                                        className="text-xs text-rose-600 hover:underline cursor-pointer"
+                                    >
+                                        Hapus Logo
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                                Kop Surat PDF (Rapor)
+                            </label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleLetterheadChange}
+                                className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-300 rounded-md p-1"
+                            />
+                            {letterheadPreview && (
+                                <div className="mt-2 flex items-center gap-2">
+                                    <img src={letterheadPreview} alt="Kop Surat" className="h-10 object-contain rounded border p-1" />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setLetterheadFile(null);
+                                            setLetterheadPreview(null);
+                                            setRemoveLetterhead(true);
+                                        }}
+                                        className="text-xs text-rose-600 hover:underline cursor-pointer"
+                                    >
+                                        Hapus Kop Surat
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="pt-3 flex justify-end gap-3 border-t border-slate-100">
                         <button
                             type="button"
                             onClick={() => setModalOpen(false)}
@@ -749,6 +937,129 @@ export default function InstitutionPage() {
                             className="px-5 py-2 text-sm font-semibold text-white bg-[#0b57d0] rounded-md hover:bg-[#0842a0] disabled:opacity-50 cursor-pointer shadow-xs"
                         >
                             {isCreating || isUpdating ? 'Menyimpan...' : 'Simpan Institusi'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* ═══════════════════ MODAL TAMBAH/EDIT KELOMPOK PENDIDIKAN ═══════════════════ */}
+            <Modal
+                open={typeModalOpen}
+                title={editingType ? 'Edit Kelompok Pendidikan' : 'Tambah Kelompok Pendidikan'}
+                onClose={() => setTypeModalOpen(false)}
+            >
+                <form onSubmit={handleTypeSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            Nama Kelompok Pendidikan *
+                        </label>
+                        <input
+                            type="text"
+                            required
+                            value={typeName}
+                            onChange={(e) => setTypeName(e.target.value)}
+                            placeholder="Contoh: Formal, Nonformal, Diniyah Salafiyah, Tahfidz"
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            Deskripsi / Keterangan
+                        </label>
+                        <textarea
+                            rows={3}
+                            value={typeDesc}
+                            onChange={(e) => setTypeDesc(e.target.value)}
+                            placeholder="Deskripsi peruntukan kelompok pendidikan..."
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-3 border-t border-slate-100">
+                        <button
+                            type="button"
+                            onClick={() => setTypeModalOpen(false)}
+                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 cursor-pointer"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isCreatingType || isUpdatingType}
+                            className="px-4 py-2 text-sm font-semibold text-white bg-[#0b57d0] rounded-md hover:bg-[#0842a0] disabled:opacity-50 cursor-pointer shadow-xs"
+                        >
+                            {isCreatingType || isUpdatingType ? 'Menyimpan...' : 'Simpan Kelompok'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* ═══════════════════ MODAL IMPOR EXCEL INSTITUSI ═══════════════════ */}
+            <Modal
+                open={importModalOpen}
+                title="Impor Institusi & Jenjang dari Excel"
+                onClose={() => {
+                    setImportModalOpen(false);
+                    setImportFile(null);
+                }}
+            >
+                <form onSubmit={handleImportSubmit} className="space-y-4">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <div className="flex items-start gap-2">
+                            <FileSpreadsheet className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
+                            <div className="text-xs text-blue-800 space-y-1">
+                                <p className="font-semibold">Format Pengisian Data</p>
+                                <p>
+                                    Anda dapat mengimpor institusi sekaligus daftar jenjangnya (dipisahkan koma). Gunakan template resmi untuk menghindari kesalahan format.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadTemplate}
+                                    className="inline-flex items-center gap-1 font-bold text-blue-700 hover:text-blue-900 underline mt-1 cursor-pointer"
+                                >
+                                    <FileDown className="w-3.5 h-3.5" /> Unduh Template Excel (.xlsx)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                            Pilih File Excel (.xlsx / .xls / .csv)
+                        </label>
+                        <input
+                            type="file"
+                            required
+                            accept=".xlsx,.xls,.csv"
+                            onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                            className="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-300 rounded-md p-1"
+                        />
+                        {importFile && (
+                            <p className="text-[11px] text-emerald-700 font-medium mt-1">
+                                File terpilih: {importFile.name} ({(importFile.size / 1024).toFixed(1)} KB)
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-3 border-t border-slate-100">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setImportModalOpen(false);
+                                setImportFile(null);
+                            }}
+                            className="px-4 py-2 text-xs font-semibold text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 cursor-pointer"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isImporting || !importFile}
+                            className="px-4 py-2 text-xs font-bold text-white bg-emerald-700 rounded-md hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                            <Upload className="w-4 h-4" />
+                            {isImporting ? 'Memproses File...' : 'Mulai Impor'}
                         </button>
                     </div>
                 </form>
@@ -819,7 +1130,7 @@ export default function InstitutionPage() {
                 </div>
             </Modal>
 
-            {/* Confirm Delete */}
+            {/* Confirm Delete Institusi */}
             <ConfirmDialog
                 open={!!deleteTarget}
                 title="Hapus Institusi Pendidikan"
@@ -827,6 +1138,16 @@ export default function InstitutionPage() {
                 onConfirm={handleDelete}
                 onCancel={() => setDeleteTarget(null)}
                 isLoading={isDeleting}
+            />
+
+            {/* Confirm Delete Kelompok Pendidikan */}
+            <ConfirmDialog
+                open={!!deleteTypeTarget}
+                title="Hapus Kelompok Pendidikan"
+                message={`Yakin ingin menghapus kelompok pendidikan "${deleteTypeTarget?.name}"?`}
+                onConfirm={handleTypeDelete}
+                onCancel={() => setDeleteTypeTarget(null)}
+                isLoading={isDeletingType}
             />
         </div>
     );

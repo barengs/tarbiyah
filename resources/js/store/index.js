@@ -10,6 +10,7 @@ import './slices/teacherApi';
 import './slices/studentApi';
 import './slices/studyApi';
 import './slices/classGroupApi';
+import './slices/classroomApi';
 import './slices/lessonHourApi';
 import './slices/scheduleApi';
 import './slices/journalApi';

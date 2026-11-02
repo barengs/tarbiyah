@@ -5,9 +5,11 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\SecurityController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\Master\EducationalInstitutionController;
+use App\Http\Controllers\Api\Master\EducationTypeController;
 use App\Http\Controllers\Api\Master\EducationController;
 use App\Http\Controllers\Api\Master\AcademicYearController;
 use App\Http\Controllers\Api\Master\AcademicQuarterController;
+use App\Http\Controllers\Api\Master\ClassroomController;
 use App\Http\Controllers\Api\Master\TeacherController;
 use App\Http\Controllers\Api\Master\StudentController;
 use App\Http\Controllers\Api\Master\StudyController;
@@ -97,9 +99,20 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
     Route::get('programs', [\App\Http\Controllers\Api\Master\ProgramController::class, 'index']);
     Route::post('programs/sync-from-smpt', [\App\Http\Controllers\Api\Master\ProgramController::class, 'syncFromSmpt']);
 
-    // Institusi Pendidikan
+    // Kelompok Pendidikan (Formal, Nonformal, Diniyah, Salafiyah, dll)
+    Route::apiResource('education-types', EducationTypeController::class);
+    Route::apiResource('education-type', EducationTypeController::class);
+
+    // Institusi Pendidikan & Jenjang (Export, Template & Import)
+    Route::get('institutions/export', [EducationalInstitutionController::class, 'export']);
+    Route::get('institutions/template', [EducationalInstitutionController::class, 'downloadTemplate']);
+    Route::post('institutions/import', [EducationalInstitutionController::class, 'import']);
     Route::post('institutions/{id}', [EducationalInstitutionController::class, 'update']);
     Route::apiResource('institutions', EducationalInstitutionController::class);
+
+    // Ruang Kelas Fisik (Gedung, Ruangan Belajar, Lab)
+    Route::apiResource('classrooms', ClassroomController::class);
+    Route::apiResource('classroom', ClassroomController::class);
 
     // Jenjang Pendidikan per Institusi
     Route::apiResource('educations', EducationController::class);
@@ -126,7 +139,10 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
     Route::post('students/pull-from-smpt', [StudentController::class, 'pullFromSmpt']);
     Route::apiResource('students', StudentController::class);
 
-    // Mata Pelajaran (Studies)
+    // Mata Pelajaran (Studies - Export, Template & Import)
+    Route::get('studies/export', [StudyController::class, 'export']);
+    Route::get('studies/template', [StudyController::class, 'downloadTemplate']);
+    Route::post('studies/import', [StudyController::class, 'import']);
     Route::apiResource('studies', StudyController::class);
 
     // Jam Pelajaran (Lesson Hours)

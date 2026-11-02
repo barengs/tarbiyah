@@ -12,8 +12,23 @@ class Classroom extends Model
 
     protected $guarded = ['id'];
 
-    public function institution()
+    public function educationalInstitution()
     {
         return $this->belongsTo(EducationalInstitution::class, 'educational_institution_id');
+    }
+
+    public function institution()
+    {
+        return $this->educationalInstitution();
+    }
+
+    public function classGroups()
+    {
+        return $this->hasMany(ClassGroup::class, 'classroom_id');
+    }
+
+    public function schedules()
+    {
+        return $this->hasMany(LessonSchedule::class, 'classroom_id');
     }
 }

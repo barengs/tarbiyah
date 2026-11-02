@@ -3,10 +3,17 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\EducationalInstitution;
 use App\Models\Study;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class StudyController extends Controller
 {
@@ -205,6 +212,400 @@ class StudyController extends Controller
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Gagal menghapus mata pelajaran',
+            ], 500);
+        }
+    }
+
+    /**
+     * Ekspor Data Mata Pelajaran ke File Excel (.xlsx)
+     */
+    public function export(Request $request)
+    {
+        try {
+            $query = Study::with(['educationalInstitution', 'teachers']);
+
+            if ($request->filled('educational_institution_id')) {
+                $query->where('educational_institution_id', $request->query('educational_institution_id'));
+            }
+
+            if ($request->filled('study_type') && $request->query('study_type') !== 'all') {
+                $query->where('study_type', $request->query('study_type'));
+            }
+
+            $studies = $query->orderBy('order', 'asc')->orderBy('name', 'asc')->get();
+
+            $spreadsheet = new Spreadsheet();
+            $spreadsheet->getProperties()
+                ->setCreator('Tarbiyah — Sistem Manajemen Pendidikan')
+                ->setTitle('Data Mata Pelajaran')
+                ->setSubject('Ekspor Master Mata Pelajaran');
+
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Mata Pelajaran');
+
+            // Header Judul
+            $sheet->setCellValue('A1', 'DATA MASTER MATA PELAJARAN');
+            $sheet->mergeCells('A1:H1');
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('0B57D0'));
+            $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+
+            $sheet->setCellValue('A2', 'Tanggal Ekspor: ' . now()->translatedFormat('d F Y H:i'));
+            $sheet->mergeCells('A2:H2');
+            $sheet->getStyle('A2')->getFont()->setSize(10)->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('64748B'));
+
+            // Table Header
+            $headers = ['No', 'Kode Mapel', 'Nama Mata Pelajaran', 'Institusi Pendidikan', 'Kategori/Tipe', 'KKM', 'Urutan', 'Status'];
+            $colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+            foreach ($headers as $idx => $header) {
+                $col = $colLetters[$idx];
+                $sheet->setCellValue($col . '4', $header);
+            }
+
+            $headerRange = 'A4:H4';
+            $sheet->getStyle($headerRange)->applyFromArray([
+                'font' => [
+                    'bold'  => true,
+                    'color' => ['rgb' => 'FFFFFF'],
+                    'size'  => 11,
+                ],
+                'fill' => [
+                    'fillType'   => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '0B57D0'],
+                ],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical'   => Alignment::VERTICAL_CENTER,
+                ],
+            ]);
+            $sheet->getRowDimension(4)->setRowHeight(26);
+
+            $rowIdx = 5;
+            foreach ($studies as $i => $s) {
+                $sheet->setCellValue('A' . $rowIdx, $i + 1);
+                $sheet->setCellValueExplicit('B' . $rowIdx, $s->code ?? '-', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValue('C' . $rowIdx, $s->name);
+                $sheet->setCellValue('D' . $rowIdx, $s->educationalInstitution?->name ?? 'Semua Institusi / Umum');
+                $sheet->setCellValue('E' . $rowIdx, ucfirst(str_replace('_', ' ', $s->study_type ?? 'reguler')));
+                $sheet->setCellValue('F' . $rowIdx, (float) $s->kkm);
+                $sheet->setCellValue('G' . $rowIdx, (int) $s->order);
+                $sheet->setCellValue('H' . $rowIdx, $s->is_active ? 'Aktif' : 'Nonaktif');
+
+                $sheet->getStyle('A' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('B' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('F' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle('G' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('H' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+                if ($rowIdx % 2 === 0) {
+                    $sheet->getStyle("A{$rowIdx}:H{$rowIdx}")->getFill()
+                        ->setFillType(Fill::FILL_SOLID)
+                        ->getStartColor()->setRGB('F8FAFC');
+                }
+
+                $rowIdx++;
+            }
+
+            $lastRow = max(4, $rowIdx - 1);
+            $sheet->getStyle("A4:H{$lastRow}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color'       => ['rgb' => 'CBD5E1'],
+                    ],
+                ],
+            ]);
+
+            foreach ($colLetters as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+
+            $filename = 'Master_Mata_Pelajaran_' . date('Ymd_His') . '.xlsx';
+
+            return response()->streamDownload(function () use ($spreadsheet) {
+                $writer = new Xlsx($spreadsheet);
+                $writer->save('php://output');
+            }, $filename, [
+                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                'Cache-Control'       => 'max-age=0',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error exporting studies: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal mengekspor data mata pelajaran: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Unduh Template Excel untuk Import Mata Pelajaran
+     */
+    public function downloadTemplate()
+    {
+        try {
+            $spreadsheet = new Spreadsheet();
+            $spreadsheet->getProperties()
+                ->setCreator('Tarbiyah — Sistem Manajemen Pendidikan')
+                ->setTitle('Template Import Mata Pelajaran');
+
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Template Mapel');
+
+            // Petunjuk Pengisian
+            $sheet->setCellValue('A1', 'PETUNJUK PENGISIAN TEMPLATE MATA PELAJARAN');
+            $sheet->mergeCells('A1:G1');
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('0B57D0'));
+
+            $sheet->setCellValue('A2', '1. Kolom "Nama Mata Pelajaran" wajib diisi. Kolom lainnya opsional.');
+            $sheet->setCellValue('A3', '2. Kolom "Tipe Mapel" diisi salah satu: reguler, khusus (diniyah), atau muatan_lokal.');
+            $sheet->setCellValue('A4', '3. Kolom "Nama Institusi" diisi persis nama institusi/sekolah, atau biarkan kosong jika berlaku umum.');
+            $sheet->setCellValue('A5', '4. Nilai KKM diisi angka (default 75). Status diisi "aktif" atau "nonaktif".');
+            $sheet->getStyle('A2:A5')->getFont()->setSize(9)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('64748B'));
+
+            // Header Tabel (Baris 7)
+            $headers = ['Kode Mapel', 'Nama Mata Pelajaran *', 'Nama Institusi', 'Tipe Mapel', 'KKM', 'Urutan', 'Status'];
+            $colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+            foreach ($headers as $idx => $header) {
+                $sheet->setCellValue($colLetters[$idx] . '7', $header);
+            }
+
+            $sheet->getStyle('A7:G7')->applyFromArray([
+                'font' => [
+                    'bold'  => true,
+                    'color' => ['rgb' => 'FFFFFF'],
+                    'size'  => 10,
+                ],
+                'fill' => [
+                    'fillType'   => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '0B57D0'],
+                ],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical'   => Alignment::VERTICAL_CENTER,
+                ],
+            ]);
+            $sheet->getRowDimension(7)->setRowHeight(25);
+
+            // Baris Contoh (Baris 8-10)
+            $examples = [
+                ['FIQ-01', 'Fiqih Fathul Qorib', 'Madrasah Diniyah Ula', 'khusus', 75, 1, 'aktif'],
+                ['NAH-01', 'Nahwu Jurumiyyah', 'Madrasah Diniyah Ula', 'khusus', 75, 2, 'aktif'],
+                ['MAT-7', 'Matematika', 'SMP Islam', 'reguler', 70, 3, 'aktif'],
+            ];
+
+            foreach ($examples as $eIdx => $ex) {
+                $rowNum = 8 + $eIdx;
+                foreach ($ex as $cIdx => $val) {
+                    $sheet->setCellValue($colLetters[$cIdx] . $rowNum, $val);
+                }
+            }
+
+            $sheet->getStyle('A7:G10')->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color'       => ['rgb' => 'CBD5E1'],
+                    ],
+                ],
+            ]);
+
+            foreach ($colLetters as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+
+            $filename = 'Template_Import_Mata_Pelajaran.xlsx';
+
+            return response()->streamDownload(function () use ($spreadsheet) {
+                $writer = new Xlsx($spreadsheet);
+                $writer->save('php://output');
+            }, $filename, [
+                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                'Cache-Control'       => 'max-age=0',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error generating study template: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal membuat template import mata pelajaran: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Import Data Mata Pelajaran dari File Excel (.xlsx, .xls, .csv)
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        try {
+            $uploadedFile = $request->file('file');
+            $spreadsheet = IOFactory::load($uploadedFile->getRealPath());
+            $worksheet = $spreadsheet->getSheet(0);
+            $rows = $worksheet->toArray(null, true, false, false);
+
+            if (empty($rows) || count($rows) < 2) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'File Excel kosong atau tidak memiliki baris data.',
+                ], 422);
+            }
+
+            // Cari baris header (mencari kolom dengan teks "nama" atau "mapel")
+            $headerRowIdx = null;
+            $codeCol = 0;
+            $nameCol = 1;
+            $instCol = 2;
+            $typeCol = 3;
+            $kkmCol = 4;
+            $orderCol = 5;
+            $statusCol = 6;
+
+            foreach ($rows as $idx => $row) {
+                foreach ($row as $colIdx => $cellVal) {
+                    $val = strtolower(trim((string) $cellVal));
+                    if (str_contains($val, 'nama mata') || str_contains($val, 'nama mapel') || $val === 'mata pelajaran') {
+                        $headerRowIdx = $idx;
+                        $nameCol = $colIdx;
+                        break 2;
+                    }
+                }
+            }
+
+            // Jika tidak ditemukan header otomatis, asumsikan baris pertama atau baris ke-7 (jika memakai template)
+            if ($headerRowIdx === null) {
+                $headerRowIdx = count($rows) >= 7 ? 6 : 0;
+            }
+
+            // Deteksi indeks kolom dari baris header terpilih
+            if (isset($rows[$headerRowIdx])) {
+                foreach ($rows[$headerRowIdx] as $cIdx => $cell) {
+                    $norm = strtolower(trim((string) $cell));
+                    if (str_contains($norm, 'kode')) {
+                        $codeCol = $cIdx;
+                    } elseif (str_contains($norm, 'nama') || str_contains($norm, 'mapel')) {
+                        $nameCol = $cIdx;
+                    } elseif (str_contains($norm, 'institusi') || str_contains($norm, 'lembaga')) {
+                        $instCol = $cIdx;
+                    } elseif (str_contains($norm, 'tipe') || str_contains($norm, 'kategori')) {
+                        $typeCol = $cIdx;
+                    } elseif (str_contains($norm, 'kkm')) {
+                        $kkmCol = $cIdx;
+                    } elseif (str_contains($norm, 'urut')) {
+                        $orderCol = $cIdx;
+                    } elseif (str_contains($norm, 'status') || str_contains($norm, 'aktif')) {
+                        $statusCol = $cIdx;
+                    }
+                }
+            }
+
+            $institutions = EducationalInstitution::all()->keyBy(fn($i) => strtolower(trim($i->name)));
+
+            $insertedCount = 0;
+            $updatedCount = 0;
+            $errors = [];
+
+            DB::beginTransaction();
+
+            for ($r = $headerRowIdx + 1; $r < count($rows); $r++) {
+                $row = $rows[$r];
+                $name = trim((string) ($row[$nameCol] ?? ''));
+
+                if ($name === '' || str_starts_with($name, 'PETUNJUK') || str_starts_with($name, '1.') || str_starts_with($name, '2.')) {
+                    continue;
+                }
+
+                $code = trim((string) ($row[$codeCol] ?? ''));
+                $instName = strtolower(trim((string) ($row[$instCol] ?? '')));
+                $rawType = strtolower(trim((string) ($row[$typeCol] ?? 'reguler')));
+                $rawKkm = trim((string) ($row[$kkmCol] ?? '75'));
+                $rawOrder = trim((string) ($row[$orderCol] ?? '1'));
+                $rawStatus = strtolower(trim((string) ($row[$statusCol] ?? 'aktif')));
+
+                $instId = null;
+                if ($instName !== '' && $instName !== '-' && $instName !== 'umum') {
+                    if (isset($institutions[$instName])) {
+                        $instId = $institutions[$instName]->id;
+                    } else {
+                        // Coba cari substring
+                        $found = $institutions->first(fn($it, $k) => str_contains($k, $instName) || str_contains($instName, $k));
+                        if ($found) {
+                            $instId = $found->id;
+                        }
+                    }
+                }
+
+                $studyType = 'reguler';
+                if (str_contains($rawType, 'khusus') || str_contains($rawType, 'diniyah') || str_contains($rawType, 'salaf')) {
+                    $studyType = 'khusus';
+                } elseif (str_contains($rawType, 'muatan') || str_contains($rawType, 'lokal') || str_contains($rawType, 'mulok')) {
+                    $studyType = 'muatan_lokal';
+                }
+
+                $kkm = is_numeric($rawKkm) ? (float) $rawKkm : 75.00;
+                $order = is_numeric($rawOrder) ? (int) $rawOrder : 1;
+                $isActive = !in_array($rawStatus, ['nonaktif', 'tidak', '0', 'false', 'inactive']);
+
+                // Cari berdasarkan code atau (name + educational_institution_id)
+                $existing = null;
+                if ($code !== '' && $code !== '-') {
+                    $existing = Study::where('code', $code)->first();
+                }
+                if (!$existing) {
+                    $existing = Study::where('name', $name)
+                        ->where('educational_institution_id', $instId)
+                        ->first();
+                }
+
+                if ($existing) {
+                    $existing->update([
+                        'code'                       => $code !== '' && $code !== '-' ? $code : $existing->code,
+                        'name'                       => $name,
+                        'educational_institution_id' => $instId,
+                        'study_type'                 => $studyType,
+                        'kkm'                        => $kkm,
+                        'order'                      => $order,
+                        'is_active'                  => $isActive,
+                    ]);
+                    $updatedCount++;
+                } else {
+                    Study::create([
+                        'code'                       => $code !== '' && $code !== '-' ? $code : null,
+                        'name'                       => $name,
+                        'educational_institution_id' => $instId,
+                        'study_type'                 => $studyType,
+                        'kkm'                        => $kkm,
+                        'order'                      => $order,
+                        'is_active'                  => $isActive,
+                    ]);
+                    $insertedCount++;
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => "Import berhasil: {$insertedCount} mata pelajaran baru ditambahkan, {$updatedCount} diperbarui.",
+                'data'    => [
+                    'inserted' => $insertedCount,
+                    'updated'  => $updatedCount,
+                    'total'    => $insertedCount + $updatedCount,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error importing studies: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal mengimpor mata pelajaran: ' . $e->getMessage(),
             ], 500);
         }
     }

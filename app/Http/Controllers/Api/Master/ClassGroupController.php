@@ -36,6 +36,15 @@ class ClassGroupController extends Controller
                 }
             }
 
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
+            if ($userProgramId) {
+                $query->where('program_id', $userProgramId);
+            } elseif ($request->has('program_id') && $request->query('program_id')) {
+                $query->where('program_id', $request->query('program_id'));
+            }
+
             if ($request->has('educational_institution_id') && $request->query('educational_institution_id')) {
                 $query->where('educational_institution_id', $request->query('educational_institution_id'));
             }

@@ -236,7 +236,7 @@ class SecurityController extends Controller
     public function getRoles()
     {
         $roles = Role::where('guard_name', 'api')
-            ->with(['menus', 'permissions'])
+            ->with(['menus', 'permissions', 'program'])
             ->get();
 
         return response()->json([
@@ -251,18 +251,20 @@ class SecurityController extends Controller
     public function storeRole(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:roles,name',
+            'name'       => 'required|string|max:100|unique:roles,name',
+            'program_id' => 'nullable|exists:programs,id',
         ]);
 
         $role = Role::create([
             'name'       => Str::slug($validated['name']),
             'guard_name' => 'api',
+            'program_id' => $validated['program_id'] ?? null,
         ]);
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Role berhasil ditambahkan.',
-            'data'    => $role->load(['menus', 'permissions']),
+            'data'    => $role->load(['menus', 'permissions', 'program']),
         ], 201);
     }
 
@@ -281,17 +283,19 @@ class SecurityController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:roles,name,' . $id,
+            'name'       => 'required|string|max:100|unique:roles,name,' . $id,
+            'program_id' => 'nullable|exists:programs,id',
         ]);
 
         $role->update([
-            'name' => Str::slug($validated['name']),
+            'name'       => Str::slug($validated['name']),
+            'program_id' => $validated['program_id'] ?? null,
         ]);
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Role berhasil diperbarui.',
-            'data'    => $role->load(['menus', 'permissions']),
+            'data'    => $role->load(['menus', 'permissions', 'program']),
         ]);
     }
 

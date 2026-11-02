@@ -16,6 +16,7 @@ import {
     useGetRolesQuery,
     useGetMenusQuery,
     useGetPermissionsQuery,
+    useGetProgramsQuery,
     useCreateRoleMutation,
     useUpdateRoleMutation,
     useDeleteRoleMutation,
@@ -30,6 +31,7 @@ export default function RoleManagementPage() {
     const { data: rolesRes, isLoading: rolesLoading } = useGetRolesQuery();
     const { data: menusRes, isLoading: menusLoading } = useGetMenusQuery();
     const { data: permsRes, isLoading: permsLoading } = useGetPermissionsQuery();
+    const { data: programsRes } = useGetProgramsQuery();
 
     const [createRole, { isLoading: isCreatingRole }] = useCreateRoleMutation();
     const [updateRole, { isLoading: isUpdatingRole }] = useUpdateRoleMutation();
@@ -40,6 +42,7 @@ export default function RoleManagementPage() {
     const roles = rolesRes?.data || [];
     const menus = menusRes?.data || [];
     const permissionGroups = permsRes?.data || [];
+    const programs = programsRes?.data || [];
 
     const [selectedRole, setSelectedRole] = useState(null);
     const [activeTab, setActiveTab] = useState('menus'); // 'menus' | 'permissions'
@@ -49,6 +52,7 @@ export default function RoleManagementPage() {
     const [roleModalOpen, setRoleModalOpen] = useState(false);
     const [editingRole, setEditingRole] = useState(null);
     const [roleNameInput, setRoleNameInput] = useState('');
+    const [roleProgramIdInput, setRoleProgramIdInput] = useState('');
 
     const [deleteTargetRole, setDeleteTargetRole] = useState(null);
 
@@ -140,9 +144,11 @@ export default function RoleManagementPage() {
         if (role) {
             setEditingRole(role);
             setRoleNameInput(role.name);
+            setRoleProgramIdInput(role.program_id ? String(role.program_id) : '');
         } else {
             setEditingRole(null);
             setRoleNameInput('');
+            setRoleProgramIdInput('');
         }
         setRoleModalOpen(true);
     };
@@ -150,11 +156,16 @@ export default function RoleManagementPage() {
     const handleRoleSubmit = async (e) => {
         e.preventDefault();
         try {
+            const payload = {
+                name: roleNameInput,
+                program_id: roleProgramIdInput ? parseInt(roleProgramIdInput, 10) : null,
+            };
+
             if (editingRole) {
-                await updateRole({ id: editingRole.id, name: roleNameInput }).unwrap();
+                await updateRole({ id: editingRole.id, ...payload }).unwrap();
                 toast.success('Role berhasil diperbarui');
             } else {
-                const res = await createRole({ name: roleNameInput }).unwrap();
+                const res = await createRole(payload).unwrap();
                 toast.success('Role baru berhasil ditambahkan');
                 if (res?.data) {
                     setSelectedRole(res.data);
@@ -248,8 +259,23 @@ export default function RoleManagementPage() {
                                             }`}
                                         />
                                         <div className="min-w-0">
-                                            <p className="truncate uppercase font-bold tracking-wide">{r.name}</p>
-                                            <p className="text-[10px] text-slate-400 font-normal">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <p className="truncate uppercase font-bold tracking-wide">{r.name}</p>
+                                                {r.program_id === 2 || r.program?.code === 'KBR' ? (
+                                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                                        Kubar
+                                                    </span>
+                                                ) : r.program_id === 1 || r.program?.code === 'TBY' ? (
+                                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
+                                                        Tibyan
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                                        Global
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 font-normal mt-0.5">
                                                 {r.menus?.length || 0} Menu • {r.permissions?.length || 0} Permission
                                             </p>
                                         </div>
@@ -293,13 +319,26 @@ export default function RoleManagementPage() {
                             {/* Header Panel Terpilih */}
                             <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                             Konfigurasi Hak Akses:
                                         </span>
                                         <span className="px-2.5 py-0.5 rounded text-xs font-bold uppercase bg-emerald-100/70 text-[#093c30] border border-emerald-300">
                                             {selectedRole.name}
                                         </span>
+                                        {selectedRole.program_id === 2 || selectedRole.program?.code === 'KBR' ? (
+                                            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                                                Cakupan: Program Kubar
+                                            </span>
+                                        ) : selectedRole.program_id === 1 || selectedRole.program?.code === 'TBY' ? (
+                                            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-300">
+                                                Cakupan: Program Tibyan
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                                Cakupan: Semua Program (Global)
+                                            </span>
+                                        )}
                                     </div>
                                     <p className="text-xs text-slate-500 mt-1">
                                         Tentukan menu sidebar yang dapat dilihat dan aksi izin operasional untuk role ini.
@@ -538,6 +577,27 @@ export default function RoleManagementPage() {
                         />
                         <p className="text-[11px] text-slate-400 mt-1">
                             Gunakan huruf kecil tanpa spasi (akan di-slug otomatis).
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            Cakupan Program Pesantren
+                        </label>
+                        <select
+                            value={roleProgramIdInput}
+                            onChange={(e) => setRoleProgramIdInput(e.target.value)}
+                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                        >
+                            <option value="">Semua Program (Global Scope / Cross-Program)</option>
+                            {programs.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                    Program {p.name} ({p.code})
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                            Role dengan cakupan program hanya akan dapat melihat santri, rombel, dan lembaga program tersebut.
                         </p>
                     </div>
 

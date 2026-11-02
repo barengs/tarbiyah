@@ -96,6 +96,12 @@ export const securityApi = apiSlice.injectEndpoints({
             providesTags: ['SecurityPermission'],
         }),
 
+        // Master Program Pesantren untuk Cakupan Role
+        getPrograms: builder.query({
+            query: () => 'master/programs',
+            providesTags: ['Program'],
+        }),
+
         // Manajemen Pengguna (Users)
         getUsers: builder.query({
             query: (params) => ({
@@ -152,6 +158,7 @@ export const {
     useSyncRoleMenusMutation,
     useSyncRolePermissionsMutation,
     useGetPermissionsQuery,
+    useGetProgramsQuery,
     useGetUsersQuery,
     useCreateUserMutation,
     useUpdateUserMutation,

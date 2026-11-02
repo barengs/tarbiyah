@@ -153,19 +153,14 @@ export default function UserManagementPage() {
     };
 
     const getRoleBadgeClass = (roleName) => {
-        switch (roleName?.toLowerCase()) {
-            case 'superadmin':
-                return 'bg-purple-50 text-purple-700 border-purple-200';
-            case 'admin':
-                return 'bg-emerald-50 text-emerald-800 border-emerald-200';
-            case 'asatidz':
-            case 'guru':
-                return 'bg-amber-50 text-amber-800 border-amber-200';
-            case 'walikelas':
-                return 'bg-blue-50 text-blue-700 border-blue-200';
-            default:
-                return 'bg-slate-100 text-slate-700 border-slate-200';
-        }
+        const lower = roleName?.toLowerCase() || '';
+        if (lower.includes('superadmin')) return 'bg-purple-50 text-purple-700 border-purple-200';
+        if (lower.includes('admin')) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+        if (lower.includes('kubar')) return 'bg-emerald-50 text-emerald-800 border-emerald-300';
+        if (lower.includes('tibyan')) return 'bg-sky-50 text-sky-800 border-sky-300';
+        if (lower.includes('asatidz') || lower.includes('guru')) return 'bg-amber-50 text-amber-800 border-amber-200';
+        if (lower.includes('walikelas')) return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-slate-100 text-slate-700 border-slate-200';
     };
 
     const columns = useMemo(
@@ -369,19 +364,34 @@ export default function UserManagementPage() {
                                 return (
                                     <label
                                         key={r.id}
-                                        className={`flex items-center gap-2 p-2 rounded-md border text-xs cursor-pointer transition-all ${
+                                        className={`flex items-center justify-between p-2 rounded-md border text-xs cursor-pointer transition-all ${
                                             isChecked
                                                 ? 'bg-emerald-50 border-emerald-500 text-[#093c30] font-semibold'
                                                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                                         }`}
                                     >
-                                        <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => toggleFormRole(r.name)}
-                                            className="w-3.5 h-3.5 text-[#093c30] rounded border-slate-300 focus:ring-emerald-500"
-                                        />
-                                        <span className="capitalize">{r.name}</span>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => toggleFormRole(r.name)}
+                                                className="w-3.5 h-3.5 text-[#093c30] rounded border-slate-300 focus:ring-emerald-500 shrink-0"
+                                            />
+                                            <span className="capitalize truncate">{r.name}</span>
+                                        </div>
+                                        {r.program_id === 2 || r.program?.code === 'KBR' ? (
+                                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                                                Kubar
+                                            </span>
+                                        ) : r.program_id === 1 || r.program?.code === 'TBY' ? (
+                                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-100 text-sky-800 border border-sky-300 shrink-0">
+                                                Tibyan
+                                            </span>
+                                        ) : (
+                                            <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-slate-100 text-slate-500 border border-slate-200 shrink-0">
+                                                Global
+                                            </span>
+                                        )}
                                     </label>
                                 );
                             })}

@@ -50,15 +50,51 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
+     * Dapatkan Program ID aktif dari role user (jika role dibatasi per program).
+     * Mengembalikan null jika superadmin/admin atau jika role bersifat global.
+     */
+    public function getActiveProgramId(): ?int
+    {
+        if ($this->hasRole('superadmin')) {
+            return null;
+        }
+
+        foreach ($this->roles as $r) {
+            if (!empty($r->program_id)) {
+                return (int) $r->program_id;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Cek apakah user memiliki akses cross-program (Global scope).
+     */
+    public function isGlobalProgramScope(): bool
+    {
+        return $this->getActiveProgramId() === null;
+    }
+
+    /**
      * Return a key value array, containing any custom claims to be added to the JWT.
      */
     public function getJWTCustomClaims(): array
     {
+        $activeRole = $this->roles->first();
+        $programId = $this->getActiveProgramId();
+
         return [
-            'name'  => $this->name,
-            'email' => $this->email,
-            'role'  => $this->role ?? $this->roles->first()?->name ?? 'staff',
-            'roles' => $this->getRoleNames()->toArray(),
+            'name'       => $this->name,
+            'email'      => $this->email,
+            'role'       => $this->role ?? $activeRole?->name ?? 'staf',
+            'roles'      => $this->getRoleNames()->toArray(),
+            'program_id' => $programId,
+            'program'    => $activeRole?->program ? [
+                'id'   => $activeRole->program->id,
+                'name' => $activeRole->program->name,
+                'code' => $activeRole->program->code,
+            ] : null,
         ];
     }
 

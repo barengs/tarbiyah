@@ -14,7 +14,18 @@ class EducationalInstitutionController extends Controller
     public function index()
     {
         try {
-            $institutions = EducationalInstitution::with(['educationType', 'educations', 'classrooms', 'classes'])->get();
+            $query = EducationalInstitution::with(['educationType', 'educations', 'classrooms', 'classes']);
+
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
+            if ($userProgramId) {
+                $query->whereHas('educations', function ($q) use ($userProgramId) {
+                    $q->where('program_id', $userProgramId);
+                });
+            }
+
+            $institutions = $query->get();
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Data institusi pendidikan berhasil diambil',

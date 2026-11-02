@@ -74,7 +74,13 @@ class StudentController extends Controller
             }
 
             // Filter berdasarkan Program (Kubar / Tibyan)
-            if ($request->has('program_id')) {
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
+            if ($userProgramId) {
+                // Dipaksa sesuai program role pengguna
+                $query->where('program_id', $userProgramId);
+            } elseif ($request->has('program_id')) {
                 $programId = (int) $request->query('program_id');
                 if ($programId > 0) {
                     $query->where('program_id', $programId);

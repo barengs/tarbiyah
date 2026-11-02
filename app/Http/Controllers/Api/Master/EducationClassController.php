@@ -17,6 +17,15 @@ class EducationClassController extends Controller
         try {
             $query = EducationClass::with(['education.institution', 'institution', 'classGroups']);
 
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
+            if ($userProgramId) {
+                $query->whereHas('education', function ($q) use ($userProgramId) {
+                    $q->where('program_id', $userProgramId);
+                });
+            }
+
             if ($request->has('education_id') && $request->query('education_id')) {
                 $query->where('education_id', $request->query('education_id'));
             }

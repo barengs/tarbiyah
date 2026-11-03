@@ -7,7 +7,6 @@ use App\Models\AcademicQuarter;
 use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\AssessmentCategory;
-use App\Models\AssessmentScore;
 use App\Models\ClassGroup;
 use App\Models\ReportCard;
 use App\Models\Student;
@@ -17,6 +16,7 @@ use App\Models\StudentQuarterlyScore;
 use App\Models\Study;
 use App\Models\TeachingJournal;
 use App\Services\BankSantriService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,16 +38,25 @@ class AssessmentController extends Controller
      */
     public static function resolveSemesterKey(?AcademicQuarter $quarter, ?string $rawSemester = null): string
     {
-        if (!empty($rawSemester)) {
+        if (! empty($rawSemester)) {
             return $rawSemester;
         }
         if ($quarter) {
             $name = strtoupper($quarter->name);
-            if (str_contains($name, 'IV') || str_contains($name, '4')) return 'triwulan_4';
-            if (str_contains($name, 'III') || str_contains($name, '3')) return 'triwulan_3';
-            if (str_contains($name, 'II') || str_contains($name, '2')) return 'triwulan_2';
-            if (str_contains($name, 'I') || str_contains($name, '1')) return 'triwulan_1';
+            if (str_contains($name, 'IV') || str_contains($name, '4')) {
+                return 'triwulan_4';
+            }
+            if (str_contains($name, 'III') || str_contains($name, '3')) {
+                return 'triwulan_3';
+            }
+            if (str_contains($name, 'II') || str_contains($name, '2')) {
+                return 'triwulan_2';
+            }
+            if (str_contains($name, 'I') || str_contains($name, '1')) {
+                return 'triwulan_1';
+            }
         }
+
         return 'triwulan_4';
     }
 
@@ -56,7 +65,7 @@ class AssessmentController extends Controller
      */
     public static function findPreviousQuarter(?AcademicQuarter $currentQuarter, int $yearId): ?AcademicQuarter
     {
-        if (!$currentQuarter) {
+        if (! $currentQuarter) {
             return null;
         }
 
@@ -91,14 +100,14 @@ class AssessmentController extends Controller
             ->where('status', 'aktif')
             ->with('student')
             ->get()
-            ->filter(fn($sc) => $sc->student !== null)
-            ->sortBy(fn($sc) => $sc->student->name)
+            ->filter(fn ($sc) => $sc->student !== null)
+            ->sortBy(fn ($sc) => $sc->student->name)
             ->values();
 
         // Ambil seluruh mata pelajaran aktif (Khusus, Reguler, dan Muatan Lokal Non-Kelas)
         $studies = Study::where(function ($q) use ($classGroup) {
             $q->where('educational_institution_id', $classGroup->educational_institution_id)
-              ->orWhereNull('educational_institution_id');
+                ->orWhereNull('educational_institution_id');
         })
             ->where('is_active', true)
             ->where('name', 'not like', '%Tahfidz%')
@@ -116,7 +125,7 @@ class AssessmentController extends Controller
 
         // Ambil skor triwulan berjalan untuk rombel ini
         $currentScores = StudentQuarterlyScore::where('class_group_id', $classGroup->id)
-            ->when($quarterId, fn($q) => $q->where('academic_quarter_id', $quarterId))
+            ->when($quarterId, fn ($q) => $q->where('academic_quarter_id', $quarterId))
             ->get()
             ->groupBy('student_id');
 
@@ -153,9 +162,9 @@ class AssessmentController extends Controller
                 $rec = $studentScoreMap->get($study->id);
 
                 $origScore = $rec && $rec->original_score !== null ? (float) $rec->original_score : null;
-                $remScore  = $rec && $rec->remedial_score !== null ? (float) $rec->remedial_score : null;
+                $remScore = $rec && $rec->remedial_score !== null ? (float) $rec->remedial_score : null;
                 $finalScore = $rec && $rec->final_score !== null ? (float) $rec->final_score : $origScore;
-                $isRem      = $rec ? (bool) $rec->is_remedial : false;
+                $isRem = $rec ? (bool) $rec->is_remedial : false;
 
                 $kkmVal = (float) ($study->kkm ?: 65.0);
                 $studyType = $study->study_type ?: 'reguler';
@@ -180,28 +189,28 @@ class AssessmentController extends Controller
                 }
 
                 $grades[$study->id] = [
-                    'study_id'       => $study->id,
-                    'study_code'     => $study->code,
-                    'study_name'     => $study->name,
-                    'study_type'     => $studyType,
-                    'kkm'            => $kkmVal,
+                    'study_id' => $study->id,
+                    'study_code' => $study->code,
+                    'study_name' => $study->name,
+                    'study_type' => $studyType,
+                    'kkm' => $kkmVal,
                     'original_score' => $origScore,
                     'remedial_score' => $remScore,
-                    'score'          => $finalScore,
-                    'is_remedial'    => $isRem,
-                    'is_locked'      => $rec ? (bool) $rec->is_locked : false,
-                    'locked_at'      => $rec?->locked_at?->toIso8601String(),
-                    'is_pass'        => $isPass,
-                    'predicate'      => $predicate,
-                    'notes'          => $rec?->notes,
+                    'score' => $finalScore,
+                    'is_remedial' => $isRem,
+                    'is_locked' => $rec ? (bool) $rec->is_locked : false,
+                    'locked_at' => $rec?->locked_at?->toIso8601String(),
+                    'is_pass' => $isPass,
+                    'predicate' => $predicate,
+                    'notes' => $rec?->notes,
                 ];
             }
 
             $hasScores = count($allScores) > 0;
             $overallAverage = $hasScores ? round(array_sum($allScores) / count($allScores), 1) : null;
-            $khususAverage  = count($khususScores) > 0 ? round(array_sum($khususScores) / count($khususScores), 1) : null;
+            $khususAverage = count($khususScores) > 0 ? round(array_sum($khususScores) / count($khususScores), 1) : null;
             $regulerAverage = count($regulerScores) > 0 ? round(array_sum($regulerScores) / count($regulerScores), 1) : null;
-            $mulokAverage   = count($mulokScores) > 0 ? round(array_sum($mulokScores) / count($mulokScores), 1) : null;
+            $mulokAverage = count($mulokScores) > 0 ? round(array_sum($mulokScores) / count($mulokScores), 1) : null;
 
             // Hitung rata-rata triwulan sebelumnya & progres nilai
             $prevAvg = null;
@@ -227,39 +236,39 @@ class AssessmentController extends Controller
 
                 if ($scVal !== null && ($scVal < $kkmVal || ($averageBelowStandard && $scVal < 80))) {
                     $remedialStudies[] = [
-                        'study_id'       => $spStudy->id,
-                        'study_name'     => $spStudy->name,
-                        'study_code'     => $spStudy->code,
-                        'kkm'            => $kkmVal,
+                        'study_id' => $spStudy->id,
+                        'study_name' => $spStudy->name,
+                        'study_code' => $spStudy->code,
+                        'kkm' => $kkmVal,
                         'original_score' => $gItem['original_score'],
                         'remedial_score' => $gItem['remedial_score'],
-                        'final_score'    => $scVal,
-                        'deficit'        => round(max(0, $kkmVal - $scVal), 1),
+                        'final_score' => $scVal,
+                        'deficit' => round(max(0, $kkmVal - $scVal), 1),
                     ];
                 }
             }
 
             $needsRemedial = count($remedialStudies) > 0 || $averageBelowStandard;
 
-            if (!$hasScores) {
+            if (! $hasScores) {
                 $promotionStatus = 'belum_dinilai';
-                $promotionLabel  = 'Belum Dinilai';
+                $promotionLabel = 'Belum Dinilai';
             } elseif ($needsRemedial) {
                 $promotionStatus = 'remidi_khusus';
-                $promotionLabel  = 'Wajib Remidi Mapel Khusus';
+                $promotionLabel = 'Wajib Remidi Mapel Khusus';
             } elseif ($completedRemedialCount > 0) {
                 $promotionStatus = 'tuntas_remidi';
-                $promotionLabel  = 'Layak Naik (Tuntas Remidi)';
+                $promotionLabel = 'Layak Naik (Tuntas Remidi)';
             } else {
                 $promotionStatus = 'layak_naik';
-                $promotionLabel  = 'Layak Naik Kelas';
+                $promotionLabel = 'Layak Naik Kelas';
             }
 
             // Rekap Kehadiran
             $hadir = $journalIds->isNotEmpty() ? StudentPresence::whereIn('teaching_journal_id', $journalIds)->where('student_id', $sId)->where('status', 'hadir')->count() : 0;
-            $izin  = $journalIds->isNotEmpty() ? StudentPresence::whereIn('teaching_journal_id', $journalIds)->where('student_id', $sId)->where('status', 'izin')->count() : 0;
+            $izin = $journalIds->isNotEmpty() ? StudentPresence::whereIn('teaching_journal_id', $journalIds)->where('student_id', $sId)->where('status', 'izin')->count() : 0;
             $sakit = $journalIds->isNotEmpty() ? StudentPresence::whereIn('teaching_journal_id', $journalIds)->where('student_id', $sId)->where('status', 'sakit')->count() : 0;
-            $alpa  = $journalIds->isNotEmpty() ? StudentPresence::whereIn('teaching_journal_id', $journalIds)->where('student_id', $sId)->where('status', 'alpa')->count() : 0;
+            $alpa = $journalIds->isNotEmpty() ? StudentPresence::whereIn('teaching_journal_id', $journalIds)->where('student_id', $sId)->where('status', 'alpa')->count() : 0;
 
             $predicateOverall = $hasScores
                 ? ($overallAverage >= 90
@@ -272,40 +281,40 @@ class AssessmentController extends Controller
                 : '-';
 
             $rows[] = [
-                'student_id'               => $sId,
-                'student_name'             => $sc->student->name,
-                'name'                     => $sc->student->name,
-                'student_nis'              => $sc->student->nis,
-                'nis'                      => $sc->student->nis,
-                'gender'                   => $sc->student->gender,
-                'is_mukim'                 => (bool) $sc->student->is_mukim,
-                'grades'                   => $grades,
-                'scores'                   => $grades,
-                'total_score'              => $hasScores ? round(array_sum($allScores), 1) : null,
-                'khusus_average'           => $khususAverage,
-                'reguler_average'          => $regulerAverage,
-                'mulok_average'            => $mulokAverage,
-                'average'                  => $overallAverage,
-                'previous_average'         => $prevAvg,
-                'progress_delta'           => $progressDelta,
-                'predicate'                => $predicateOverall,
-                'needs_remedial'           => $needsRemedial,
-                'remedial_studies'         => $remedialStudies,
+                'student_id' => $sId,
+                'student_name' => $sc->student->name,
+                'name' => $sc->student->name,
+                'student_nis' => $sc->student->nis,
+                'nis' => $sc->student->nis,
+                'gender' => $sc->student->gender,
+                'is_mukim' => (bool) $sc->student->is_mukim,
+                'grades' => $grades,
+                'scores' => $grades,
+                'total_score' => $hasScores ? round(array_sum($allScores), 1) : null,
+                'khusus_average' => $khususAverage,
+                'reguler_average' => $regulerAverage,
+                'mulok_average' => $mulokAverage,
+                'average' => $overallAverage,
+                'previous_average' => $prevAvg,
+                'progress_delta' => $progressDelta,
+                'predicate' => $predicateOverall,
+                'needs_remedial' => $needsRemedial,
+                'remedial_studies' => $remedialStudies,
                 'completed_remedial_count' => $completedRemedialCount,
-                'promotion_status'         => $promotionStatus,
-                'promotion_label'          => $promotionLabel,
-                'attendance'               => [
+                'promotion_status' => $promotionStatus,
+                'promotion_label' => $promotionLabel,
+                'attendance' => [
                     'hadir' => $hadir,
-                    'izin'  => $izin,
+                    'izin' => $izin,
                     'sakit' => $sakit,
-                    'alpa'  => $alpa,
+                    'alpa' => $alpa,
                 ],
             ];
         }
 
         // Hitung peringkat berdasarkan overall average tertinggi
         $ranked = $rows;
-        usort($ranked, fn($a, $b) => $b['average'] <=> $a['average']);
+        usort($ranked, fn ($a, $b) => $b['average'] <=> $a['average']);
         $rankMap = [];
         foreach ($ranked as $idx => $r) {
             $rankMap[$r['student_id']] = $idx + 1;
@@ -323,43 +332,43 @@ class AssessmentController extends Controller
                 $cell = $rowItem['grades'][$stItem->id] ?? null;
                 if ($cell && $cell['score'] !== null) {
                     $gradedCount++;
-                    if (!empty($cell['is_locked'])) {
+                    if (! empty($cell['is_locked'])) {
                         $lockedCount++;
                     }
                 }
             }
             $studiesLockSummary[$stItem->id] = [
-                'study_id'     => $stItem->id,
+                'study_id' => $stItem->id,
                 'graded_count' => $gradedCount,
                 'locked_count' => $lockedCount,
-                'is_locked'    => $gradedCount > 0 && $lockedCount === $gradedCount,
-                'has_locked'   => $lockedCount > 0,
+                'is_locked' => $gradedCount > 0 && $lockedCount === $gradedCount,
+                'has_locked' => $lockedCount > 0,
             ];
         }
 
         return [
-            'class_group'          => $classGroup->name,
-            'class_group_info'     => $classGroup,
-            'academic_year_id'     => $yearId,
-            'academic_quarter_id'  => $quarterId,
-            'quarter_name'         => $quarter?->name,
-            'prev_quarter_name'    => $prevQuarter?->name,
+            'class_group' => $classGroup->name,
+            'class_group_info' => $classGroup,
+            'academic_year_id' => $yearId,
+            'academic_quarter_id' => $quarterId,
+            'quarter_name' => $quarter?->name,
+            'prev_quarter_name' => $prevQuarter?->name,
             'min_required_average' => $minRequiredAverage,
-            'studies'              => $studies->values(),
+            'studies' => $studies->values(),
             'studies_lock_summary' => $studiesLockSummary,
-            'studies_grouped'      => [
-                'khusus'       => $studies->where('study_type', 'khusus')->values(),
-                'reguler'      => $studies->where('study_type', 'reguler')->values(),
+            'studies_grouped' => [
+                'khusus' => $studies->where('study_type', 'khusus')->values(),
+                'reguler' => $studies->where('study_type', 'reguler')->values(),
                 'muatan_lokal' => $studies->where('study_type', 'muatan_lokal')->values(),
             ],
-            'summary'              => [
-                'total_students'  => count($rows),
-                'layak_naik'      => collect($rows)->whereIn('promotion_status', ['layak_naik', 'tuntas_remidi'])->count(),
-                'needs_remedial'  => collect($rows)->where('promotion_status', 'remidi_khusus')->count(),
-                'tuntas_remidi'   => collect($rows)->where('promotion_status', 'tuntas_remidi')->count(),
-                'class_average'   => ($avg = collect($rows)->whereNotNull('average')->avg('average')) !== null ? round((float) $avg, 1) : null,
+            'summary' => [
+                'total_students' => count($rows),
+                'layak_naik' => collect($rows)->whereIn('promotion_status', ['layak_naik', 'tuntas_remidi'])->count(),
+                'needs_remedial' => collect($rows)->where('promotion_status', 'remidi_khusus')->count(),
+                'tuntas_remidi' => collect($rows)->where('promotion_status', 'tuntas_remidi')->count(),
+                'class_average' => ($avg = collect($rows)->whereNotNull('average')->avg('average')) !== null ? round((float) $avg, 1) : null,
             ],
-            'students'             => $rows,
+            'students' => $rows,
         ];
     }
 
@@ -369,9 +378,9 @@ class AssessmentController extends Controller
     public static function syncReportCardsFromEvaluation(array $eval, ?AcademicQuarter $quarter, ?string $rawSemester = null): void
     {
         $classGroup = $eval['class_group_info'];
-        $yearId     = $eval['academic_year_id'];
-        $quarterId  = $eval['academic_quarter_id'];
-        $semKey     = self::resolveSemesterKey($quarter, $rawSemester);
+        $yearId = $eval['academic_year_id'];
+        $quarterId = $eval['academic_quarter_id'];
+        $semKey = self::resolveSemesterKey($quarter, $rawSemester);
 
         foreach ($eval['students'] as $st) {
             $gradesSummary = array_values($st['grades']);
@@ -379,19 +388,19 @@ class AssessmentController extends Controller
             ReportCard::updateOrCreate(
                 [
                     'academic_year_id' => $yearId,
-                    'class_group_id'   => $classGroup->id,
-                    'student_id'       => $st['student_id'],
-                    'semester'         => $semKey,
+                    'class_group_id' => $classGroup->id,
+                    'student_id' => $st['student_id'],
+                    'semester' => $semKey,
                 ],
                 [
                     'academic_quarter_id' => $quarterId,
-                    'average_score'       => $st['average'],
-                    'previous_average'    => $st['previous_average'],
-                    'rank'                => $st['rank'],
-                    'promotion_status'    => $st['promotion_status'],
-                    'grades_summary'      => $gradesSummary,
-                    'attendance_summary'  => $st['attendance'],
-                    'is_published'        => true,
+                    'average_score' => $st['average'],
+                    'previous_average' => $st['previous_average'],
+                    'rank' => $st['rank'],
+                    'promotion_status' => $st['promotion_status'],
+                    'grades_summary' => $gradesSummary,
+                    'attendance_summary' => $st['attendance'],
+                    'is_published' => true,
                 ]
             );
         }
@@ -412,16 +421,16 @@ class AssessmentController extends Controller
                 ?? AcademicYear::latest('id')->first();
 
             $quarter = null;
-            if (!empty($targetQuarterId)) {
+            if (! empty($targetQuarterId)) {
                 $quarter = AcademicQuarter::with('academicYear')
-                    ->when($targetYearId, fn($q) => $q->where('academic_year_id', $targetYearId))
+                    ->when($targetYearId, fn ($q) => $q->where('academic_year_id', $targetYearId))
                     ->find($targetQuarterId);
-                if (!$quarter && !$targetYearId) {
+                if (! $quarter && ! $targetYearId) {
                     $quarter = AcademicQuarter::with('academicYear')->find($targetQuarterId);
                 }
             }
 
-            if (!$quarter && $activeYear) {
+            if (! $quarter && $activeYear) {
                 $quarter = AcademicQuarter::with('academicYear')
                     ->where('academic_year_id', $activeYear->id)
                     ->where('active', true)
@@ -432,7 +441,7 @@ class AssessmentController extends Controller
                         ->first();
             }
 
-            if (!$quarter) {
+            if (! $quarter) {
                 $quarter = AcademicQuarter::with('academicYear')->where('active', true)->first()
                     ?? AcademicQuarter::with('academicYear')->latest('id')->first();
             }
@@ -441,9 +450,9 @@ class AssessmentController extends Controller
                 $activeYear = $quarter->academicYear;
             }
 
-            if (!$quarter) {
+            if (! $quarter) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Data periode triwulan tidak ditemukan',
                 ], 404);
             }
@@ -465,8 +474,8 @@ class AssessmentController extends Controller
 
             $status = $isOpen ? 'open' : ($isExpired ? 'closed' : 'upcoming');
             $statusLabel = match ($status) {
-                'open'     => 'Masa Penginputan Nilai Terbuka',
-                'closed'   => 'Masa Penginputan Nilai Telah Ditutup',
+                'open' => 'Masa Penginputan Nilai Terbuka',
+                'closed' => 'Masa Penginputan Nilai Telah Ditutup',
                 'upcoming' => 'Masa Penginputan Nilai Belum Dibuka',
             };
 
@@ -477,24 +486,25 @@ class AssessmentController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'data'   => [
+                'data' => [
                     'active_academic_year' => $activeYear,
-                    'active_quarter'       => $quarter,
-                    'grading_start_date'   => $startDate->format('Y-m-d'),
-                    'grading_end_date'     => $endDate->format('Y-m-d'),
-                    'is_open'              => $isOpen,
-                    'status'               => $status,
-                    'status_label'         => $statusLabel,
-                    'today'                => $today->format('Y-m-d'),
-                    'days_remaining'       => $isOpen ? (int) $today->diffInDays($endDate, false) : 0,
-                    'quarters_archive'     => $allQuarters,
+                    'active_quarter' => $quarter,
+                    'grading_start_date' => $startDate->format('Y-m-d'),
+                    'grading_end_date' => $endDate->format('Y-m-d'),
+                    'is_open' => $isOpen,
+                    'status' => $status,
+                    'status_label' => $statusLabel,
+                    'today' => $today->format('Y-m-d'),
+                    'days_remaining' => $isOpen ? (int) $today->diffInDays($endDate, false) : 0,
+                    'quarters_archive' => $allQuarters,
                 ],
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error getting grading period: ' . $e->getMessage());
+            Log::error('Error getting grading period: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengambil data masa penginputan nilai: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengambil data masa penginputan nilai: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -507,27 +517,28 @@ class AssessmentController extends Controller
     {
         $validated = $request->validate([
             'academic_quarter_id' => 'required|exists:academic_quarters,id',
-            'grading_start_date'  => 'required|date',
-            'grading_end_date'    => 'required|date|after_or_equal:grading_start_date',
+            'grading_start_date' => 'required|date',
+            'grading_end_date' => 'required|date|after_or_equal:grading_start_date',
         ]);
 
         try {
             $quarter = AcademicQuarter::findOrFail($validated['academic_quarter_id']);
             $quarter->update([
                 'grading_start_date' => $validated['grading_start_date'],
-                'grading_end_date'   => $validated['grading_end_date'],
+                'grading_end_date' => $validated['grading_end_date'],
             ]);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Pengaturan masa penginputan nilai berhasil diperbarui',
-                'data'    => $quarter,
+                'data' => $quarter,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error updating grading period: ' . $e->getMessage());
+            Log::error('Error updating grading period: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memperbarui masa penginputan nilai: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memperbarui masa penginputan nilai: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -539,8 +550,8 @@ class AssessmentController extends Controller
     public function quarterlySheet(Request $request)
     {
         $validated = $request->validate([
-            'class_group_id'      => 'required|exists:class_groups,id',
-            'academic_year_id'    => 'nullable|exists:academic_years,id',
+            'class_group_id' => 'required|exists:class_groups,id',
+            'academic_year_id' => 'nullable|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
         ]);
 
@@ -553,7 +564,7 @@ class AssessmentController extends Controller
                 ?? AcademicYear::where('active', true)->value('id')
                 ?? AcademicYear::latest('id')->value('id'));
 
-            $quarter = !empty($validated['academic_quarter_id'])
+            $quarter = ! empty($validated['academic_quarter_id'])
                 ? AcademicQuarter::find($validated['academic_quarter_id'])
                 : (AcademicQuarter::where('academic_year_id', $yearId)->where('active', true)->first()
                     ?? AcademicQuarter::where('academic_year_id', $yearId)->latest('id')->first());
@@ -561,15 +572,16 @@ class AssessmentController extends Controller
             $eval = self::buildQuarterlyEvaluation($classGroup, $yearId, $quarter);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Lembar nilai akhir triwulan berhasil dimuat',
-                'data'    => $eval,
+                'data' => $eval,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error loading quarterly sheet: ' . $e->getMessage());
+            Log::error('Error loading quarterly sheet: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memuat lembar nilai triwulan: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memuat lembar nilai triwulan: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -582,16 +594,16 @@ class AssessmentController extends Controller
     {
         $items = $request->input('scores') ?? $request->input('entries') ?? [];
 
-        if (empty($items) || !is_array($items)) {
+        if (empty($items) || ! is_array($items)) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Daftar nilai tidak boleh kosong.',
             ], 422);
         }
 
         $validated = $request->validate([
-            'class_group_id'      => 'required|exists:class_groups,id',
-            'academic_year_id'    => 'nullable|exists:academic_years,id',
+            'class_group_id' => 'required|exists:class_groups,id',
+            'academic_year_id' => 'nullable|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
         ]);
 
@@ -606,7 +618,7 @@ class AssessmentController extends Controller
                 ?? AcademicYear::where('active', true)->value('id')
                 ?? AcademicYear::latest('id')->value('id'));
 
-            $quarter = !empty($validated['academic_quarter_id'])
+            $quarter = ! empty($validated['academic_quarter_id'])
                 ? AcademicQuarter::find($validated['academic_quarter_id'])
                 : (AcademicQuarter::where('academic_year_id', $yearId)->where('active', true)->first()
                     ?? AcademicQuarter::where('academic_year_id', $yearId)->latest('id')->first());
@@ -622,10 +634,11 @@ class AssessmentController extends Controller
                 ? Carbon::parse($quarter->grading_end_date)->endOfDay()
                 : ($quarter?->end_date ? Carbon::parse($quarter->end_date)->endOfDay() : $today->copy()->addDays(21));
 
-            if (!$today->betweenIncluded($startDate, $endDate)) {
+            if (! $today->betweenIncluded($startDate, $endDate)) {
                 DB::rollBack();
+
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Masa penginputan nilai saat ini sedang ditutup. Silakan buka kembali periode masa penginputan nilai di menu Pengaturan.',
                 ], 422);
             }
@@ -635,7 +648,7 @@ class AssessmentController extends Controller
             $savedCount = 0;
 
             foreach ($items as $item) {
-                if (!isset($item['student_id']) || !isset($item['study_id']) || !isset($item['score'])) {
+                if (! isset($item['student_id']) || ! isset($item['study_id']) || ! isset($item['score'])) {
                     continue;
                 }
 
@@ -646,43 +659,44 @@ class AssessmentController extends Controller
 
                 $existing = StudentQuarterlyScore::where([
                     'academic_quarter_id' => $quarterId,
-                    'class_group_id'      => $classGroup->id,
-                    'student_id'          => $item['student_id'],
-                    'study_id'            => $item['study_id'],
+                    'class_group_id' => $classGroup->id,
+                    'student_id' => $item['student_id'],
+                    'study_id' => $item['study_id'],
                 ])->first();
 
                 // Jika nilai sudah dikunci, lewati pengeditan nilai (kecuali hanya mengunci nilai yang belum terkunci)
                 if ($existing && $existing->is_locked) {
                     $skippedLockedCount++;
+
                     continue;
                 }
 
                 if ($existing && $existing->is_remedial && $existing->remedial_score !== null) {
-                    $origScore  = $inputScore;
-                    $remScore   = (float) $existing->remedial_score;
+                    $origScore = $inputScore;
+                    $remScore = (float) $existing->remedial_score;
                     $finalScore = max($origScore, $remScore);
                 } else {
-                    $origScore  = $inputScore;
-                    $remScore   = null;
+                    $origScore = $inputScore;
+                    $remScore = null;
                     $finalScore = $inputScore;
                 }
 
                 StudentQuarterlyScore::updateOrCreate(
                     [
                         'academic_quarter_id' => $quarterId,
-                        'class_group_id'      => $classGroup->id,
-                        'student_id'          => $item['student_id'],
-                        'study_id'            => $item['study_id'],
+                        'class_group_id' => $classGroup->id,
+                        'student_id' => $item['student_id'],
+                        'study_id' => $item['study_id'],
                     ],
                     [
                         'academic_year_id' => $yearId,
-                        'original_score'   => $origScore,
-                        'remedial_score'   => $remScore,
-                        'final_score'      => $finalScore,
-                        'is_remedial'      => $existing ? $existing->is_remedial : false,
-                        'is_locked'        => $lockAfterSave ? true : ($existing ? (bool) $existing->is_locked : false),
-                        'locked_at'        => $lockAfterSave ? now() : $existing?->locked_at,
-                        'notes'            => $item['notes'] ?? $existing?->notes,
+                        'original_score' => $origScore,
+                        'remedial_score' => $remScore,
+                        'final_score' => $finalScore,
+                        'is_remedial' => $existing ? $existing->is_remedial : false,
+                        'is_locked' => $lockAfterSave ? true : ($existing ? (bool) $existing->is_locked : false),
+                        'locked_at' => $lockAfterSave ? now() : $existing?->locked_at,
+                        'notes' => $item['notes'] ?? $existing?->notes,
                     ]
                 );
                 $savedCount++;
@@ -699,16 +713,17 @@ class AssessmentController extends Controller
                 : 'Nilai akhir triwulan berhasil disimpan dan buku rapor telah diperbarui.';
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => $msg,
-                'data'    => $eval,
+                'data' => $eval,
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error saving quarterly sheet: ' . $e->getMessage());
+            Log::error('Error saving quarterly sheet: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menyimpan nilai akhir triwulan: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menyimpan nilai akhir triwulan: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -721,12 +736,12 @@ class AssessmentController extends Controller
     public function toggleScoreLock(Request $request)
     {
         $validated = $request->validate([
-            'class_group_id'      => 'required|exists:class_groups,id',
-            'academic_year_id'    => 'nullable|exists:academic_years,id',
+            'class_group_id' => 'required|exists:class_groups,id',
+            'academic_year_id' => 'nullable|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
-            'study_id'            => 'nullable|exists:studies,id',
-            'student_id'          => 'nullable|exists:students,id',
-            'action'              => 'required|in:lock,unlock',
+            'study_id' => 'nullable|exists:studies,id',
+            'student_id' => 'nullable|exists:students,id',
+            'action' => 'required|in:lock,unlock',
         ]);
 
         try {
@@ -740,7 +755,7 @@ class AssessmentController extends Controller
                 ?? AcademicYear::where('active', true)->value('id')
                 ?? AcademicYear::latest('id')->value('id'));
 
-            $quarter = !empty($validated['academic_quarter_id'])
+            $quarter = ! empty($validated['academic_quarter_id'])
                 ? AcademicQuarter::find($validated['academic_quarter_id'])
                 : (AcademicQuarter::where('academic_year_id', $yearId)->where('active', true)->first()
                     ?? AcademicQuarter::where('academic_year_id', $yearId)->latest('id')->first());
@@ -758,24 +773,26 @@ class AssessmentController extends Controller
 
             $isOpen = $today->betweenIncluded($startDate, $endDate);
 
-            if ($validated['action'] === 'unlock' && !$isOpen) {
+            if ($validated['action'] === 'unlock' && ! $isOpen) {
                 DB::rollBack();
+
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Masa penginputan nilai saat ini sedang ditutup. Buka kembali periode masa penginputan nilai di menu Pengaturan agar kunci nilai dapat dibuka.',
                 ], 422);
             }
 
             $query = StudentQuarterlyScore::where('class_group_id', $classGroup->id)
-                ->when($quarterId, fn($q) => $q->where('academic_quarter_id', $quarterId))
-                ->when(!empty($validated['study_id']), fn($q) => $q->where('study_id', $validated['study_id']))
-                ->when(!empty($validated['student_id']), fn($q) => $q->where('student_id', $validated['student_id']));
+                ->when($quarterId, fn ($q) => $q->where('academic_quarter_id', $quarterId))
+                ->when(! empty($validated['study_id']), fn ($q) => $q->where('study_id', $validated['study_id']))
+                ->when(! empty($validated['student_id']), fn ($q) => $q->where('student_id', $validated['student_id']));
 
             $targetCount = (clone $query)->count();
             if ($targetCount === 0) {
                 DB::rollBack();
+
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Belum ada nilai yang tersimpan untuk dikunci / dibuka kuncinya. Simpan nilai terlebih dahulu.',
                 ], 422);
             }
@@ -791,18 +808,19 @@ class AssessmentController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => $isLocking
                     ? 'Nilai berhasil dikunci dan tidak dapat diedit.'
                     : 'Kunci nilai berhasil dibuka. Nilai kini dapat diedit kembali.',
-                'data'    => $eval,
+                'data' => $eval,
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error toggling score lock: ' . $e->getMessage());
+            Log::error('Error toggling score lock: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengubah status kunci nilai: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengubah status kunci nilai: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -815,14 +833,14 @@ class AssessmentController extends Controller
     public function saveRemedialScores(Request $request)
     {
         $validated = $request->validate([
-            'class_group_id'              => 'required|exists:class_groups,id',
-            'academic_year_id'            => 'nullable|exists:academic_years,id',
-            'academic_quarter_id'         => 'nullable|exists:academic_quarters,id',
-            'remedials'                   => 'required|array|min:1',
-            'remedials.*.student_id'      => 'required|exists:students,id',
-            'remedials.*.study_id'        => 'required|exists:studies,id',
-            'remedials.*.remedial_score'  => 'required|numeric|min:0|max:100',
-            'remedials.*.notes'           => 'nullable|string|max:255',
+            'class_group_id' => 'required|exists:class_groups,id',
+            'academic_year_id' => 'nullable|exists:academic_years,id',
+            'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
+            'remedials' => 'required|array|min:1',
+            'remedials.*.student_id' => 'required|exists:students,id',
+            'remedials.*.study_id' => 'required|exists:studies,id',
+            'remedials.*.remedial_score' => 'required|numeric|min:0|max:100',
+            'remedials.*.notes' => 'nullable|string|max:255',
         ]);
 
         try {
@@ -836,7 +854,7 @@ class AssessmentController extends Controller
                 ?? AcademicYear::where('active', true)->value('id')
                 ?? AcademicYear::latest('id')->value('id'));
 
-            $quarter = !empty($validated['academic_quarter_id'])
+            $quarter = ! empty($validated['academic_quarter_id'])
                 ? AcademicQuarter::find($validated['academic_quarter_id'])
                 : (AcademicQuarter::where('academic_year_id', $yearId)->where('active', true)->first()
                     ?? AcademicQuarter::where('academic_year_id', $yearId)->latest('id')->first());
@@ -848,39 +866,39 @@ class AssessmentController extends Controller
 
                 if ($study->study_type !== 'khusus') {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => "Remidi hanya berlaku untuk Mata Pelajaran Khusus. '{$study->name}' bukan Mata Pelajaran Khusus.",
                     ], 422);
                 }
 
                 $existing = StudentQuarterlyScore::where([
                     'academic_quarter_id' => $quarterId,
-                    'class_group_id'      => $classGroup->id,
-                    'student_id'          => $item['student_id'],
-                    'study_id'            => $item['study_id'],
+                    'class_group_id' => $classGroup->id,
+                    'student_id' => $item['student_id'],
+                    'study_id' => $item['study_id'],
                 ])->first();
 
                 $origScore = $existing && $existing->original_score !== null
                     ? (float) $existing->original_score
                     : ($existing ? (float) $existing->final_score : 0.0);
 
-                $remScore   = (float) $item['remedial_score'];
+                $remScore = (float) $item['remedial_score'];
                 $finalScore = max($origScore, $remScore);
 
                 StudentQuarterlyScore::updateOrCreate(
                     [
                         'academic_quarter_id' => $quarterId,
-                        'class_group_id'      => $classGroup->id,
-                        'student_id'          => $item['student_id'],
-                        'study_id'            => $item['study_id'],
+                        'class_group_id' => $classGroup->id,
+                        'student_id' => $item['student_id'],
+                        'study_id' => $item['study_id'],
                     ],
                     [
                         'academic_year_id' => $yearId,
-                        'original_score'   => $origScore,
-                        'remedial_score'   => $remScore,
-                        'final_score'      => $finalScore,
-                        'is_remedial'      => true,
-                        'notes'            => $item['notes'] ?? "Remidi Mapel Khusus (Nilai Awal: {$origScore} -> Remidi: {$remScore})",
+                        'original_score' => $origScore,
+                        'remedial_score' => $remScore,
+                        'final_score' => $finalScore,
+                        'is_remedial' => true,
+                        'notes' => $item['notes'] ?? "Remidi Mapel Khusus (Nilai Awal: {$origScore} -> Remidi: {$remScore})",
                     ]
                 );
             }
@@ -892,16 +910,17 @@ class AssessmentController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Nilai remidi Mata Pelajaran Khusus berhasil disimpan dan evaluasi kenaikan kelas telah diperbarui.',
-                'data'    => $eval,
+                'data' => $eval,
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error saving remedial scores: ' . $e->getMessage());
+            Log::error('Error saving remedial scores: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menyimpan nilai remidi: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menyimpan nilai remidi: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -917,9 +936,9 @@ class AssessmentController extends Controller
     public function categories()
     {
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Kategori penilaian berhasil diambil',
-            'data'    => AssessmentCategory::where('is_active', true)->where('code', '!=', 'tahfidz')->get(),
+            'data' => AssessmentCategory::where('is_active', true)->where('code', '!=', 'tahfidz')->get(),
         ], 200);
     }
 
@@ -936,9 +955,10 @@ class AssessmentController extends Controller
     public function show(string $id)
     {
         $assessment = Assessment::with(['classGroup', 'study', 'teacher', 'scores.student'])->find($id);
-        if (!$assessment) {
+        if (! $assessment) {
             return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan'], 404);
         }
+
         return response()->json(['status' => 'success', 'data' => $assessment], 200);
     }
 
@@ -946,6 +966,7 @@ class AssessmentController extends Controller
     {
         $assessment = Assessment::findOrFail($id);
         $assessment->update($request->only(['title', 'description', 'date', 'max_score']));
+
         return response()->json(['status' => 'success', 'data' => $assessment], 200);
     }
 
@@ -953,6 +974,7 @@ class AssessmentController extends Controller
     {
         $assessment = Assessment::findOrFail($id);
         $assessment->delete();
+
         return response()->json(['status' => 'success', 'message' => 'Data berhasil dihapus'], 200);
     }
 
@@ -974,7 +996,7 @@ class AssessmentController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $bankSantri->checkExamEligibility($student),
+            'data' => $bankSantri->checkExamEligibility($student),
         ]);
     }
 
@@ -991,21 +1013,89 @@ class AssessmentController extends Controller
 
         $results = $students->map(function (Student $student) use ($bankSantri) {
             return [
-                'student_id'  => $student->id,
-                'nis'         => $student->nis,
-                'name'        => $student->name,
-                'is_mukim'    => (bool) $student->is_mukim,
+                'student_id' => $student->id,
+                'nis' => $student->nis,
+                'name' => $student->name,
+                'is_mukim' => (bool) $student->is_mukim,
                 'eligibility' => $bankSantri->checkExamEligibility($student),
             ];
         });
 
         return response()->json([
-            'status'       => 'success',
-            'total'        => $results->count(),
-            'eligible'     => $results->where('eligibility.eligible', true)->count(),
+            'status' => 'success',
+            'total' => $results->count(),
+            'eligible' => $results->where('eligibility.eligible', true)->count(),
             'not_eligible' => $results->where('eligibility.eligible', false)->count(),
-            'data'         => $results->values(),
+            'data' => $results->values(),
         ]);
+    }
+
+    /**
+     * GET /api/main/assessments/exam-cards/{class_group_id}/pdf
+     * Cetak Kartu Peserta Ujian (PDF) resmi untuk seluruh santri aktif dalam 1 rombel.
+     */
+    public function exportExamCardsPdf(Request $request, string $classGroupId, BankSantriService $bankSantri)
+    {
+        $classGroup = ClassGroup::with([
+            'educationalInstitution',
+            'education',
+            'classroom',
+            'homeroomTeacher',
+            'academicYear',
+        ])->findOrFail($classGroupId);
+
+        $studentIds = StudentClass::where('class_group_id', $classGroupId)
+            ->where('status', 'aktif')
+            ->pluck('student_id');
+
+        $students = Student::whereIn('id', $studentIds)->orderBy('name', 'asc')->get();
+
+        // Cari periode aktif (AcademicQuarter aktif)
+        $quarter = AcademicQuarter::where('academic_year_id', $classGroup->academic_year_id)
+            ->where('active', true)
+            ->first();
+
+        // Ambil daftar mata pelajaran pada institusi rombel ini
+        $studies = Study::where('educational_institution_id', $classGroup->educational_institution_id)
+            ->orderBy('id', 'asc')
+            ->get();
+
+        if ($studies->isEmpty()) {
+            $studies = Study::orderBy('name', 'asc')->limit(8)->get();
+        }
+
+        $cards = $students->map(function (Student $student) use ($bankSantri) {
+            return [
+                'student' => $student,
+                'eligibility' => $bankSantri->checkExamEligibility($student),
+            ];
+        });
+
+        try {
+            $pdf = Pdf::loadView('pdf.exam_card', [
+                'classGroup' => $classGroup,
+                'institution' => $classGroup->educationalInstitution,
+                'homeroomTeacher' => $classGroup->homeroomTeacher,
+                'academicYear' => $classGroup->academicYear,
+                'quarter' => $quarter,
+                'studies' => $studies,
+                'cards' => $cards,
+            ]);
+
+            $pdf->setPaper('a4', 'portrait');
+
+            $cleanName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $classGroup->name);
+            $filename = "Kartu_Ujian_{$cleanName}.pdf";
+
+            return $pdf->stream($filename);
+        } catch (\Exception $e) {
+            Log::error('Error generating PDF exam cards: '.$e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal mencetak kartu ujian: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -1015,11 +1105,11 @@ class AssessmentController extends Controller
     public function downloadCollectiveTemplate(Request $request)
     {
         $validated = $request->validate([
-            'class_group_id'      => 'required|exists:class_groups,id',
-            'academic_year_id'    => 'nullable|exists:academic_years,id',
+            'class_group_id' => 'required|exists:class_groups,id',
+            'academic_year_id' => 'nullable|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
-            'study_ids'           => 'nullable',
-            'include_existing'    => 'nullable',
+            'study_ids' => 'nullable',
+            'include_existing' => 'nullable',
         ]);
 
         try {
@@ -1031,7 +1121,7 @@ class AssessmentController extends Controller
                 ?? AcademicYear::where('active', true)->value('id')
                 ?? AcademicYear::latest('id')->value('id'));
 
-            $quarter = !empty($validated['academic_quarter_id'])
+            $quarter = ! empty($validated['academic_quarter_id'])
                 ? AcademicQuarter::with('academicYear')->find($validated['academic_quarter_id'])
                 : (AcademicQuarter::with('academicYear')->where('academic_year_id', $yearId)->where('active', true)->first()
                     ?? AcademicQuarter::with('academicYear')->where('academic_year_id', $yearId)->latest('id')->first());
@@ -1042,18 +1132,18 @@ class AssessmentController extends Controller
 
             // Filter mata pelajaran jika user memilih study_ids tertentu
             $rawStudyIds = $request->input('study_ids');
-            if (!empty($rawStudyIds)) {
+            if (! empty($rawStudyIds)) {
                 $studyIdList = is_array($rawStudyIds)
                     ? array_map('intval', $rawStudyIds)
                     : array_map('intval', array_filter(explode(',', (string) $rawStudyIds)));
-                if (!empty($studyIdList)) {
-                    $allStudies = $allStudies->filter(fn($s) => in_array((int) $s->id, $studyIdList, true))->values();
+                if (! empty($studyIdList)) {
+                    $allStudies = $allStudies->filter(fn ($s) => in_array((int) $s->id, $studyIdList, true))->values();
                 }
             }
 
             $includeExisting = filter_var($request->input('include_existing', true), FILTER_VALIDATE_BOOLEAN);
 
-            $spreadsheet = new Spreadsheet();
+            $spreadsheet = new Spreadsheet;
             $spreadsheet->getProperties()
                 ->setCreator('e-Panyeppen — SIM Akademik')
                 ->setTitle("Template Nilai Kolektif {$classGroup->name}")
@@ -1076,8 +1166,8 @@ class AssessmentController extends Controller
             $sheet->mergeCells("A1:{$lastColLetter}1");
             $sheet->setCellValue('A1', 'LEMBAR PENILAIAN KOLEKTIF AKHIR TRIWULAN — SIM AKADEMIK PESANTREN');
             $sheet->getStyle('A1')->applyFromArray([
-                'font'      => ['bold' => true, 'size' => 12, 'color' => ['rgb' => 'FFFFFF']],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0B57D0']],
+                'font' => ['bold' => true, 'size' => 12, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0B57D0']],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
             ]);
             $sheet->getRowDimension(1)->setRowHeight(26);
@@ -1089,8 +1179,8 @@ class AssessmentController extends Controller
                 "Kelas / Rombel: {$classGroup->name} ({$programName} • {$eduName})   |   Wali Kelas: {$homeroomName}   |   Tahun Ajaran: {$yearName} H   |   Periode: {$quarterName}"
             );
             $sheet->getStyle('A2')->applyFromArray([
-                'font'      => ['bold' => true, 'size' => 10, 'color' => ['rgb' => '1E293B']],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
+                'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => '1E293B']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
             ]);
             $sheet->getRowDimension(2)->setRowHeight(20);
@@ -1102,8 +1192,8 @@ class AssessmentController extends Controller
                 'PETUNJUK: Isi nilai angka (0 - 100) pada kolom mata pelajaran yang diampu. Biarkan kosong pada mata pelajaran yang tidak ingin diubah. Jangan mengubah Baris 5 (Kode Sistem) & Kolom NIS.'
             );
             $sheet->getStyle('A3')->applyFromArray([
-                'font'      => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '475569']],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFBEB']],
+                'font' => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '475569']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFBEB']],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
             ]);
             $sheet->getRowDimension(3)->setRowHeight(18);
@@ -1123,9 +1213,9 @@ class AssessmentController extends Controller
             foreach ($allStudies as $idx => $study) {
                 $colLetter = Coordinate::stringFromColumnIndex(5 + $idx);
                 $typeLabel = match ($study->study_type) {
-                    'khusus'       => 'Khusus',
+                    'khusus' => 'Khusus',
                     'muatan_lokal' => 'Mulok',
-                    default        => 'Reguler',
+                    default => 'Reguler',
                 };
                 $kkmVal = $study->kkm ?: 65;
 
@@ -1138,21 +1228,21 @@ class AssessmentController extends Controller
             }
 
             $sheet->getStyle("A5:{$lastColLetter}5")->applyFromArray([
-                'font'      => ['bold' => true, 'size' => 8, 'color' => ['rgb' => 'E2E8F0']],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E293B']],
+                'font' => ['bold' => true, 'size' => 8, 'color' => ['rgb' => 'E2E8F0']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E293B']],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
             ]);
             $sheet->getRowDimension(5)->setRowHeight(16);
 
             $sheet->getStyle("A6:{$lastColLetter}6")->applyFromArray([
-                'font'      => ['bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0F172A']],
+                'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0F172A']],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical'   => Alignment::VERTICAL_CENTER,
-                    'wrapText'   => true,
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
                 ],
-                'borders'   => [
+                'borders' => [
                     'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '334155']],
                 ],
             ]);
@@ -1171,7 +1261,7 @@ class AssessmentController extends Controller
                 $sheet->setCellValue("A{$rowNum}", $rIdx + 1);
                 $sheet->setCellValueExplicit("B{$rowNum}", (string) ($st['nis'] ?? $st['student_nis'] ?? ''), DataType::TYPE_STRING);
                 $sheet->setCellValue("C{$rowNum}", (string) ($st['name'] ?? $st['student_name'] ?? ''));
-                $sheet->setCellValue("D{$rowNum}", !empty($st['is_mukim']) ? 'Mukim' : 'Luar');
+                $sheet->setCellValue("D{$rowNum}", ! empty($st['is_mukim']) ? 'Mukim' : 'Luar');
 
                 foreach ($allStudies as $sIdx => $study) {
                     $colLetter = Coordinate::stringFromColumnIndex(5 + $sIdx);
@@ -1194,7 +1284,7 @@ class AssessmentController extends Controller
                     $validation->setErrorTitle('Nilai Tidak Valid');
                     $validation->setError('Masukkan nilai angka antara 0 sampai 100.');
                     $validation->setPromptTitle($study->name);
-                    $validation->setPrompt("Masukkan nilai akhir triwulan (0 - 100). KKM: " . ($study->kkm ?: 65));
+                    $validation->setPrompt('Masukkan nilai akhir triwulan (0 - 100). KKM: '.($study->kkm ?: 65));
                     $validation->setFormula1('0');
                     $validation->setFormula2('100');
                 }
@@ -1230,15 +1320,16 @@ class AssessmentController extends Controller
                 $writer = new Xlsx($spreadsheet);
                 $writer->save('php://output');
             }, $filename, [
-                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-                'Cache-Control'       => 'max-age=0',
+                'Cache-Control' => 'max-age=0',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error generating collective Excel template: ' . $e->getMessage());
+            Log::error('Error generating collective Excel template: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal membuat template Excel penilaian kolektif: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal membuat template Excel penilaian kolektif: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1250,12 +1341,12 @@ class AssessmentController extends Controller
     public function importCollectiveExcel(Request $request)
     {
         $validated = $request->validate([
-            'class_group_id'      => 'required|exists:class_groups,id',
-            'academic_year_id'    => 'nullable|exists:academic_years,id',
+            'class_group_id' => 'required|exists:class_groups,id',
+            'academic_year_id' => 'nullable|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
-            'file'                => 'required|file|max:10240',
-            'mode'                => 'nullable|in:preview,commit',
-            'lock_after_save'     => 'nullable',
+            'file' => 'required|file|max:10240',
+            'mode' => 'nullable|in:preview,commit',
+            'lock_after_save' => 'nullable',
         ]);
 
         try {
@@ -1270,7 +1361,7 @@ class AssessmentController extends Controller
                 ?? AcademicYear::where('active', true)->value('id')
                 ?? AcademicYear::latest('id')->value('id'));
 
-            $quarter = !empty($validated['academic_quarter_id'])
+            $quarter = ! empty($validated['academic_quarter_id'])
                 ? AcademicQuarter::find($validated['academic_quarter_id'])
                 : (AcademicQuarter::where('academic_year_id', $yearId)->where('active', true)->first()
                     ?? AcademicQuarter::where('academic_year_id', $yearId)->latest('id')->first());
@@ -1287,9 +1378,9 @@ class AssessmentController extends Controller
                 : ($quarter?->end_date ? Carbon::parse($quarter->end_date)->endOfDay() : $today->copy()->addDays(21));
             $isOpenGrading = $today->betweenIncluded($startDate, $endDate);
 
-            if ($mode === 'commit' && !$isOpenGrading) {
+            if ($mode === 'commit' && ! $isOpenGrading) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Masa penginputan nilai saat ini sedang ditutup. Silakan buka kembali periode masa penginputan nilai di menu Pengaturan.',
                 ], 422);
             }
@@ -1299,9 +1390,9 @@ class AssessmentController extends Controller
             $studentsInClass = collect($eval['students'] ?? []);
 
             // Buat peta pencarian mata pelajaran berdasarkan ID, Kode, dan Nama
-            $studyById = $allStudies->keyBy(fn($s) => (int) $s->id);
-            $studyByCode = $allStudies->keyBy(fn($s) => mb_strtolower(trim((string) $s->code)));
-            $studyByName = $allStudies->keyBy(fn($s) => mb_strtolower(trim((string) $s->name)));
+            $studyById = $allStudies->keyBy(fn ($s) => (int) $s->id);
+            $studyByCode = $allStudies->keyBy(fn ($s) => mb_strtolower(trim((string) $s->code)));
+            $studyByName = $allStudies->keyBy(fn ($s) => mb_strtolower(trim((string) $s->name)));
 
             // Buat peta pencarian santri di rombel ini berdasarkan NIS dan Nama
             $studentByNis = [];
@@ -1325,7 +1416,7 @@ class AssessmentController extends Controller
 
             if (empty($rows) || count($rows) < 2) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'File Excel kosong atau tidak memiliki baris data.',
                 ], 422);
             }
@@ -1351,6 +1442,7 @@ class AssessmentController extends Controller
                     if ($nisColIdx === null && in_array($upperText, ['NIS', 'NIS SANTRI', 'NIS_SANTRI', 'NOMOR INDUK', 'NO INDUK'], true)) {
                         $nisColIdx = $cIdx;
                         $lastHeaderRowIdx = max($lastHeaderRowIdx, $r);
+
                         continue;
                     }
 
@@ -1358,6 +1450,7 @@ class AssessmentController extends Controller
                     if ($nameColIdx === null && in_array($upperText, ['NAMA_SANTRI', 'NAMA SANTRI', 'NAMA LENGKAP SANTRI', 'NAMA LENGKAP', 'NAMA', 'SANTRI'], true)) {
                         $nameColIdx = $cIdx;
                         $lastHeaderRowIdx = max($lastHeaderRowIdx, $r);
+
                         continue;
                     }
 
@@ -1367,6 +1460,7 @@ class AssessmentController extends Controller
                         if ($studyById->has($stId)) {
                             $studyColumns[$cIdx] = $studyById->get($stId);
                             $lastHeaderRowIdx = max($lastHeaderRowIdx, $r);
+
                             continue;
                         }
                     }
@@ -1378,6 +1472,7 @@ class AssessmentController extends Controller
                         if ($cleanFirstLine === mb_strtolower(trim($mappedStudy->name))) {
                             $lastHeaderRowIdx = max($lastHeaderRowIdx, $r);
                         }
+
                         continue;
                     }
 
@@ -1401,14 +1496,14 @@ class AssessmentController extends Controller
 
             if ($nisColIdx === null && $nameColIdx === null) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Kolom identitas santri (NIS atau Nama Santri) tidak ditemukan pada file Excel. Gunakan Template Excel resmi dari sistem.',
                 ], 422);
             }
 
             if (empty($studyColumns)) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Tidak ada kolom Mata Pelajaran yang cocok dengan kurikulum rombel ini. Pastikan header kolom mata pelajaran sesuai dengan Template Excel.',
                 ], 422);
             }
@@ -1418,18 +1513,18 @@ class AssessmentController extends Controller
             $detectedStudiesSummary = [];
             foreach ($studyColumns as $cIdx => $stObj) {
                 $detectedStudiesSummary[$stObj->id] = [
-                    'study_id'            => $stObj->id,
-                    'study_code'          => $stObj->code,
-                    'study_name'          => $stObj->name,
-                    'study_type'          => $stObj->study_type ?: 'reguler',
-                    'kkm'                 => (float) ($stObj->kkm ?: 65),
-                    'filled_count'        => 0,
-                    'new_count'           => 0,
-                    'updated_count'       => 0,
-                    'unchanged_count'     => 0,
-                    'locked_skipped_count'=> 0,
-                    'below_kkm_count'     => 0,
-                    'invalid_count'       => 0,
+                    'study_id' => $stObj->id,
+                    'study_code' => $stObj->code,
+                    'study_name' => $stObj->name,
+                    'study_type' => $stObj->study_type ?: 'reguler',
+                    'kkm' => (float) ($stObj->kkm ?: 65),
+                    'filled_count' => 0,
+                    'new_count' => 0,
+                    'updated_count' => 0,
+                    'unchanged_count' => 0,
+                    'locked_skipped_count' => 0,
+                    'below_kkm_count' => 0,
+                    'invalid_count' => 0,
                 ];
             }
 
@@ -1443,24 +1538,24 @@ class AssessmentController extends Controller
             foreach ($studentsInClass as $st) {
                 $sId = $st['student_id'];
                 $studentPreviewsMap[$sId] = [
-                    'student_id'   => $sId,
-                    'nis'          => $st['nis'] ?? $st['student_nis'],
-                    'name'         => $st['name'] ?? $st['student_name'],
-                    'is_mukim'     => (bool) ($st['is_mukim'] ?? true),
-                    'matched_row'  => false,
-                    'cells'        => [],
+                    'student_id' => $sId,
+                    'nis' => $st['nis'] ?? $st['student_nis'],
+                    'name' => $st['name'] ?? $st['student_name'],
+                    'is_mukim' => (bool) ($st['is_mukim'] ?? true),
+                    'matched_row' => false,
+                    'cells' => [],
                 ];
 
                 foreach ($studyColumns as $cIdx => $stObj) {
                     $existingMeta = $st['grades'][$stObj->id] ?? null;
                     $studentPreviewsMap[$sId]['cells'][$stObj->id] = [
-                        'study_id'   => $stObj->id,
-                        'old_score'  => $existingMeta['score'] ?? null,
-                        'new_score'  => null,
-                        'is_locked'  => (bool) ($existingMeta['is_locked'] ?? false),
-                        'status'     => 'empty', // empty | new | updated | unchanged | locked | invalid
-                        'is_pass'    => null,
-                        'kkm'        => (float) ($stObj->kkm ?: 65),
+                        'study_id' => $stObj->id,
+                        'old_score' => $existingMeta['score'] ?? null,
+                        'new_score' => null,
+                        'is_locked' => (bool) ($existingMeta['is_locked'] ?? false),
+                        'status' => 'empty', // empty | new | updated | unchanged | locked | invalid
+                        'is_pass' => null,
+                        'kkm' => (float) ($stObj->kkm ?: 65),
                     ];
                 }
             }
@@ -1496,13 +1591,14 @@ class AssessmentController extends Controller
                     $matchedStudent = $studentByName[mb_strtolower($rawName)];
                 }
 
-                if (!$matchedStudent) {
+                if (! $matchedStudent) {
                     $unmatchedRows[] = [
-                        'row'  => $excelRowNumber,
-                        'nis'  => $rawNis ?: '-',
+                        'row' => $excelRowNumber,
+                        'nis' => $rawNis ?: '-',
                         'name' => $rawName ?: '-',
                         'reason' => 'NIS / Nama santri tidak terdaftar pada rombel ini.',
                     ];
+
                     continue;
                 }
 
@@ -1521,17 +1617,18 @@ class AssessmentController extends Controller
 
                     // Normalisasi koma menjadi titik desimal
                     $normalizedScoreStr = str_replace(',', '.', $rawScoreCell);
-                    if (!is_numeric($normalizedScoreStr)) {
+                    if (! is_numeric($normalizedScoreStr)) {
                         $detectedStudiesSummary[$studyId]['invalid_count']++;
                         $invalidCells[] = [
-                            'row'        => $excelRowNumber,
-                            'student'    => $matchedStudent['name'],
+                            'row' => $excelRowNumber,
+                            'student' => $matchedStudent['name'],
                             'study_name' => $stObj->name,
-                            'raw_value'  => $rawScoreCell,
-                            'reason'     => 'Nilai bukan angka yang valid.',
+                            'raw_value' => $rawScoreCell,
+                            'reason' => 'Nilai bukan angka yang valid.',
                         ];
                         $studentPreviewsMap[$sId]['cells'][$studyId]['status'] = 'invalid';
                         $studentPreviewsMap[$sId]['cells'][$studyId]['raw_value'] = $rawScoreCell;
+
                         continue;
                     }
 
@@ -1539,14 +1636,15 @@ class AssessmentController extends Controller
                     if ($scoreVal < 0 || $scoreVal > 100) {
                         $detectedStudiesSummary[$studyId]['invalid_count']++;
                         $invalidCells[] = [
-                            'row'        => $excelRowNumber,
-                            'student'    => $matchedStudent['name'],
+                            'row' => $excelRowNumber,
+                            'student' => $matchedStudent['name'],
                             'study_name' => $stObj->name,
-                            'raw_value'  => $rawScoreCell,
-                            'reason'     => 'Nilai harus berada di rentang 0 - 100.',
+                            'raw_value' => $rawScoreCell,
+                            'reason' => 'Nilai harus berada di rentang 0 - 100.',
                         ];
                         $studentPreviewsMap[$sId]['cells'][$studyId]['status'] = 'invalid';
                         $studentPreviewsMap[$sId]['cells'][$studyId]['raw_value'] = $rawScoreCell;
+
                         continue;
                     }
 
@@ -1561,11 +1659,12 @@ class AssessmentController extends Controller
                         $detectedStudiesSummary[$studyId]['locked_skipped_count']++;
                         $studentPreviewsMap[$sId]['cells'][$studyId]['new_score'] = $scoreVal;
                         $studentPreviewsMap[$sId]['cells'][$studyId]['status'] = 'locked';
+
                         continue;
                     }
 
                     $isPass = $scoreVal >= $kkmVal;
-                    if (!$isPass) {
+                    if (! $isPass) {
                         $belowKkmCount++;
                         $detectedStudiesSummary[$studyId]['below_kkm_count']++;
                     }
@@ -1590,8 +1689,8 @@ class AssessmentController extends Controller
 
                     $entriesToSave[] = [
                         'student_id' => (int) $sId,
-                        'study_id'   => (int) $studyId,
-                        'score'      => $scoreVal,
+                        'study_id' => (int) $studyId,
+                        'score' => $scoreVal,
                     ];
                 }
             }
@@ -1600,7 +1699,7 @@ class AssessmentController extends Controller
             if ($mode === 'commit') {
                 if (empty($entriesToSave)) {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => 'Tidak ada nilai baru/terbuka yang dapat disimpan dari file Excel ini.',
                     ], 422);
                 }
@@ -1609,9 +1708,9 @@ class AssessmentController extends Controller
                 foreach ($entriesToSave as $item) {
                     $existing = StudentQuarterlyScore::where([
                         'academic_quarter_id' => $quarterId,
-                        'class_group_id'      => $classGroup->id,
-                        'student_id'          => $item['student_id'],
-                        'study_id'            => $item['study_id'],
+                        'class_group_id' => $classGroup->id,
+                        'student_id' => $item['student_id'],
+                        'study_id' => $item['study_id'],
                     ])->first();
 
                     if ($existing && $existing->is_locked) {
@@ -1620,30 +1719,30 @@ class AssessmentController extends Controller
 
                     $inputScore = (float) $item['score'];
                     if ($existing && $existing->is_remedial && $existing->remedial_score !== null) {
-                        $origScore  = $inputScore;
-                        $remScore   = (float) $existing->remedial_score;
+                        $origScore = $inputScore;
+                        $remScore = (float) $existing->remedial_score;
                         $finalScore = max($origScore, $remScore);
                     } else {
-                        $origScore  = $inputScore;
-                        $remScore   = null;
+                        $origScore = $inputScore;
+                        $remScore = null;
                         $finalScore = $inputScore;
                     }
 
                     StudentQuarterlyScore::updateOrCreate(
                         [
                             'academic_quarter_id' => $quarterId,
-                            'class_group_id'      => $classGroup->id,
-                            'student_id'          => $item['student_id'],
-                            'study_id'            => $item['study_id'],
+                            'class_group_id' => $classGroup->id,
+                            'student_id' => $item['student_id'],
+                            'study_id' => $item['study_id'],
                         ],
                         [
                             'academic_year_id' => $yearId,
-                            'original_score'   => $origScore,
-                            'remedial_score'   => $remScore,
-                            'final_score'      => $finalScore,
-                            'is_remedial'      => $existing ? $existing->is_remedial : false,
-                            'is_locked'        => $lockAfterSave ? true : ($existing ? (bool) $existing->is_locked : false),
-                            'locked_at'        => $lockAfterSave ? now() : $existing?->locked_at,
+                            'original_score' => $origScore,
+                            'remedial_score' => $remScore,
+                            'final_score' => $finalScore,
+                            'is_remedial' => $existing ? $existing->is_remedial : false,
+                            'is_locked' => $lockAfterSave ? true : ($existing ? (bool) $existing->is_locked : false),
+                            'locked_at' => $lockAfterSave ? now() : $existing?->locked_at,
                         ]
                     );
                 }
@@ -1653,49 +1752,50 @@ class AssessmentController extends Controller
                 DB::commit();
 
                 return response()->json([
-                    'status'  => 'success',
-                    'message' => 'Import nilai kolektif berhasil disimpan (' . count($entriesToSave) . ' entri nilai) dan buku rapor telah diperbarui.',
-                    'data'    => $updatedEval,
+                    'status' => 'success',
+                    'message' => 'Import nilai kolektif berhasil disimpan ('.count($entriesToSave).' entri nilai) dan buku rapor telah diperbarui.',
+                    'data' => $updatedEval,
                 ], 200);
             }
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'File Excel berhasil divalidasi. Silakan tinjau pratinjau nilai sebelum disimpan.',
-                'data'    => [
-                    'class_group_id'      => $classGroup->id,
-                    'class_group_name'    => $classGroup->name,
-                    'academic_year_id'    => $yearId,
+                'data' => [
+                    'class_group_id' => $classGroup->id,
+                    'class_group_name' => $classGroup->name,
+                    'academic_year_id' => $yearId,
                     'academic_quarter_id' => $quarterId,
-                    'quarter_name'        => $quarter?->name,
-                    'detected_studies'    => array_values($detectedStudiesSummary),
-                    'summary'             => [
+                    'quarter_name' => $quarter?->name,
+                    'detected_studies' => array_values($detectedStudiesSummary),
+                    'summary' => [
                         'total_students_in_class' => $studentsInClass->count(),
-                        'matched_students_count'  => count($matchedStudentIds),
-                        'detected_studies_count'  => count($detectedStudiesSummary),
-                        'valid_entries_count'     => count($entriesToSave),
-                        'new_entries_count'       => $newEntriesCount,
-                        'updated_entries_count'   => $updatedEntriesCount,
+                        'matched_students_count' => count($matchedStudentIds),
+                        'detected_studies_count' => count($detectedStudiesSummary),
+                        'valid_entries_count' => count($entriesToSave),
+                        'new_entries_count' => $newEntriesCount,
+                        'updated_entries_count' => $updatedEntriesCount,
                         'unchanged_entries_count' => $unchangedEntriesCount,
-                        'locked_skipped_count'    => $lockedSkippedCount,
-                        'below_kkm_count'         => $belowKkmCount,
-                        'invalid_cells_count'     => count($invalidCells),
-                        'unmatched_rows_count'    => count($unmatchedRows),
+                        'locked_skipped_count' => $lockedSkippedCount,
+                        'below_kkm_count' => $belowKkmCount,
+                        'invalid_cells_count' => count($invalidCells),
+                        'unmatched_rows_count' => count($unmatchedRows),
                     ],
-                    'entries'          => $entriesToSave,
+                    'entries' => $entriesToSave,
                     'student_previews' => array_values($studentPreviewsMap),
-                    'invalid_cells'    => $invalidCells,
-                    'unmatched_rows'   => $unmatchedRows,
+                    'invalid_cells' => $invalidCells,
+                    'unmatched_rows' => $unmatchedRows,
                 ],
             ], 200);
         } catch (\Exception $e) {
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();
             }
-            Log::error('Error importing collective Excel: ' . $e->getMessage());
+            Log::error('Error importing collective Excel: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memproses file Excel: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memproses file Excel: '.$e->getMessage(),
             ], 500);
         }
     }

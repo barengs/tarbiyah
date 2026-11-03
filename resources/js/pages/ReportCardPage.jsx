@@ -604,6 +604,16 @@ export default function ReportCardPage({ initialTab }) {
     );
     const eligibilityList = eligibilityResponse?.data?.students || [];
 
+    const handlePrintExamCards = () => {
+        if (!selectedGroupId) {
+            toast.warning('Pilih rombel terlebih dahulu');
+            return;
+        }
+        const token = localStorage.getItem('token') || '';
+        const url = `/api/main/assessments/exam-cards/${selectedGroupId}/pdf?token=${token}`;
+        window.open(url, '_blank');
+    };
+
     const tabs = [
         {
             id: 'quarterly_input',
@@ -1674,14 +1684,26 @@ export default function ReportCardPage({ initialTab }) {
                                 Status pelunasan tagihan administrasi santri secara real-time dari layanan keuangan Bank Santri.
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => refetchEligibility()}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-xs bg-white hover:bg-slate-50 cursor-pointer"
-                        >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            Segarkan Status
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handlePrintExamCards}
+                                disabled={!selectedGroupId || isLoadingEligibility}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#093c30] hover:bg-[#072f26] rounded-xs shadow-2xs cursor-pointer disabled:opacity-50"
+                                title="Cetak Kartu Peserta Ujian PDF untuk seluruh santri rombel ini"
+                            >
+                                <Printer className="w-3.5 h-3.5" />
+                                Cetak Kartu Ujian (PDF)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => refetchEligibility()}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-xs bg-white hover:bg-slate-50 cursor-pointer"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                Segarkan Status
+                            </button>
+                        </div>
                     </div>
 
                     {isLoadingEligibility ? (

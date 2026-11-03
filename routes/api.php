@@ -198,6 +198,7 @@ Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function
     Route::get('assessments/gradebook', [AssessmentController::class, 'classGradebook']);
     Route::get('assessments/exam-eligibility', [AssessmentController::class, 'examEligibility']);
     Route::get('assessments/class-exam-eligibility/{class_group_id}', [AssessmentController::class, 'classExamEligibility']);
+    Route::get('assessments/exam-cards/{class_group_id}/pdf', [AssessmentController::class, 'exportExamCardsPdf']);
     Route::post('assessments/{id}/scores', [AssessmentController::class, 'saveScores']);
     Route::apiResource('assessments', AssessmentController::class);
 

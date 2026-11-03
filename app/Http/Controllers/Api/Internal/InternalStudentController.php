@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api\Internal;
 
 use App\Http\Controllers\Controller;
+use App\Models\ReportCard;
 use App\Models\Student;
 use App\Models\StudentClass;
-use App\Models\ReportCard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -18,28 +18,28 @@ class InternalStudentController extends Controller
     public function sync(Request $request)
     {
         $validated = $request->validate([
-            'santri_id'    => 'required|integer',
-            'nis'          => 'required|string|max:255',
-            'nik'          => 'nullable|string|max:30',
-            'nisn'         => 'nullable|string|max:50',
-            'name'         => 'required|string|max:255',
-            'gender'       => 'required|in:L,P',
-            'status'       => 'nullable|string',
-            'parent_name'  => 'nullable|string|max:255',
+            'santri_id' => 'required|integer',
+            'nis' => 'required|string|max:255',
+            'nik' => 'nullable|string|max:30',
+            'nisn' => 'nullable|string|max:50',
+            'name' => 'required|string|max:255',
+            'gender' => 'required|in:L,P',
+            'status' => 'nullable|string',
+            'parent_name' => 'nullable|string|max:255',
             'parent_phone' => 'nullable|string|max:30',
-            'address'      => 'nullable|string',
-            'born_in'      => 'nullable|string|max:255',
-            'born_at'      => 'nullable|date',
-            'photo'        => 'nullable|string',
+            'address' => 'nullable|string',
+            'born_in' => 'nullable|string|max:255',
+            'born_at' => 'nullable|date',
+            'photo' => 'nullable|string',
         ]);
 
         try {
             $statusMap = [
-                'aktif'       => 'aktif',
-                'lulus'       => 'lulus',
-                'mutasi'      => 'mutasi',
-                'keluar'      => 'keluar',
-                'tugas'       => 'aktif',
+                'aktif' => 'aktif',
+                'lulus' => 'lulus',
+                'mutasi' => 'mutasi',
+                'keluar' => 'keluar',
+                'tugas' => 'aktif',
                 'dikeluarkan' => 'keluar',
                 'tidak aktif' => 'keluar',
             ];
@@ -49,34 +49,45 @@ class InternalStudentController extends Controller
             $student = Student::updateOrCreate(
                 ['nis' => $validated['nis']],
                 [
-                    'santri_id'    => $validated['santri_id'],
-                    'nik'          => $validated['nik'] ?? null,
-                    'nisn'         => $validated['nisn'] ?? null,
-                    'name'         => $validated['name'],
-                    'gender'       => $validated['gender'],
-                    'is_mukim'     => true, // Santri dari SMPT selalu santri mukim
-                    'parent_name'  => $validated['parent_name'] ?? null,
+                    'santri_id' => $validated['santri_id'],
+                    'nik' => $validated['nik'] ?? null,
+                    'nisn' => $validated['nisn'] ?? null,
+                    'name' => $validated['name'],
+                    'gender' => $validated['gender'],
+                    'is_mukim' => true, // Santri dari SMPT selalu santri mukim
+                    'parent_name' => $validated['parent_name'] ?? null,
                     'parent_phone' => $validated['parent_phone'] ?? null,
-                    'address'      => $validated['address'] ?? null,
-                    'born_in'      => $validated['born_in'] ?? null,
-                    'born_at'      => $validated['born_at'] ?? null,
-                    'photo'        => $validated['photo'] ?? null,
-                    'status'       => $status,
+                    'address' => $validated['address'] ?? null,
+                    'born_in' => $validated['born_in'] ?? null,
+                    'born_at' => $validated['born_at'] ?? null,
+                    'photo' => $validated['photo'] ?? null,
+                    'status' => $status,
                 ]
             );
+
+            // Jika santri non-aktif (lulus, keluar, mutasi), nonaktifkan keanggotaan kelas aktifnya
+            if ($status !== 'aktif') {
+                StudentClass::where('student_id', $student->id)
+                    ->where('status', 'aktif')
+                    ->update([
+                        'status' => $status,
+                        'left_at' => now(),
+                    ]);
+            }
 
             Log::info("Santri berhasil disinkronkan ke Tarbiyah: {$student->name} (NIS: {$student->nis})");
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Santri berhasil disinkronkan',
-                'data'    => $student,
+                'data' => $student,
             ], 200);
         } catch (\Exception $e) {
-            Log::error("Gagal sinkronisasi santri ke Tarbiyah: " . $e->getMessage());
+            Log::error('Gagal sinkronisasi santri ke Tarbiyah: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal sinkronisasi: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal sinkronisasi: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -88,20 +99,20 @@ class InternalStudentController extends Controller
     public function bulkSync(Request $request)
     {
         $validated = $request->validate([
-            'students'                 => 'required|array',
-            'students.*.santri_id'    => 'required|integer',
-            'students.*.nis'          => 'required|string|max:255',
-            'students.*.nik'          => 'nullable|string|max:30',
-            'students.*.nisn'         => 'nullable|string|max:50',
-            'students.*.name'         => 'required|string|max:255',
-            'students.*.gender'       => 'required|in:L,P',
-            'students.*.status'       => 'nullable|string',
-            'students.*.parent_name'  => 'nullable|string|max:255',
+            'students' => 'required|array',
+            'students.*.santri_id' => 'required|integer',
+            'students.*.nis' => 'required|string|max:255',
+            'students.*.nik' => 'nullable|string|max:30',
+            'students.*.nisn' => 'nullable|string|max:50',
+            'students.*.name' => 'required|string|max:255',
+            'students.*.gender' => 'required|in:L,P',
+            'students.*.status' => 'nullable|string',
+            'students.*.parent_name' => 'nullable|string|max:255',
             'students.*.parent_phone' => 'nullable|string|max:30',
-            'students.*.address'      => 'nullable|string',
-            'students.*.born_in'      => 'nullable|string|max:255',
-            'students.*.born_at'      => 'nullable|date',
-            'students.*.photo'        => 'nullable|string',
+            'students.*.address' => 'nullable|string',
+            'students.*.born_in' => 'nullable|string|max:255',
+            'students.*.born_at' => 'nullable|date',
+            'students.*.photo' => 'nullable|string',
         ]);
 
         $created = 0;
@@ -109,11 +120,11 @@ class InternalStudentController extends Controller
 
         foreach ($validated['students'] as $data) {
             $statusMap = [
-                'aktif'       => 'aktif',
-                'lulus'       => 'lulus',
-                'mutasi'      => 'mutasi',
-                'keluar'      => 'keluar',
-                'tugas'       => 'aktif',
+                'aktif' => 'aktif',
+                'lulus' => 'lulus',
+                'mutasi' => 'mutasi',
+                'keluar' => 'keluar',
+                'tugas' => 'aktif',
                 'dikeluarkan' => 'keluar',
                 'tidak aktif' => 'keluar',
             ];
@@ -124,21 +135,30 @@ class InternalStudentController extends Controller
             $student = Student::updateOrCreate(
                 ['nis' => $data['nis']],
                 [
-                    'santri_id'    => $data['santri_id'],
-                    'nik'          => $data['nik'] ?? null,
-                    'nisn'         => $data['nisn'] ?? null,
-                    'name'         => $data['name'],
-                    'gender'       => $data['gender'],
-                    'is_mukim'     => true,
-                    'parent_name'  => $data['parent_name'] ?? null,
+                    'santri_id' => $data['santri_id'],
+                    'nik' => $data['nik'] ?? null,
+                    'nisn' => $data['nisn'] ?? null,
+                    'name' => $data['name'],
+                    'gender' => $data['gender'],
+                    'is_mukim' => true,
+                    'parent_name' => $data['parent_name'] ?? null,
                     'parent_phone' => $data['parent_phone'] ?? null,
-                    'address'      => $data['address'] ?? null,
-                    'born_in'      => $data['born_in'] ?? null,
-                    'born_at'      => $data['born_at'] ?? null,
-                    'photo'        => $data['photo'] ?? null,
-                    'status'       => $status,
+                    'address' => $data['address'] ?? null,
+                    'born_in' => $data['born_in'] ?? null,
+                    'born_at' => $data['born_at'] ?? null,
+                    'photo' => $data['photo'] ?? null,
+                    'status' => $status,
                 ]
             );
+
+            if ($status !== 'aktif') {
+                StudentClass::where('student_id', $student->id)
+                    ->where('status', 'aktif')
+                    ->update([
+                        'status' => $status,
+                        'left_at' => now(),
+                    ]);
+            }
 
             $existing ? $updated++ : $created++;
         }
@@ -146,11 +166,11 @@ class InternalStudentController extends Controller
         Log::info("Bulk sync dari SMPT: {$created} created, {$updated} updated.");
 
         return response()->json([
-            'status'  => 'success',
-            'message' => "Bulk sync selesai",
+            'status' => 'success',
+            'message' => 'Bulk sync selesai',
             'created' => $created,
             'updated' => $updated,
-            'total'   => count($validated['students']),
+            'total' => count($validated['students']),
         ], 200);
     }
 
@@ -162,11 +182,11 @@ class InternalStudentController extends Controller
     {
         $student = Student::where('nis', $nis)->first();
 
-        if (!$student) {
+        if (! $student) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Santri dengan NIS {$nis} belum terdaftar di sistem Tarbiyah.",
-                'data'    => null,
+                'data' => null,
             ], 404);
         }
 
@@ -178,9 +198,9 @@ class InternalStudentController extends Controller
             'classGroup.educationClass',
             'classGroup.homeroomTeacher',
         ])
-        ->where('student_id', $student->id)
-        ->orderByDesc('id')
-        ->get();
+            ->where('student_id', $student->id)
+            ->orderByDesc('id')
+            ->get();
 
         $activeClass = $classes->firstWhere('status', 'aktif');
 
@@ -194,42 +214,42 @@ class InternalStudentController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => [
-                'nis'           => $student->nis,
-                'name'          => $student->name,
+            'data' => [
+                'nis' => $student->nis,
+                'name' => $student->name,
                 'current_class' => $activeClass ? [
-                    'id'                 => $activeClass->id,
-                    'academic_year'      => $activeClass->academicYear?->year ?? '-',
-                    'institution'        => $activeClass->educationalInstitution?->institution_name ?? '-',
-                    'class_group'        => $activeClass->classGroup?->name ?? '-',
-                    'grade_level'        => $activeClass->classGroup?->educationClass?->name ?? null,
-                    'classroom'          => $activeClass->classGroup?->classroom?->name ?? '-',
-                    'homeroom_teacher'   => $activeClass->classGroup?->homeroomTeacher?->name ?? '-',
-                    'joined_at'          => optional($activeClass->joined_at)->toDateString(),
-                    'status'             => $activeClass->status,
-                    'note'               => $activeClass->note,
+                    'id' => $activeClass->id,
+                    'academic_year' => $activeClass->academicYear?->year ?? '-',
+                    'institution' => $activeClass->educationalInstitution?->institution_name ?? '-',
+                    'class_group' => $activeClass->classGroup?->name ?? '-',
+                    'grade_level' => $activeClass->classGroup?->educationClass?->name ?? null,
+                    'classroom' => $activeClass->classGroup?->classroom?->name ?? '-',
+                    'homeroom_teacher' => $activeClass->classGroup?->homeroomTeacher?->name ?? '-',
+                    'joined_at' => optional($activeClass->joined_at)->toDateString(),
+                    'status' => $activeClass->status,
+                    'note' => $activeClass->note,
                 ] : null,
-                'history'       => $classes->map(fn($sc) => [
-                    'id'                 => $sc->id,
-                    'academic_year'      => $sc->academicYear?->year ?? '-',
-                    'institution'        => $sc->educationalInstitution?->institution_name ?? '-',
-                    'class_group'        => $sc->classGroup?->name ?? '-',
-                    'grade_level'        => $sc->classGroup?->educationClass?->name ?? null,
-                    'classroom'          => $sc->classGroup?->classroom?->name ?? '-',
-                    'homeroom_teacher'   => $sc->classGroup?->homeroomTeacher?->name ?? '-',
-                    'joined_at'          => optional($sc->joined_at)->toDateString(),
-                    'left_at'            => optional($sc->left_at)->toDateString(),
-                    'status'             => $sc->status,
-                    'note'               => $sc->note,
+                'history' => $classes->map(fn ($sc) => [
+                    'id' => $sc->id,
+                    'academic_year' => $sc->academicYear?->year ?? '-',
+                    'institution' => $sc->educationalInstitution?->institution_name ?? '-',
+                    'class_group' => $sc->classGroup?->name ?? '-',
+                    'grade_level' => $sc->classGroup?->educationClass?->name ?? null,
+                    'classroom' => $sc->classGroup?->classroom?->name ?? '-',
+                    'homeroom_teacher' => $sc->classGroup?->homeroomTeacher?->name ?? '-',
+                    'joined_at' => optional($sc->joined_at)->toDateString(),
+                    'left_at' => optional($sc->left_at)->toDateString(),
+                    'status' => $sc->status,
+                    'note' => $sc->note,
                 ]),
-                'reports'       => $reports->map(fn($rp) => [
-                    'id'                 => $rp->id,
-                    'academic_year'      => $rp->academicYear?->year ?? '-',
-                    'quarter'            => $rp->academicQuarter?->name ?? '-',
-                    'class_group'        => $rp->classGroup?->name ?? '-',
-                    'average_score'      => $rp->average_score,
-                    'rank'               => $rp->rank,
-                    'notes'              => $rp->notes,
+                'reports' => $reports->map(fn ($rp) => [
+                    'id' => $rp->id,
+                    'academic_year' => $rp->academicYear?->year ?? '-',
+                    'quarter' => $rp->academicQuarter?->name ?? '-',
+                    'class_group' => $rp->classGroup?->name ?? '-',
+                    'average_score' => $rp->average_score,
+                    'rank' => $rp->rank,
+                    'notes' => $rp->notes,
                 ]),
             ],
         ]);

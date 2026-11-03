@@ -119,6 +119,7 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
 
     // Tahun Ajaran & Kalender Akademik
     Route::get('academic-years/active', [AcademicYearController::class, 'active']);
+    Route::post('academic-years/sync-from-smpt', [AcademicYearController::class, 'syncFromSmpt']);
     Route::patch('academic-years/{id}/set-active', [AcademicYearController::class, 'setActive']);
     Route::apiResource('academic-years', AcademicYearController::class);
 

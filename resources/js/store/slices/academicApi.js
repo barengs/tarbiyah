@@ -54,6 +54,17 @@ export const academicApi = apiSlice.injectEndpoints({
                 { type: 'AcademicYear', id: 'ACTIVE' },
             ],
         }),
+        syncAcademicYearsFromSmpt: builder.mutation({
+            query: () => ({
+                url: 'master/academic-years/sync-from-smpt',
+                method: 'POST',
+            }),
+            invalidatesTags: [
+                { type: 'AcademicYear', id: 'LIST' },
+                { type: 'AcademicYear', id: 'ACTIVE' },
+                { type: 'AcademicQuarter', id: 'LIST' },
+            ],
+        }),
         deleteAcademicYear: builder.mutation({
             query: (id) => ({
                 url: `master/academic-years/${id}`,
@@ -134,6 +145,7 @@ export const {
     useCreateAcademicYearMutation,
     useUpdateAcademicYearMutation,
     useSetActiveAcademicYearMutation,
+    useSyncAcademicYearsFromSmptMutation,
     useDeleteAcademicYearMutation,
     useGetAcademicQuartersQuery,
     useCreateAcademicQuarterMutation,

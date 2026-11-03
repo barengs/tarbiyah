@@ -4,6 +4,7 @@ import {
     useCreateAcademicYearMutation,
     useUpdateAcademicYearMutation,
     useSetActiveAcademicYearMutation,
+    useSyncAcademicYearsFromSmptMutation,
     useDeleteAcademicYearMutation,
     useCreateAcademicQuarterMutation,
     useUpdateAcademicQuarterMutation,
@@ -24,6 +25,7 @@ import {
     Inbox,
     PlusCircle,
     CornerDownRight,
+    RefreshCw,
     X,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -35,6 +37,7 @@ export default function AcademicYearPage() {
     const [createYear, { isLoading: isCreatingYear }] = useCreateAcademicYearMutation();
     const [updateYear, { isLoading: isUpdatingYear }] = useUpdateAcademicYearMutation();
     const [setActiveYear] = useSetActiveAcademicYearMutation();
+    const [syncAcademicYears, { isLoading: isSyncingYears }] = useSyncAcademicYearsFromSmptMutation();
     const [deleteYear] = useDeleteAcademicYearMutation();
 
     const [createQuarter, { isLoading: isCreatingQuarter }] = useCreateAcademicQuarterMutation();
@@ -104,6 +107,15 @@ export default function AcademicYearPage() {
 
     const handleCollapseAll = () => {
         setExpandedYearIds([]);
+    };
+
+    const handleSyncFromSmpt = async () => {
+        try {
+            const res = await syncAcademicYears().unwrap();
+            toast.success(res?.message || 'Tahun akademik berhasil disinkronkan dari SMPT');
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal menyinkronkan tahun akademik dari SMPT');
+        }
     };
 
     // Handler Tahun Akademik
@@ -263,14 +275,25 @@ export default function AcademicYearPage() {
                     </p>
                 </div>
 
-                <Button
-                    variant="primary"
-                    icon={Plus}
-                    onClick={handleOpenCreateYear}
-                    className="self-start sm:self-auto shrink-0 shadow-sm"
-                >
-                    + Tambah Tahun Akademik
-                </Button>
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                    <Button
+                        variant="secondary"
+                        icon={RefreshCw}
+                        onClick={handleSyncFromSmpt}
+                        disabled={isSyncingYears}
+                        className="shadow-2xs text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300"
+                    >
+                        {isSyncingYears ? 'Menyinkronkan...' : 'Tarik dari SMPT'}
+                    </Button>
+                    <Button
+                        variant="primary"
+                        icon={Plus}
+                        onClick={handleOpenCreateYear}
+                        className="shadow-sm"
+                    >
+                        + Tambah Tahun Akademik
+                    </Button>
+                </div>
             </div>
 
             {/* 2. TABEL HIERARKI TAHUN AKADEMIK (TERINTEGRASI DENGAN TOOLBAR PENCARIAN) */}
@@ -779,9 +802,8 @@ export default function AcademicYearPage() {
                                 <div className="mt-1.5 flex flex-wrap gap-1">
                                     {[
                                         "Triwulan I (Muharram - Rabi'ul Awwal)",
-                                        "Triwulan II (Rabi'ul Akhir - Jumadil Akhir)",
-                                        "Triwulan III (Rajab - Ramadhan)",
-                                        "Triwulan IV (Syawal - Dzulhijjah)",
+                                        "Triwulan II (Rabi'ul Akhir - Rajab)",
+                                        "Triwulan III (Sya'ban - Dzulhijjah)",
                                     ].map((preset) => (
                                         <button
                                             type="button"

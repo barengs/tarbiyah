@@ -9,11 +9,21 @@ use App\Models\ClassGroup;
 use App\Models\ReportCard;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ReportCardController extends Controller
+class ReportCardController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:rapor.create|rapor.approve', only: ['generate']),
+            new Middleware('permission:rapor.update', only: ['updateNotes']),
+        ];
+    }
+
     public function index(Request $request)
     {
         try {
@@ -42,7 +52,7 @@ class ReportCardController extends Controller
 
                 $query->where(function ($q) use ($qId, $semKey) {
                     $q->where('academic_quarter_id', $qId)
-                      ->orWhere('semester', $semKey);
+                        ->orWhere('semester', $semKey);
                 });
             } elseif ($request->filled('semester')) {
                 $query->where('semester', $request->query('semester'));
@@ -51,14 +61,15 @@ class ReportCardController extends Controller
             $reports = $query->orderBy('rank', 'asc')->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data buku rapor berhasil diambil',
-                'data'    => $reports,
+                'data' => $reports,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error retrieving report cards: ' . $e->getMessage());
+            Log::error('Error retrieving report cards: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil data rapor',
             ], 500);
         }
@@ -71,10 +82,10 @@ class ReportCardController extends Controller
     public function generate(Request $request)
     {
         $validated = $request->validate([
-            'class_group_id'      => 'required|exists:class_groups,id',
-            'academic_year_id'    => 'nullable|exists:academic_years,id',
+            'class_group_id' => 'required|exists:class_groups,id',
+            'academic_year_id' => 'nullable|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
-            'semester'            => 'nullable|string|max:50',
+            'semester' => 'nullable|string|max:50',
         ]);
 
         try {
@@ -88,7 +99,7 @@ class ReportCardController extends Controller
                 ?? AcademicYear::where('active', true)->value('id')
                 ?? AcademicYear::latest('id')->value('id'));
 
-            $quarter = !empty($validated['academic_quarter_id'])
+            $quarter = ! empty($validated['academic_quarter_id'])
                 ? AcademicQuarter::find($validated['academic_quarter_id'])
                 : (AcademicQuarter::where('academic_year_id', $yearId)->where('active', true)->first()
                     ?? AcademicQuarter::where('academic_year_id', $yearId)->latest('id')->first());
@@ -101,16 +112,17 @@ class ReportCardController extends Controller
             $periodLabel = $quarter?->name ?? strtoupper(str_replace('_', ' ', $validated['semester'] ?? 'Triwulan'));
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Buku rapor digital ({$periodLabel}) berhasil dikalkulasi untuk {$classGroup->name}",
-                'data'    => $eval['summary'] ?? [],
+                'data' => $eval['summary'] ?? [],
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error generating report cards: ' . $e->getMessage());
+            Log::error('Error generating report cards: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal meng-generate rapor: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal meng-generate rapor: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -127,17 +139,17 @@ class ReportCardController extends Controller
             'academicQuarter',
         ])->find($id);
 
-        if (!$report) {
+        if (! $report) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Rapor tidak ditemukan',
             ], 404);
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail rapor berhasil diambil',
-            'data'    => $report,
+            'data' => $report,
         ], 200);
     }
 
@@ -155,14 +167,15 @@ class ReportCardController extends Controller
             ]);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Catatan wali kelas berhasil diperbarui',
-                'data'    => $report->fresh(['student', 'classGroup', 'academicYear', 'academicQuarter']),
+                'data' => $report->fresh(['student', 'classGroup', 'academicYear', 'academicQuarter']),
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error updating report notes: ' . $e->getMessage());
+            Log::error('Error updating report notes: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui catatan rapor',
             ], 500);
         }
@@ -182,11 +195,11 @@ class ReportCardController extends Controller
 
         try {
             $pdf = Pdf::loadView('pdf.report_card', [
-                'report'     => $report,
-                'student'    => $report->student,
+                'report' => $report,
+                'student' => $report->student,
                 'classGroup' => $report->classGroup,
-                'inst'       => $report->classGroup->educationalInstitution,
-                'teacher'    => $report->classGroup->homeroomTeacher,
+                'inst' => $report->classGroup->educationalInstitution,
+                'teacher' => $report->classGroup->homeroomTeacher,
             ]);
 
             $pdf->setPaper('a4', 'portrait');
@@ -195,10 +208,11 @@ class ReportCardController extends Controller
 
             return $pdf->stream($filename);
         } catch (\Exception $e) {
-            Log::error('Error generating PDF report card: ' . $e->getMessage());
+            Log::error('Error generating PDF report card: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mencetak PDF rapor: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mencetak PDF rapor: '.$e->getMessage(),
             ], 500);
         }
     }

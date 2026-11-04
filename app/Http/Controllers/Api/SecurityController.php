@@ -8,6 +8,7 @@ use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class SecurityController extends Controller
 {
@@ -18,7 +19,7 @@ class SecurityController extends Controller
     public function sidebar(Request $request)
     {
         $user = auth('api')->user();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['status' => 'error', 'message' => 'Unauthenticated', 'data' => []], 401);
         }
 
@@ -38,12 +39,12 @@ class SecurityController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'data'   => $menus,
+                'data' => $menus,
             ]);
         }
 
         $roleIds = $user->roles->pluck('id')->toArray();
-        if (empty($roleIds) && !empty($user->role)) {
+        if (empty($roleIds) && ! empty($user->role)) {
             $fallbackRole = Role::where('name', $user->role)->where('guard_name', 'api')->first();
             if ($fallbackRole) {
                 $roleIds = [$fallbackRole->id];
@@ -74,7 +75,7 @@ class SecurityController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $menus,
+            'data' => $menus,
         ]);
     }
 
@@ -86,13 +87,13 @@ class SecurityController extends Controller
         $menus = Menu::with(['children' => function ($q) {
             $q->orderBy('sort_order');
         }])
-        ->whereNull('parent_id')
-        ->orderBy('sort_order')
-        ->get();
+            ->whereNull('parent_id')
+            ->orderBy('sort_order')
+            ->get();
 
         return response()->json([
             'status' => 'success',
-            'data'   => $menus,
+            'data' => $menus,
         ]);
     }
 
@@ -102,18 +103,18 @@ class SecurityController extends Controller
     public function storeMenu(Request $request)
     {
         $validated = $request->validate([
-            'parent_id'       => 'nullable|exists:menus,id',
-            'name'            => 'required|string|max:100',
-            'slug'            => 'required|string|max:100|unique:menus,slug',
-            'icon'            => 'nullable|string|max:50',
-            'path'            => 'nullable|string|max:255',
+            'parent_id' => 'nullable|exists:menus,id',
+            'name' => 'required|string|max:100',
+            'slug' => 'required|string|max:100|unique:menus,slug',
+            'icon' => 'nullable|string|max:50',
+            'path' => 'nullable|string|max:255',
             'permission_slug' => 'nullable|string|max:100',
-            'sort_order'      => 'nullable|integer',
-            'is_active'       => 'nullable|boolean',
+            'sort_order' => 'nullable|integer',
+            'is_active' => 'nullable|boolean',
         ]);
 
         $validated['sort_order'] = $validated['sort_order'] ?? (Menu::where('parent_id', $validated['parent_id'] ?? null)->max('sort_order') + 1);
-        $validated['is_active']  = $validated['is_active'] ?? true;
+        $validated['is_active'] = $validated['is_active'] ?? true;
 
         $menu = Menu::create($validated);
 
@@ -129,9 +130,9 @@ class SecurityController extends Controller
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Menu berhasil ditambahkan.',
-            'data'    => $menu->load('children'),
+            'data' => $menu->load('children'),
         ], 201);
     }
 
@@ -143,14 +144,14 @@ class SecurityController extends Controller
         $menu = Menu::findOrFail($id);
 
         $validated = $request->validate([
-            'parent_id'       => 'nullable|exists:menus,id|not_in:' . $id,
-            'name'            => 'required|string|max:100',
-            'slug'            => 'required|string|max:100|unique:menus,slug,' . $id,
-            'icon'            => 'nullable|string|max:50',
-            'path'            => 'nullable|string|max:255',
+            'parent_id' => 'nullable|exists:menus,id|not_in:'.$id,
+            'name' => 'required|string|max:100',
+            'slug' => 'required|string|max:100|unique:menus,slug,'.$id,
+            'icon' => 'nullable|string|max:50',
+            'path' => 'nullable|string|max:255',
             'permission_slug' => 'nullable|string|max:100',
-            'sort_order'      => 'nullable|integer',
-            'is_active'       => 'nullable|boolean',
+            'sort_order' => 'nullable|integer',
+            'is_active' => 'nullable|boolean',
         ]);
 
         $menu->update($validated);
@@ -167,9 +168,9 @@ class SecurityController extends Controller
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Menu berhasil diperbarui.',
-            'data'    => $menu->load('children'),
+            'data' => $menu->load('children'),
         ]);
     }
 
@@ -179,29 +180,29 @@ class SecurityController extends Controller
     public function reorderMenus(Request $request)
     {
         $validated = $request->validate([
-            'items'              => 'required|array',
-            'items.*.id'         => 'required|exists:menus,id',
-            'items.*.parent_id'  => 'nullable|exists:menus,id',
+            'items' => 'required|array',
+            'items.*.id' => 'required|exists:menus,id',
+            'items.*.parent_id' => 'nullable|exists:menus,id',
             'items.*.sort_order' => 'required|integer',
         ]);
 
         \DB::transaction(function () use ($validated) {
             foreach ($validated['items'] as $item) {
-                $parentId = (!empty($item['parent_id']) && $item['parent_id'] != $item['id'])
+                $parentId = (! empty($item['parent_id']) && $item['parent_id'] != $item['id'])
                     ? $item['parent_id']
                     : null;
 
                 Menu::where('id', $item['id'])->update([
-                    'parent_id'  => $parentId,
+                    'parent_id' => $parentId,
                     'sort_order' => $item['sort_order'],
                 ]);
             }
         });
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Tata letak urutan menu berhasil diperbarui.',
-            'data'    => $this->getMenus()->getData()->data,
+            'data' => $this->getMenus()->getData()->data,
         ]);
     }
 
@@ -215,7 +216,7 @@ class SecurityController extends Controller
         // Jangan hapus menu inti sistem
         if (in_array($menu->slug, ['dashboard', 'pengaturan', 'menu', 'role', 'user'])) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Menu sistem ini tidak dapat dihapus.',
             ], 403);
         }
@@ -225,7 +226,7 @@ class SecurityController extends Controller
         $menu->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Menu berhasil dihapus.',
         ]);
     }
@@ -241,7 +242,7 @@ class SecurityController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $roles,
+            'data' => $roles,
         ]);
     }
 
@@ -251,20 +252,20 @@ class SecurityController extends Controller
     public function storeRole(Request $request)
     {
         $validated = $request->validate([
-            'name'       => 'required|string|max:100|unique:roles,name',
+            'name' => 'required|string|max:100|unique:roles,name',
             'program_id' => 'nullable|exists:programs,id',
         ]);
 
         $role = Role::create([
-            'name'       => Str::slug($validated['name']),
+            'name' => Str::slug($validated['name']),
             'guard_name' => 'api',
             'program_id' => $validated['program_id'] ?? null,
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Role berhasil ditambahkan.',
-            'data'    => $role->load(['menus', 'permissions', 'program']),
+            'data' => $role->load(['menus', 'permissions', 'program']),
         ], 201);
     }
 
@@ -277,25 +278,25 @@ class SecurityController extends Controller
 
         if (in_array($role->name, ['superadmin', 'admin'])) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Nama role sistem utama tidak dapat diubah.',
             ], 403);
         }
 
         $validated = $request->validate([
-            'name'       => 'required|string|max:100|unique:roles,name,' . $id,
+            'name' => 'required|string|max:100|unique:roles,name,'.$id,
             'program_id' => 'nullable|exists:programs,id',
         ]);
 
         $role->update([
-            'name'       => Str::slug($validated['name']),
+            'name' => Str::slug($validated['name']),
             'program_id' => $validated['program_id'] ?? null,
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Role berhasil diperbarui.',
-            'data'    => $role->load(['menus', 'permissions', 'program']),
+            'data' => $role->load(['menus', 'permissions', 'program']),
         ]);
     }
 
@@ -308,7 +309,7 @@ class SecurityController extends Controller
 
         if (in_array($role->name, ['superadmin', 'admin', 'staf', 'asatidz', 'walikelas'])) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Role bawaan sistem tidak dapat dihapus.',
             ], 403);
         }
@@ -316,7 +317,7 @@ class SecurityController extends Controller
         $role->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Role berhasil dihapus.',
         ]);
     }
@@ -329,7 +330,7 @@ class SecurityController extends Controller
         $role = Role::findOrFail($id);
 
         $validated = $request->validate([
-            'menu_ids'   => 'present|array',
+            'menu_ids' => 'present|array',
             'menu_ids.*' => 'exists:menus,id',
         ]);
 
@@ -345,9 +346,9 @@ class SecurityController extends Controller
         $role->menus()->sync($allMenuIds);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Hak akses menu role berhasil diperbarui.',
-            'data'    => $role->fresh()->load('menus'),
+            'data' => $role->fresh()->load('menus'),
         ]);
     }
 
@@ -359,17 +360,17 @@ class SecurityController extends Controller
         $role = Role::findOrFail($id);
 
         $validated = $request->validate([
-            'permissions'   => 'present|array',
+            'permissions' => 'present|array',
             'permissions.*' => 'string|exists:permissions,name',
         ]);
 
         $role->syncPermissions($validated['permissions']);
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Permission matrix role berhasil diperbarui.',
-            'data'    => $role->fresh()->load('permissions'),
+            'data' => $role->fresh()->load('permissions'),
         ]);
     }
 
@@ -389,23 +390,23 @@ class SecurityController extends Controller
             $module = $parts[0] ?? 'general';
             $action = $parts[1] ?? 'general';
 
-            if (!isset($grouped[$module])) {
+            if (! isset($grouped[$module])) {
                 $grouped[$module] = [
-                    'module'      => $module,
+                    'module' => $module,
                     'permissions' => [],
                 ];
             }
             $grouped[$module]['permissions'][] = [
-                'id'     => $perm->id,
-                'name'   => $perm->name,
+                'id' => $perm->id,
+                'name' => $perm->name,
                 'action' => $action,
             ];
         }
 
         return response()->json([
             'status' => 'success',
-            'data'   => array_values($grouped),
-            'raw'    => $permissions,
+            'data' => array_values($grouped),
+            'raw' => $permissions,
         ]);
     }
 }

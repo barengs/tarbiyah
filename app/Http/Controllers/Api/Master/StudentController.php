@@ -9,12 +9,23 @@ use App\Models\Program;
 use App\Models\Student;
 use App\Models\StudentClass;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class StudentController extends Controller
+class StudentController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:siswa.create', only: ['store', 'pullFromSmpt', 'bulkAssign', 'bulkAssignProgram']),
+            new Middleware('permission:siswa.update', only: ['update']),
+            new Middleware('permission:siswa.delete', only: ['destroy']),
+        ];
+    }
+
     public function index(Request $request)
     {
         try {
@@ -27,17 +38,17 @@ class StudentController extends Controller
             $yearPeriodSlash = $selectedYear ? trim($selectedYear->year) : null;
 
             $yearScope = function ($q) use ($selectedYear, $yearPeriodDash, $yearPeriodSlash) {
-                if (!$selectedYear) {
+                if (! $selectedYear) {
                     return;
                 }
                 if ($selectedYear->active) {
-                    $q->whereHas('studentClasses', fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                      ->orWhereNull('period')
-                      ->orWhere('period', '<=', $yearPeriodDash)
-                      ->orWhere('period', $yearPeriodSlash);
+                    $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                        ->orWhereNull('period')
+                        ->orWhere('period', '<=', $yearPeriodDash)
+                        ->orWhere('period', $yearPeriodSlash);
                 } else {
-                    $q->whereHas('studentClasses', fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                      ->orWhereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]));
+                    $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                        ->orWhereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]));
                 }
             };
 
@@ -63,8 +74,8 @@ class StudentController extends Controller
                 $search = $request->query('search');
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('nis', 'like', "%{$search}%")
-                      ->orWhere('nisn', 'like', "%{$search}%");
+                        ->orWhere('nis', 'like', "%{$search}%")
+                        ->orWhere('nisn', 'like', "%{$search}%");
                 });
             }
 
@@ -93,10 +104,10 @@ class StudentController extends Controller
             if ($request->has('education_id')) {
                 $query->whereHas('studentClasses', function ($q) use ($request, $selectedYear) {
                     $q->where('status', 'aktif')
-                      ->when($selectedYear, fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                      ->whereHas('classGroup', function ($cg) use ($request) {
-                          $cg->where('education_id', $request->query('education_id'));
-                      });
+                        ->when($selectedYear, fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                        ->whereHas('classGroup', function ($cg) use ($request) {
+                            $cg->where('education_id', $request->query('education_id'));
+                        });
                 });
             }
 
@@ -104,10 +115,10 @@ class StudentController extends Controller
             if ($request->has('education_class_id')) {
                 $query->whereHas('studentClasses', function ($q) use ($request, $selectedYear) {
                     $q->where('status', 'aktif')
-                      ->when($selectedYear, fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                      ->whereHas('classGroup', function ($cg) use ($request) {
-                          $cg->where('education_class_id', $request->query('education_class_id'));
-                      });
+                        ->when($selectedYear, fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                        ->whereHas('classGroup', function ($cg) use ($request) {
+                            $cg->where('education_class_id', $request->query('education_class_id'));
+                        });
                 });
             }
 
@@ -115,8 +126,8 @@ class StudentController extends Controller
             if ($request->has('class_group_id')) {
                 $query->whereHas('studentClasses', function ($q) use ($request, $selectedYear) {
                     $q->where('status', 'aktif')
-                      ->when($selectedYear, fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                      ->where('class_group_id', $request->query('class_group_id'));
+                        ->when($selectedYear, fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                        ->where('class_group_id', $request->query('class_group_id'));
                 });
             }
 
@@ -139,60 +150,62 @@ class StudentController extends Controller
             $summaryBase = Student::query()->where($yearScope);
             $summaryTotal = (clone $summaryBase)->count();
             $summaryMukim = (clone $summaryBase)->where('is_mukim', true)->count();
-            $summaryLuar  = $summaryTotal - $summaryMukim;
+            $summaryLuar = $summaryTotal - $summaryMukim;
             $summary = [
-                'total'         => $summaryTotal,
-                'mukim'         => $summaryMukim,
-                'luar'          => $summaryLuar,
+                'total' => $summaryTotal,
+                'mukim' => $summaryMukim,
+                'luar' => $summaryLuar,
                 'mukim_percent' => $summaryTotal > 0 ? round(($summaryMukim / $summaryTotal) * 100, 1) : 0,
-                'luar_percent'  => $summaryTotal > 0 ? round(($summaryLuar / $summaryTotal) * 100, 1) : 0,
+                'luar_percent' => $summaryTotal > 0 ? round(($summaryLuar / $summaryTotal) * 100, 1) : 0,
             ];
 
             // Opsi filter: angkatan yang tersedia (dinamis dari data tahun akademik terpilih)
             $periodOptions = (clone $summaryBase)->select('period')->whereNotNull('period')->distinct()->orderBy('period')->pluck('period')->all();
             $filterOptions = [
                 'periods' => $periodOptions,
-                'programs' => \App\Models\Program::query()->orderBy('name')->get(['id', 'name', 'code']),
+                'programs' => Program::query()->orderBy('name')->get(['id', 'name', 'code']),
             ];
 
             // Dukung pengambilan seluruh data tanpa pagination (misal untuk DataTable TanStack klien)
             $perPage = $request->query('per_page', 20);
-            if ($request->boolean('all') || $perPage === 'all' || (int)$perPage >= 1000) {
+            if ($request->boolean('all') || $perPage === 'all' || (int) $perPage >= 1000) {
                 $allStudents = $query->orderBy('name', 'asc')->get();
+
                 return response()->json([
-                    'status'  => 'success',
+                    'status' => 'success',
                     'message' => 'Data siswa berhasil diambil',
-                    'data'    => $allStudents,
-                    'meta'    => [
+                    'data' => $allStudents,
+                    'meta' => [
                         'current_page' => 1,
-                        'last_page'    => 1,
-                        'per_page'     => $allStudents->count(),
-                        'total'        => $allStudents->count(),
-                        'summary'      => $summary,
+                        'last_page' => 1,
+                        'per_page' => $allStudents->count(),
+                        'total' => $allStudents->count(),
+                        'summary' => $summary,
                         'filter_options' => $filterOptions,
                     ],
                 ], 200);
             }
 
-            $students = $query->orderBy('name', 'asc')->paginate((int)$perPage);
+            $students = $query->orderBy('name', 'asc')->paginate((int) $perPage);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data siswa berhasil diambil',
-                'data'    => $students->items(),
-                'meta'    => [
+                'data' => $students->items(),
+                'meta' => [
                     'current_page' => $students->currentPage(),
-                    'last_page'    => $students->lastPage(),
-                    'per_page'     => $students->perPage(),
-                    'total'        => $students->total(),
-                    'summary'      => $summary,
+                    'last_page' => $students->lastPage(),
+                    'per_page' => $students->perPage(),
+                    'total' => $students->total(),
+                    'summary' => $summary,
                     'filter_options' => $filterOptions,
                 ],
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error retrieving students: ' . $e->getMessage());
+            Log::error('Error retrieving students: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil data siswa',
             ], 500);
         }
@@ -206,20 +219,20 @@ class StudentController extends Controller
     public function bulkAssignProgram(Request $request)
     {
         $validated = $request->validate([
-            'student_ids'      => 'required|array|min:1',
-            'student_ids.*'    => 'required|exists:students,id',
-            'program_id'       => 'nullable|integer',
-            'class_group_id'   => 'nullable|integer',
-            'joined_at'        => 'nullable|date',
-            'note'            => 'nullable|string|max:255',
+            'student_ids' => 'required|array|min:1',
+            'student_ids.*' => 'required|exists:students,id',
+            'program_id' => 'nullable|integer',
+            'class_group_id' => 'nullable|integer',
+            'joined_at' => 'nullable|date',
+            'note' => 'nullable|string|max:255',
         ]);
 
         $ids = $validated['student_ids'];
-        $note = $validated['note'] ?? "Penaturan program massal";
+        $note = $validated['note'] ?? 'Penaturan program massal';
         $joinedAt = $validated['joined_at'] ?? today();
 
         $group = null;
-        if (!empty($validated['class_group_id'])) {
+        if (! empty($validated['class_group_id'])) {
             $group = ClassGroup::with(['academicYear', 'educationalInstitution'])->findOrFail($validated['class_group_id']);
         }
 
@@ -242,22 +255,22 @@ class StudentController extends Controller
 
                     if ($existingActive && $existingActive->class_group_id !== $group->id) {
                         $existingActive->update([
-                            'status'  => 'pindah_level',
+                            'status' => 'pindah_level',
                             'left_at' => today(),
-                            'note'    => "Pindah ke rombel {$group->name} (massal)",
+                            'note' => "Pindah ke rombel {$group->name} (massal)",
                         ]);
                     }
 
                     StudentClass::updateOrCreate([
-                        'student_id'     => $student->id,
+                        'student_id' => $student->id,
                         'class_group_id' => $group->id,
                     ], [
-                        'academic_year_id'           => $group->academic_year_id,
+                        'academic_year_id' => $group->academic_year_id,
                         'educational_institution_id' => $group->educational_institution_id,
-                        'joined_at'                   => $joinedAt,
-                        'left_at'                     => null,
-                        'status'                        => 'aktif',
-                        'note'                          => $note,
+                        'joined_at' => $joinedAt,
+                        'left_at' => null,
+                        'status' => 'aktif',
+                        'note' => $note,
                     ]);
                 }
 
@@ -268,21 +281,22 @@ class StudentController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Berhasil mengatur program/rombel untuk {$affected} santri.",
-                'data'    => [
-                    'affected'       => $affected,
-                    'program_id'     => $validated['program_id'] ?? null,
+                'data' => [
+                    'affected' => $affected,
+                    'program_id' => $validated['program_id'] ?? null,
                     'class_group_id' => $group?->id,
-                    'class_group'    => $group?->name,
+                    'class_group' => $group?->name,
                 ],
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error bulk-assigning program: ' . $e->getMessage());
+            Log::error('Error bulk-assigning program: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengatur program massal: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengatur program massal: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -303,7 +317,7 @@ class StudentController extends Controller
             $query = Student::where('status', 'aktif')
                 ->whereDoesntHave('studentClasses', function ($q) use ($academicYearId) {
                     $q->where('academic_year_id', $academicYearId)
-                      ->where('status', 'aktif');
+                        ->where('status', 'aktif');
                 });
 
             if ($request->has('gender') && in_array($request->query('gender'), ['L', 'P'])) {
@@ -321,8 +335,8 @@ class StudentController extends Controller
                 $search = $request->query('search');
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('nis', 'like', "%{$search}%")
-                      ->orWhere('nisn', 'like', "%{$search}%");
+                        ->orWhere('nis', 'like', "%{$search}%")
+                        ->orWhere('nisn', 'like', "%{$search}%");
                 });
             }
 
@@ -330,33 +344,35 @@ class StudentController extends Controller
 
             if ($request->boolean('all')) {
                 $students = $query->orderBy('name', 'asc')->get();
+
                 return response()->json([
-                    'status'  => 'success',
+                    'status' => 'success',
                     'message' => 'Seluruh santri belum berombel berhasil diambil',
-                    'total'   => $totalUnassigned,
-                    'data'    => $students,
+                    'total' => $totalUnassigned,
+                    'data' => $students,
                 ], 200);
             }
 
             $students = $query->orderBy('name', 'asc')->paginate($request->query('per_page', 25));
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Daftar santri belum berombel berhasil diambil',
-                'total'   => $totalUnassigned,
-                'data'    => $students->items(),
-                'meta'    => [
+                'total' => $totalUnassigned,
+                'data' => $students->items(),
+                'meta' => [
                     'current_page' => $students->currentPage(),
-                    'last_page'    => $students->lastPage(),
-                    'per_page'     => $students->perPage(),
-                    'total'        => $students->total(),
+                    'last_page' => $students->lastPage(),
+                    'per_page' => $students->perPage(),
+                    'total' => $students->total(),
                 ],
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching unassigned students: ' . $e->getMessage());
+            Log::error('Error fetching unassigned students: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengambil data santri belum berombel: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengambil data santri belum berombel: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -369,10 +385,10 @@ class StudentController extends Controller
     {
         $validated = $request->validate([
             'class_group_id' => 'required|exists:class_groups,id',
-            'student_ids'    => 'required|array|min:1',
-            'student_ids.*'  => 'required|exists:students,id',
-            'joined_at'      => 'nullable|date',
-            'note'           => 'nullable|string|max:255',
+            'student_ids' => 'required|array|min:1',
+            'student_ids.*' => 'required|exists:students,id',
+            'joined_at' => 'nullable|date',
+            'note' => 'nullable|string|max:255',
         ]);
 
         $group = ClassGroup::findOrFail($validated['class_group_id']);
@@ -398,25 +414,25 @@ class StudentController extends Controller
                     }
                     // Selesaikan keanggotaan lama
                     $existingActive->update([
-                        'status'  => 'pindah_level',
+                        'status' => 'pindah_level',
                         'left_at' => today(),
-                        'note'    => "Pindah ke rombel {$group->name}",
+                        'note' => "Pindah ke rombel {$group->name}",
                     ]);
                 }
 
                 // Tambahkan atau aktifkan di rombel tujuan
                 StudentClass::updateOrCreate(
                     [
-                        'student_id'     => $studentId,
+                        'student_id' => $studentId,
                         'class_group_id' => $group->id,
                     ],
                     [
-                        'academic_year_id'           => $group->academic_year_id,
+                        'academic_year_id' => $group->academic_year_id,
                         'educational_institution_id' => $group->educational_institution_id,
-                        'joined_at'                  => $joinedAt,
-                        'left_at'                    => null,
-                        'status'                     => 'aktif',
-                        'note'                       => $note,
+                        'joined_at' => $joinedAt,
+                        'left_at' => null,
+                        'status' => 'aktif',
+                        'note' => $note,
                     ]
                 );
 
@@ -426,19 +442,20 @@ class StudentController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Berhasil menempatkan {$assignedCount} santri ke rombel {$group->name}.",
-                'data'    => [
+                'data' => [
                     'assigned_count' => $assignedCount,
-                    'class_group'    => $group->name,
+                    'class_group' => $group->name,
                 ],
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error during bulk assignment: ' . $e->getMessage());
+            Log::error('Error during bulk assignment: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menempatkan santri ke rombel: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menempatkan santri ke rombel: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -456,13 +473,13 @@ class StudentController extends Controller
         try {
             $response = Http::timeout(10)->withHeaders([
                 'X-Internal-Key' => $internalKey,
-                'Accept'         => 'application/json',
+                'Accept' => 'application/json',
             ])->get("{$smptCoreUrl}/api/internal/students/active");
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Gagal menghubungi SMPT: ' . $response->body(),
+                    'status' => 'error',
+                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
                 ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
             }
 
@@ -484,7 +501,7 @@ class StudentController extends Controller
                 }
 
                 $nis = trim($item['nis']);
-                $isNew = !isset($existingNisMap[$nis]);
+                $isNew = ! isset($existingNisMap[$nis]);
                 if ($isNew) {
                     $newStudentsCount++;
                 } else {
@@ -503,42 +520,43 @@ class StudentController extends Controller
                 // Masukkan sampel preview (maksimal 10 baris)
                 if (count($previewList) < 10) {
                     $previewList[] = [
-                        'santri_id'   => $item['santri_id'] ?? null,
-                        'nis'         => $nis,
-                        'nik'         => !empty($item['nik']) ? ltrim(trim($item['nik']), "'\"") : null,
-                        'name'        => $item['name'] ?? 'Santri',
-                        'gender'      => 'L', // Seluruh santri dipastikan Banin (L)
-                        'raw_gender'  => $rawGender,
-                        'is_anomaly'  => ($rawGender === 'P' || $rawGender === 'PEREMPUAN'),
-                        'village'     => $item['village'] ?? $item['address'] ?? '-',
-                        'is_new'      => $isNew,
+                        'santri_id' => $item['santri_id'] ?? null,
+                        'nis' => $nis,
+                        'nik' => ! empty($item['nik']) ? ltrim(trim($item['nik']), "'\"") : null,
+                        'name' => $item['name'] ?? 'Santri',
+                        'gender' => 'L', // Seluruh santri dipastikan Banin (L)
+                        'raw_gender' => $rawGender,
+                        'is_anomaly' => ($rawGender === 'P' || $rawGender === 'PEREMPUAN'),
+                        'village' => $item['village'] ?? $item['address'] ?? '-',
+                        'is_new' => $isNew,
                     ];
                 }
             }
 
             $hasAnomaly = $femaleAnomalyCount > 0;
-            $anomalyMessage = $hasAnomaly 
+            $anomalyMessage = $hasAnomaly
                 ? "Terdeteksi {$femaleAnomalyCount} data berindikasi jenis kelamin perempuan (kesalahan algoritma). Sesuai ketentuan pesantren saat ini seluruh santri adalah Laki-laki / Putra (L). Sistem otomatis menstandarkan menjadi Laki-laki / Putra (L)."
                 : null;
 
             return response()->json([
                 'status' => 'success',
-                'data'   => [
-                    'total_smpt'           => $totalSmpt,
-                    'already_in_tarbiyah'  => $alreadyInTarbiyah,
-                    'new_students'         => $newStudentsCount,
-                    'banin_count'          => $baninCount,
+                'data' => [
+                    'total_smpt' => $totalSmpt,
+                    'already_in_tarbiyah' => $alreadyInTarbiyah,
+                    'new_students' => $newStudentsCount,
+                    'banin_count' => $baninCount,
                     'female_anomaly_count' => $femaleAnomalyCount,
-                    'has_female_anomaly'   => $hasAnomaly,
-                    'anomaly_message'      => $anomalyMessage,
-                    'preview_sample'       => $previewList,
+                    'has_female_anomaly' => $hasAnomaly,
+                    'anomaly_message' => $anomalyMessage,
+                    'preview_sample' => $previewList,
                 ],
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error previewing students from SMPT: ' . $e->getMessage());
+            Log::error('Error previewing students from SMPT: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Terjadi kesalahan saat memuat pratinjau data dari SMPT: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat memuat pratinjau data dari SMPT: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -555,13 +573,13 @@ class StudentController extends Controller
         try {
             $response = Http::timeout(15)->withHeaders([
                 'X-Internal-Key' => $internalKey,
-                'Accept'         => 'application/json',
+                'Accept' => 'application/json',
             ])->get("{$smptCoreUrl}/api/internal/students/active");
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Gagal menghubungi SMPT: ' . $response->body(),
+                    'status' => 'error',
+                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
                 ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
             }
 
@@ -580,7 +598,7 @@ class StudentController extends Controller
 
                 // Validasi & sanitasi tanggal lahir
                 $bornAt = null;
-                if (!empty($item['born_at'])) {
+                if (! empty($item['born_at'])) {
                     $ts = strtotime($item['born_at']);
                     if ($ts !== false && $ts > 0) {
                         $parsedDate = date('Y-m-d', $ts);
@@ -591,9 +609,9 @@ class StudentController extends Controller
                 }
 
                 // Sanitasi NIK, KK, & Telepon
-                $nik = !empty($item['nik']) ? ltrim(trim($item['nik']), "'\"") : null;
-                $kk  = !empty($item['kk']) ? ltrim(trim($item['kk']), "'\"") : null;
-                $phone = !empty($item['parent_phone']) ? ltrim(trim($item['parent_phone']), "'\"") : null;
+                $nik = ! empty($item['nik']) ? ltrim(trim($item['nik']), "'\"") : null;
+                $kk = ! empty($item['kk']) ? ltrim(trim($item['kk']), "'\"") : null;
+                $phone = ! empty($item['parent_phone']) ? ltrim(trim($item['parent_phone']), "'\"") : null;
                 if ($phone === '0822________' || $phone === '085_________') {
                     $phone = null;
                 }
@@ -607,37 +625,37 @@ class StudentController extends Controller
                 $gender = 'L'; // Tegakkan Laki-laki / Banin
 
                 $parts = explode(' ', trim($item['name'] ?? ''), 2);
-                $firstName = !empty($item['first_name']) ? trim($item['first_name']) : ($parts[0] ?? $nis);
-                $lastName  = !empty($item['last_name']) ? trim($item['last_name']) : ($parts[1] ?? null);
+                $firstName = ! empty($item['first_name']) ? trim($item['first_name']) : ($parts[0] ?? $nis);
+                $lastName = ! empty($item['last_name']) ? trim($item['last_name']) : ($parts[1] ?? null);
 
                 Student::updateOrCreate(
                     ['nis' => $nis],
                     [
-                        'santri_id'      => $item['santri_id'] ?? null,
-                        'parent_id'      => $item['parent_id'] ?? null, // NIK Wali Santri
-                        'period'         => $item['period'] ?? null, // Angkatan (Hijriah)
-                        'nik'            => $nik,
-                        'kk'             => $kk,
-                        'first_name'     => $firstName,
-                        'last_name'      => $lastName,
-                        'name'           => trim("{$firstName} {$lastName}"),
-                        'gender'         => $gender, // 100% Banin
-                        'is_mukim'       => true,
-                        'village_id'     => $item['village_id'] ?? null,
-                        'village'        => $item['village'] ?? null,
-                        'district'       => $item['district'] ?? null,
-                        'postal_code'    => $item['postal_code'] ?? null,
-                        'phone'          => $phone,
-                        'parent_name'    => $item['parent_name'] ?? null,
-                        'parent_phone'   => $phone,
-                        'address'        => $item['address'] ?? null,
-                        'born_in'        => $item['born_in'] ?? null,
-                        'born_at'        => $bornAt,
+                        'santri_id' => $item['santri_id'] ?? null,
+                        'parent_id' => $item['parent_id'] ?? null, // NIK Wali Santri
+                        'period' => $item['period'] ?? null, // Angkatan (Hijriah)
+                        'nik' => $nik,
+                        'kk' => $kk,
+                        'first_name' => $firstName,
+                        'last_name' => $lastName,
+                        'name' => trim("{$firstName} {$lastName}"),
+                        'gender' => $gender, // 100% Banin
+                        'is_mukim' => true,
+                        'village_id' => $item['village_id'] ?? null,
+                        'village' => $item['village'] ?? null,
+                        'district' => $item['district'] ?? null,
+                        'postal_code' => $item['postal_code'] ?? null,
+                        'phone' => $phone,
+                        'parent_name' => $item['parent_name'] ?? null,
+                        'parent_phone' => $phone,
+                        'address' => $item['address'] ?? null,
+                        'born_in' => $item['born_in'] ?? null,
+                        'born_at' => $bornAt,
                         'last_education' => $item['last_education'] ?? null,
-                        'hostel_id'      => $item['hostel_id'] ?? null,
-                        'program_id'     => $item['program_id'] ?? null,
-                        'photo'          => $item['photo'] ?? null,
-                        'status'         => 'Aktif',
+                        'hostel_id' => $item['hostel_id'] ?? null,
+                        'program_id' => $item['program_id'] ?? null,
+                        'photo' => $item['photo'] ?? null,
+                        'status' => 'Aktif',
                     ]
                 );
 
@@ -645,41 +663,42 @@ class StudentController extends Controller
             }
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Penarikan data selesai: {$created} santri baru berhasil ditambahkan, {$updated} santri diperbarui.",
-                'data'    => [
-                    'total_fetched'       => count($students),
-                    'created'             => $created,
-                    'updated'             => $updated,
-                    'gender_audit'        => '100% Putra (L)',
+                'data' => [
+                    'total_fetched' => count($students),
+                    'created' => $created,
+                    'updated' => $updated,
+                    'gender_audit' => '100% Putra (L)',
                     'anomalies_corrected' => $anomalyCount,
                 ],
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error pulling students from SMPT: ' . $e->getMessage());
+            Log::error('Error pulling students from SMPT: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Terjadi kesalahan saat menarik data dari SMPT: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat menarik data dari SMPT: '.$e->getMessage(),
             ], 500);
         }
     }
 
-        /**
+    /**
      * Membentuk NIS unik otomatis berbasis tahun Hijriah dan kode ma'had (0197)
      * Sama persis dengan metode pembentukan NIS di SMPT.
      */
     private function makeNis($period = null): string
     {
-        if (!$period) {
+        if (! $period) {
             $activeYear = AcademicYear::where('active', true)->first();
             $period = $activeYear ? $activeYear->year : '1446';
         }
 
         preg_match('/\d{4}/', $period, $matches);
         $hijriYear = $matches[0] ?? '1446';
-        $prefix = $hijriYear . '0197';
+        $prefix = $hijriYear.'0197';
 
-        $lastStudent = Student::where('nis', 'like', $prefix . '%')
+        $lastStudent = Student::where('nis', 'like', $prefix.'%')
             ->orderBy('nis', 'desc')
             ->first();
 
@@ -690,7 +709,7 @@ class StudentController extends Controller
             $nextSequence = 1;
         }
 
-        return $prefix . str_pad($nextSequence, 3, '0', STR_PAD_LEFT);
+        return $prefix.str_pad($nextSequence, 3, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -703,8 +722,8 @@ class StudentController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => [
-                'nis'    => $nis,
+            'data' => [
+                'nis' => $nis,
                 'period' => $period,
             ],
         ]);
@@ -726,83 +745,85 @@ class StudentController extends Controller
         // Jika NIS kosong, bentuk otomatis dari sistem
         if (empty($request->nis)) {
             $request->merge([
-                'nis' => $this->makeNis($request->period)
+                'nis' => $this->makeNis($request->period),
             ]);
         }
 
         $validated = $request->validate([
-            'nis'               => 'required|string|max:50|unique:students,nis',
-            'santri_id'         => 'nullable|integer',
-            'parent_id'         => 'nullable|string|max:30',
-            'nik'               => 'nullable|string|max:30',
-            'kk'                => 'nullable|string|max:30',
-            'first_name'        => 'nullable|string|max:255',
-            'last_name'         => 'nullable|string|max:255',
-            'name'              => 'required|string|max:255',
-            'gender'            => 'required|in:L,P',
-            'is_mukim'          => 'required|boolean',
-            'period'            => 'nullable|string|max:20',
-            'born_in'           => 'nullable|string|max:255',
-            'born_at'           => 'nullable|date',
-            'last_education'    => 'nullable|string|max:255',
-            'village_id'        => 'nullable|integer',
-            'village'           => 'nullable|string|max:255',
-            'district'          => 'nullable|string|max:255',
-            'postal_code'       => 'nullable|string|max:10',
-            'phone'             => 'nullable|string|max:30',
-            'parent_name'       => 'nullable|string|max:255',
-            'parent_phone'      => 'nullable|string|max:30',
-            'father_name'       => 'nullable|string|max:255',
-            'father_nik'        => 'nullable|string|max:30',
-            'father_job'        => 'nullable|string|max:100',
-            'father_phone'      => 'nullable|string|max:30',
-            'mother_name'       => 'nullable|string|max:255',
-            'mother_nik'        => 'nullable|string|max:30',
-            'mother_job'        => 'nullable|string|max:100',
-            'mother_phone'      => 'nullable|string|max:30',
-            'guardian_name'     => 'nullable|string|max:255',
-            'guardian_nik'      => 'nullable|string|max:30',
+            'nis' => 'required|string|max:50|unique:students,nis',
+            'santri_id' => 'nullable|integer',
+            'parent_id' => 'nullable|string|max:30',
+            'nik' => 'nullable|string|max:30',
+            'kk' => 'nullable|string|max:30',
+            'first_name' => 'nullable|string|max:255',
+            'last_name' => 'nullable|string|max:255',
+            'name' => 'required|string|max:255',
+            'gender' => 'required|in:L,P',
+            'is_mukim' => 'required|boolean',
+            'period' => 'nullable|string|max:20',
+            'born_in' => 'nullable|string|max:255',
+            'born_at' => 'nullable|date',
+            'last_education' => 'nullable|string|max:255',
+            'village_id' => 'nullable|integer',
+            'village' => 'nullable|string|max:255',
+            'district' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:10',
+            'phone' => 'nullable|string|max:30',
+            'parent_name' => 'nullable|string|max:255',
+            'parent_phone' => 'nullable|string|max:30',
+            'father_name' => 'nullable|string|max:255',
+            'father_nik' => 'nullable|string|max:30',
+            'father_job' => 'nullable|string|max:100',
+            'father_phone' => 'nullable|string|max:30',
+            'mother_name' => 'nullable|string|max:255',
+            'mother_nik' => 'nullable|string|max:30',
+            'mother_job' => 'nullable|string|max:100',
+            'mother_phone' => 'nullable|string|max:30',
+            'guardian_name' => 'nullable|string|max:255',
+            'guardian_nik' => 'nullable|string|max:30',
             'guardian_relation' => 'nullable|string|max:100',
-            'guardian_job'      => 'nullable|string|max:100',
-            'guardian_phone'    => 'nullable|string|max:30',
-            'address'           => 'nullable|string',
-            'hostel_id'         => 'nullable|integer',
-            'program_id'        => 'nullable|integer',
-            'status'            => 'nullable|string',
+            'guardian_job' => 'nullable|string|max:100',
+            'guardian_phone' => 'nullable|string|max:30',
+            'address' => 'nullable|string',
+            'hostel_id' => 'nullable|integer',
+            'program_id' => 'nullable|integer',
+            'status' => 'nullable|string',
         ]);
 
         if (empty($validated['parent_name'])) {
-            $validated['parent_name'] = $validated['father_name'] 
-                ?? $validated['guardian_name'] 
-                ?? $validated['mother_name'] 
+            $validated['parent_name'] = $validated['father_name']
+                ?? $validated['guardian_name']
+                ?? $validated['mother_name']
                 ?? null;
         }
         if (empty($validated['parent_phone'])) {
-            $validated['parent_phone'] = $validated['father_phone'] 
-                ?? $validated['guardian_phone'] 
-                ?? $validated['mother_phone'] 
+            $validated['parent_phone'] = $validated['father_phone']
+                ?? $validated['guardian_phone']
+                ?? $validated['mother_phone']
                 ?? null;
         }
         if (empty($validated['parent_id'])) {
-            $validated['parent_id'] = $validated['father_nik'] 
-                ?? $validated['guardian_nik'] 
-                ?? $validated['mother_nik'] 
-                ?? $validated['kk'] 
+            $validated['parent_id'] = $validated['father_nik']
+                ?? $validated['guardian_nik']
+                ?? $validated['mother_nik']
+                ?? $validated['kk']
                 ?? null;
         }
 
         try {
             $student = Student::create($validated);
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Siswa berhasil didaftarkan',
-                'data'    => $student,
+                'data' => $student,
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error creating student: ' . $e->getMessage());
+            Log::error('Error creating student: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mendaftarkan siswa: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mendaftarkan siswa: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -819,17 +840,17 @@ class StudentController extends Controller
             'studentClasses.classGroup.homeroomTeacher',
         ])->find($id);
 
-        if (!$student) {
+        if (! $student) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Data siswa tidak ditemukan',
             ], 404);
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail siswa berhasil diambil',
-            'data'    => $student,
+            'data' => $student,
         ], 200);
     }
 
@@ -837,39 +858,41 @@ class StudentController extends Controller
     {
         $student = Student::find($id);
 
-        if (!$student) {
+        if (! $student) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Data siswa tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
-            'nis'          => 'sometimes|required|string|max:50|unique:students,nis,' . $id,
-            'nisn'         => 'nullable|string|max:50',
-            'nik'          => 'nullable|string|max:30',
-            'name'         => 'sometimes|required|string|max:255',
-            'gender'       => 'sometimes|required|in:L,P',
-            'is_mukim'     => 'sometimes|required|boolean',
-            'born_in'      => 'nullable|string|max:255',
-            'born_at'      => 'nullable|date',
-            'parent_name'  => 'nullable|string|max:255',
+            'nis' => 'sometimes|required|string|max:50|unique:students,nis,'.$id,
+            'nisn' => 'nullable|string|max:50',
+            'nik' => 'nullable|string|max:30',
+            'name' => 'sometimes|required|string|max:255',
+            'gender' => 'sometimes|required|in:L,P',
+            'is_mukim' => 'sometimes|required|boolean',
+            'born_in' => 'nullable|string|max:255',
+            'born_at' => 'nullable|date',
+            'parent_name' => 'nullable|string|max:255',
             'parent_phone' => 'nullable|string|max:30',
-            'address'      => 'nullable|string',
-            'status'       => 'nullable|in:aktif,lulus,mutasi,keluar',
+            'address' => 'nullable|string',
+            'status' => 'nullable|in:aktif,lulus,mutasi,keluar',
         ]);
 
         try {
             $student->update($validated);
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data siswa berhasil diperbarui',
-                'data'    => $student,
+                'data' => $student,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error updating student: ' . $e->getMessage());
+            Log::error('Error updating student: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui data siswa',
             ], 500);
         }
@@ -879,23 +902,25 @@ class StudentController extends Controller
     {
         $student = Student::find($id);
 
-        if (!$student) {
+        if (! $student) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Data siswa tidak ditemukan',
             ], 404);
         }
 
         try {
             $student->delete();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data siswa berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting student: ' . $e->getMessage());
+            Log::error('Error deleting student: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghapus data siswa',
             ], 500);
         }

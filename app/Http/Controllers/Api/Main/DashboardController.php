@@ -3,10 +3,9 @@
 namespace App\Http\Controllers\Api\Main;
 
 use App\Http\Controllers\Controller;
-use App\Models\AcademicYear;
 use App\Models\AcademicQuarter;
+use App\Models\AcademicYear;
 use App\Models\ClassGroup;
-use App\Models\EducationClass;
 use App\Models\EducationalInstitution;
 use App\Models\LessonSchedule;
 use App\Models\Program;
@@ -14,7 +13,6 @@ use App\Models\Student;
 use App\Models\StudentClass;
 use App\Models\StudentPresence;
 use App\Models\Study;
-use App\Models\TeachingJournal;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,7 +28,7 @@ class DashboardController extends Controller
     public function stats(Request $request): JsonResponse
     {
         $today = Carbon::today();
-        
+
         // 1. Tentukan Periode Sistem Aktif (Default)
         $systemActiveYear = AcademicYear::where('type', 'triwulan')->where('active', true)->first()
             ?? AcademicYear::where('active', true)->first();
@@ -41,7 +39,7 @@ class DashboardController extends Controller
                 ->where('active', true)
                 ->first();
         }
-        if (!$systemActiveQuarter) {
+        if (! $systemActiveQuarter) {
             $systemActiveQuarter = AcademicQuarter::where('name', 'like', '%Triwulan%')->where('active', true)->first();
         }
 
@@ -53,28 +51,28 @@ class DashboardController extends Controller
         if ($targetYearId) {
             $selectedYear = AcademicYear::find($targetYearId);
         }
-        if (!$selectedYear) {
+        if (! $selectedYear) {
             $selectedYear = $systemActiveYear;
         }
 
         $selectedQuarter = null;
         if ($targetQuarterId) {
             $selectedQuarter = AcademicQuarter::where('id', $targetQuarterId)
-                ->when($selectedYear, fn($q) => $q->where('academic_year_id', $selectedYear->id))
+                ->when($selectedYear, fn ($q) => $q->where('academic_year_id', $selectedYear->id))
                 ->first();
         }
-        if (!$selectedQuarter && $selectedYear) {
+        if (! $selectedQuarter && $selectedYear) {
             // Ambil triwulan aktif di tahun tersebut atau triwulan terakhir
             $selectedQuarter = AcademicQuarter::where('academic_year_id', $selectedYear->id)
                 ->where('active', true)
                 ->first()
                 ?? AcademicQuarter::where('academic_year_id', $selectedYear->id)->orderBy('id', 'desc')->first();
         }
-        if (!$selectedQuarter) {
+        if (! $selectedQuarter) {
             $selectedQuarter = $systemActiveQuarter;
         }
 
-        $hijriYear = $selectedYear ? ($selectedYear->year . ' H') : '1446-1447 H';
+        $hijriYear = $selectedYear ? ($selectedYear->year.' H') : '1446-1447 H';
         $triwulanName = $selectedQuarter ? $selectedQuarter->name : 'Triwulan IV (Syawal - Dzulhijjah)';
         $triwulanDetail = $selectedQuarter ? $selectedQuarter->name : 'Triwulan IV (Syawal - Dzulhijjah)';
 
@@ -97,16 +95,16 @@ class DashboardController extends Controller
             if ($selectedYear->active) {
                 // Tahun akademik aktif: mencakup santri yang punya rombel di tahun ini atau angkatan <= tahun ini
                 $scopedStudentQuery->where(function ($q) use ($selectedYear, $yearPeriodDash, $yearPeriodSlash) {
-                    $q->whereHas('studentClasses', fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                      ->orWhereNull('period')
-                      ->orWhere('period', '<=', $yearPeriodDash)
-                      ->orWhere('period', $yearPeriodSlash);
+                    $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                        ->orWhereNull('period')
+                        ->orWhere('period', '<=', $yearPeriodDash)
+                        ->orWhere('period', $yearPeriodSlash);
                 });
             } else {
                 // Tahun akademik arsip / tahun baru lainnya: hanya santri yang terdaftar di rombel tahun ini atau angkatan tahun ini
                 $scopedStudentQuery->where(function ($q) use ($selectedYear, $yearPeriodDash, $yearPeriodSlash) {
-                    $q->whereHas('studentClasses', fn($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                      ->orWhereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]));
+                    $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                        ->orWhereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]));
                 });
             }
         }
@@ -137,12 +135,12 @@ class DashboardController extends Controller
         foreach ($quarters as $q) {
             $isThisSelected = $selectedQuarter && $q->id === $selectedQuarter->id;
             $studentsByPeriod[] = [
-                'id'          => $q->id,
-                'year'        => $hijriYear,
-                'type'        => 'triwulan',
-                'periode'     => $q->name,
-                'label'       => $q->name . ' • TA ' . $hijriYear,
-                'is_active'   => (bool) $q->active,
+                'id' => $q->id,
+                'year' => $hijriYear,
+                'type' => 'triwulan',
+                'periode' => $q->name,
+                'label' => $q->name.' • TA '.$hijriYear,
+                'is_active' => (bool) $q->active,
                 'is_selected' => $isThisSelected,
                 'total_siswa' => $totalSantri,
             ];
@@ -161,45 +159,45 @@ class DashboardController extends Controller
         $presences = $presenceQuery->get();
         $totalPresensi = $presences->count();
 
-        $hadirCount = $presences->filter(fn($p) => in_array(strtolower($p->status), ['hadir', 'h']))->count();
-        $izinCount  = $presences->filter(fn($p) => in_array(strtolower($p->status), ['izin', 'i']))->count();
-        $sakitCount = $presences->filter(fn($p) => in_array(strtolower($p->status), ['sakit', 's']))->count();
-        $alpaCount  = $presences->filter(fn($p) => in_array(strtolower($p->status), ['alpa', 'a']))->count();
+        $hadirCount = $presences->filter(fn ($p) => in_array(strtolower($p->status), ['hadir', 'h']))->count();
+        $izinCount = $presences->filter(fn ($p) => in_array(strtolower($p->status), ['izin', 'i']))->count();
+        $sakitCount = $presences->filter(fn ($p) => in_array(strtolower($p->status), ['sakit', 's']))->count();
+        $alpaCount = $presences->filter(fn ($p) => in_array(strtolower($p->status), ['alpa', 'a']))->count();
 
         $denominator = max(1, $totalPresensi);
         $hadirPercent = $totalPresensi > 0 ? round(($hadirCount / $denominator) * 100, 1) : 0;
-        $izinPercent  = $totalPresensi > 0 ? round(($izinCount / $denominator) * 100, 1) : 0;
+        $izinPercent = $totalPresensi > 0 ? round(($izinCount / $denominator) * 100, 1) : 0;
         $sakitPercent = $totalPresensi > 0 ? round(($sakitCount / $denominator) * 100, 1) : 0;
-        $alpaPercent  = $totalPresensi > 0 ? round(($alpaCount / $denominator) * 100, 1) : 0;
+        $alpaPercent = $totalPresensi > 0 ? round(($alpaCount / $denominator) * 100, 1) : 0;
 
         $presencePie = [
             [
-                'name'       => 'Hadir',
-                'status'     => 'hadir',
-                'value'      => $hadirCount,
+                'name' => 'Hadir',
+                'status' => 'hadir',
+                'value' => $hadirCount,
                 'percentage' => $hadirPercent,
-                'color'      => '#059669', // Emerald
+                'color' => '#059669', // Emerald
             ],
             [
-                'name'       => 'Izin',
-                'status'     => 'izin',
-                'value'      => $izinCount,
+                'name' => 'Izin',
+                'status' => 'izin',
+                'value' => $izinCount,
                 'percentage' => $izinPercent,
-                'color'      => '#0284c7', // Sky Blue
+                'color' => '#0284c7', // Sky Blue
             ],
             [
-                'name'       => 'Sakit',
-                'status'     => 'sakit',
-                'value'      => $sakitCount,
+                'name' => 'Sakit',
+                'status' => 'sakit',
+                'value' => $sakitCount,
                 'percentage' => $sakitPercent,
-                'color'      => '#f59e0b', // Amber
+                'color' => '#f59e0b', // Amber
             ],
             [
-                'name'       => 'Alpa / Tanpa Keterangan',
-                'status'     => 'alpa',
-                'value'      => $alpaCount,
+                'name' => 'Alpa / Tanpa Keterangan',
+                'status' => 'alpa',
+                'value' => $alpaCount,
                 'percentage' => $alpaPercent,
-                'color'      => '#ef4444', // Red
+                'color' => '#ef4444', // Red
             ],
         ];
 
@@ -209,7 +207,7 @@ class DashboardController extends Controller
 
         foreach ($programs as $prog) {
             $isTibyan = stripos($prog->name, 'Tibyan') !== false;
-            $isKubar  = stripos($prog->name, 'Kubar') !== false;
+            $isKubar = stripos($prog->name, 'Kubar') !== false;
 
             $groupQuery = ClassGroup::where('program_id', $prog->id);
             if ($selectedYear) {
@@ -220,15 +218,15 @@ class DashboardController extends Controller
 
             $classesData = [];
             if ($isTibyan) {
-                $tk1Count = StudentClass::whereIn('class_group_id', $groups->filter(fn($g) => stripos($g->name, 'Takhossus 1') !== false)->pluck('id'))->count();
-                $tk2Count = StudentClass::whereIn('class_group_id', $groups->filter(fn($g) => stripos($g->name, 'Takhossus 2') !== false)->pluck('id'))->count();
+                $tk1Count = StudentClass::whereIn('class_group_id', $groups->filter(fn ($g) => stripos($g->name, 'Takhossus 1') !== false)->pluck('id'))->count();
+                $tk2Count = StudentClass::whereIn('class_group_id', $groups->filter(fn ($g) => stripos($g->name, 'Takhossus 2') !== false)->pluck('id'))->count();
 
                 $classesData[] = ['class_name' => 'Takhossus 1', 'count' => $tk1Count, 'groups' => 2];
                 $classesData[] = ['class_name' => 'Takhossus 2', 'count' => $tk2Count, 'groups' => 2];
             } elseif ($isKubar) {
-                $ulaGroups    = $groups->filter(fn($g) => stripos($g->name, 'Ula') !== false);
-                $wusthaGroups = $groups->filter(fn($g) => stripos($g->name, 'Wusth') !== false);
-                $ulyaGroups   = $groups->filter(fn($g) => stripos($g->name, 'Ulya') !== false);
+                $ulaGroups = $groups->filter(fn ($g) => stripos($g->name, 'Ula') !== false);
+                $wusthaGroups = $groups->filter(fn ($g) => stripos($g->name, 'Wusth') !== false);
+                $ulyaGroups = $groups->filter(fn ($g) => stripos($g->name, 'Ulya') !== false);
 
                 $classesData[] = ['class_name' => 'Tingkat Ula', 'count' => StudentClass::whereIn('class_group_id', $ulaGroups->pluck('id'))->count(), 'groups' => $ulaGroups->count()];
                 $classesData[] = ['class_name' => 'Tingkat Wustho', 'count' => StudentClass::whereIn('class_group_id', $wusthaGroups->pluck('id'))->count(), 'groups' => $wusthaGroups->count()];
@@ -236,12 +234,12 @@ class DashboardController extends Controller
             }
 
             $programDistribution[] = [
-                'id'             => $prog->id,
-                'name'           => $prog->name,
-                'code'           => $prog->code ?: ($isTibyan ? 'TBY' : 'KBR'),
-                'description'    => $prog->description ?: ($isTibyan ? 'Dirasah Takhossus Kitab Kuning' : 'Kuliyyah Tarbiyah Muallimin'),
+                'id' => $prog->id,
+                'name' => $prog->name,
+                'code' => $prog->code ?: ($isTibyan ? 'TBY' : 'KBR'),
+                'description' => $prog->description ?: ($isTibyan ? 'Dirasah Takhossus Kitab Kuning' : 'Kuliyyah Tarbiyah Muallimin'),
                 'total_students' => $totalProgStudents,
-                'classes'        => $classesData,
+                'classes' => $classesData,
             ];
         }
 
@@ -258,11 +256,11 @@ class DashboardController extends Controller
             $studentCount = StudentClass::whereIn('class_group_id', $classGroupIds)->count();
 
             $institutionDistribution[] = [
-                'id'    => $inst->id,
-                'name'  => $inst->name,
+                'id' => $inst->id,
+                'name' => $inst->name,
                 'short' => $inst->short_name ?: $inst->name,
                 'count' => $studentCount,
-                'unit'  => 'Santri',
+                'unit' => 'Santri',
             ];
         }
 
@@ -273,13 +271,13 @@ class DashboardController extends Controller
         }
 
         $diniyahStudiesCount = Study::where('is_active', true)
-            ->where(function($q) {
+            ->where(function ($q) {
                 $q->where('name', 'like', '%Kitab%')
-                  ->orWhere('name', 'like', '%Fiqh%')
-                  ->orWhere('name', 'like', '%Nahwu%')
-                  ->orWhere('name', 'like', '%Hadits%')
-                  ->orWhere('name', 'like', '%Tauhid%')
-                  ->orWhere('name', 'like', '%Akhlaq%');
+                    ->orWhere('name', 'like', '%Fiqh%')
+                    ->orWhere('name', 'like', '%Nahwu%')
+                    ->orWhere('name', 'like', '%Hadits%')
+                    ->orWhere('name', 'like', '%Tauhid%')
+                    ->orWhere('name', 'like', '%Akhlaq%');
             })->count();
         $umumStudiesCount = max(0, $totalStudies - $diniyahStudiesCount);
         $avgKkm = Study::where('is_active', true)->avg('kkm') ?? 80.0;
@@ -293,93 +291,94 @@ class DashboardController extends Controller
         if ($selectedQuarter) {
             $scheduleQuery->where(function ($q) use ($selectedQuarter) {
                 $q->where('academic_quarter_id', $selectedQuarter->id)
-                  ->orWhereNull('academic_quarter_id');
+                    ->orWhereNull('academic_quarter_id');
             });
         }
         $currentSchedules = $scheduleQuery->take(4)->get();
 
         $formattedSchedules = $currentSchedules->map(function ($s) {
             $isTibyan = $s->classGroup && stripos($s->classGroup->name, 'Takhossus') !== false;
+
             return [
-                'id'            => $s->id,
-                'subject'       => $s->study->name ?? 'Kajian Kitab Kuning',
-                'category'      => $isTibyan ? 'Program Tibyan' : 'Program Kubar',
-                'teacher'       => $s->teacher->name ?? 'Ustadz Pengajar',
+                'id' => $s->id,
+                'subject' => $s->study->name ?? 'Kajian Kitab Kuning',
+                'category' => $isTibyan ? 'Program Tibyan' : 'Program Kubar',
+                'teacher' => $s->teacher->name ?? 'Ustadz Pengajar',
                 'teacher_title' => $s->teacher->title ?? 'Pengampu',
-                'room'          => $s->classroom->name ?? 'Ruang Kelas',
-                'time'          => ($s->lessonHour ? $s->lessonHour->start_time . ' - ' . $s->lessonHour->end_time : '09:40 - 11:15 WIB'),
-                'status'        => 'Sedang Berjalan',
-                'remaining'     => 'KBM Aktif',
+                'room' => $s->classroom->name ?? 'Ruang Kelas',
+                'time' => ($s->lessonHour ? $s->lessonHour->start_time.' - '.$s->lessonHour->end_time : '09:40 - 11:15 WIB'),
+                'status' => 'Sedang Berjalan',
+                'remaining' => 'KBM Aktif',
             ];
         });
 
         // 10. MAKLUMAT & KEDISIPLINAN TERKINI
         $notices = [
             [
-                'id'       => 1,
-                'type'     => 'Izin Berobat Rujukan RS',
-                'tag'      => 'Sakit',
+                'id' => 1,
+                'type' => 'Izin Berobat Rujukan RS',
+                'tag' => 'Sakit',
                 'tag_type' => 'rose',
-                'title'    => 'Izin Berobat & Rujukan Faskes',
-                'desc'     => 'Santri mendapatkan surat dispensasi rawat inap/kontrol luar pesantren.',
-                'time'     => '15 Menit Lalu',
+                'title' => 'Izin Berobat & Rujukan Faskes',
+                'desc' => 'Santri mendapatkan surat dispensasi rawat inap/kontrol luar pesantren.',
+                'time' => '15 Menit Lalu',
             ],
             [
-                'id'       => 2,
-                'type'     => 'Kunjungan Wali Sambangan Resmi',
-                'tag'      => 'Tercatat',
+                'id' => 2,
+                'type' => 'Kunjungan Wali Sambangan Resmi',
+                'tag' => 'Tercatat',
                 'tag_type' => 'blue',
-                'title'    => 'Sambangan Terjadwal Ma\'had',
-                'desc'     => 'Wali santri telah melapor di Pos Keamanan Terpadu & ruang temu.',
-                'time'     => '42 Menit Lalu',
+                'title' => 'Sambangan Terjadwal Ma\'had',
+                'desc' => 'Wali santri telah melapor di Pos Keamanan Terpadu & ruang temu.',
+                'time' => '42 Menit Lalu',
             ],
             [
-                'id'       => 3,
-                'type'     => 'Apresiasi Santri Berprestasi',
-                'tag'      => 'Teladan',
+                'id' => 3,
+                'type' => 'Apresiasi Santri Berprestasi',
+                'tag' => 'Teladan',
                 'tag_type' => 'emerald',
-                'title'    => '+50 Poin Syarafiyah Kehormatan',
-                'desc'     => 'Ahmad Syukri (Kubar Ulya 1) • Teladan Disiplin & Mu\'allimin.',
-                'time'     => '1 Jam Lalu',
+                'title' => '+50 Poin Syarafiyah Kehormatan',
+                'desc' => 'Ahmad Syukri (Kubar Ulya 1) • Teladan Disiplin & Mu\'allimin.',
+                'time' => '1 Jam Lalu',
             ],
         ];
 
         return response()->json([
             'status' => 'success',
-            'data'   => [
+            'data' => [
                 'academic_year' => [
-                    'id'               => $selectedYear ? $selectedYear->id : null,
-                    'name'             => $hijriYear,
-                    'year'             => $selectedYear ? $selectedYear->year : '1446-1447',
-                    'hijri_year'       => $hijriYear,
-                    'quarter_id'       => $selectedQuarter ? $selectedQuarter->id : null,
-                    'triwulan'         => $triwulanName,
-                    'triwulan_detail'  => $triwulanDetail,
-                    'period'           => $triwulanName . ' • TA ' . $hijriYear,
-                    'full_label'       => "Tahun Akademik {$selectedYear->year} {$triwulanName}",
-                    'hijri'            => '14 Syawal 1446 H',
+                    'id' => $selectedYear ? $selectedYear->id : null,
+                    'name' => $hijriYear,
+                    'year' => $selectedYear ? $selectedYear->year : '1446-1447',
+                    'hijri_year' => $hijriYear,
+                    'quarter_id' => $selectedQuarter ? $selectedQuarter->id : null,
+                    'triwulan' => $triwulanName,
+                    'triwulan_detail' => $triwulanDetail,
+                    'period' => $triwulanName.' • TA '.$hijriYear,
+                    'full_label' => "Tahun Akademik {$selectedYear->year} {$triwulanName}",
+                    'hijri' => '14 Syawal 1446 H',
                     'is_system_active' => $isSystemActive,
                 ],
                 'overview' => [
                     'total_santri' => [
-                        'value'         => $totalSantri,
-                        'banin'         => $baninCount,
-                        'banat'         => $banatCount,
-                        'mukim'         => $mukimCount,
-                        'luar'          => $luarCount,
+                        'value' => $totalSantri,
+                        'banin' => $baninCount,
+                        'banat' => $banatCount,
+                        'mukim' => $mukimCount,
+                        'luar' => $luarCount,
                         'mukim_percent' => $mukimPercent,
-                        'new_students'  => $newStudentsCount,
+                        'new_students' => $newStudentsCount,
                     ],
                     'presence' => [
-                        'rate'         => $hadirPercent,
-                        'shubuh_rate'  => $totalPresensi > 0 ? min(100, round($hadirPercent + 0.5, 1)) : 0,
-                        'kbm_rate'     => $hadirPercent,
+                        'rate' => $hadirPercent,
+                        'shubuh_rate' => $totalPresensi > 0 ? min(100, round($hadirPercent + 0.5, 1)) : 0,
+                        'kbm_rate' => $hadirPercent,
                         'halaqah_rate' => $totalPresensi > 0 ? max(0, round($hadirPercent - 0.5, 1)) : 0,
-                        'total_log'    => $totalPresensi,
-                        'hadir'        => $hadirCount,
-                        'izin'         => $izinCount,
-                        'sakit'        => $sakitCount,
-                        'alpa'         => $alpaCount,
+                        'total_log' => $totalPresensi,
+                        'hadir' => $hadirCount,
+                        'izin' => $izinCount,
+                        'sakit' => $sakitCount,
+                        'alpa' => $alpaCount,
                         'status_label' => $totalPresensi === 0
                             ? 'Belum Ada Data'
                             : ($hadirPercent >= 90 ? 'Disiplin Sangat Baik' : 'Cukup Baik'),
@@ -388,16 +387,16 @@ class DashboardController extends Controller
                         'total_programs' => $programs->count(),
                         'total_students' => $totalSantri,
                         'kubar_students' => $programDistribution[1]['total_students'] ?? 0,
-                        'tibyan_students'=> $programDistribution[0]['total_students'] ?? 0,
+                        'tibyan_students' => $programDistribution[0]['total_students'] ?? 0,
                     ],
                     'curriculum' => [
                         'total_subjects' => $totalStudies,
-                        'diniyah'        => $diniyahStudiesCount,
-                        'kemenag_umum'   => $umumStudiesCount,
-                        'avg_kkm'        => round($avgKkm, 1),
+                        'diniyah' => $diniyahStudiesCount,
+                        'kemenag_umum' => $umumStudiesCount,
+                        'avg_kkm' => round($avgKkm, 1),
                     ],
                 ],
-                'presence_trend'           => $totalPresensi > 0 ? [
+                'presence_trend' => $totalPresensi > 0 ? [
                     ['day' => 'Sabtu',   'jamaah' => min(100, round($hadirPercent + 0.5, 1)), 'kbm' => $hadirPercent, 'halaqah' => max(0, round($hadirPercent - 0.5, 1))],
                     ['day' => 'Ahad',    'jamaah' => min(100, round($hadirPercent + 0.7, 1)), 'kbm' => $hadirPercent, 'halaqah' => max(0, round($hadirPercent - 0.4, 1))],
                     ['day' => 'Senin',   'jamaah' => min(100, round($hadirPercent + 0.4, 1)), 'kbm' => $hadirPercent, 'halaqah' => max(0, round($hadirPercent - 0.6, 1))],
@@ -414,12 +413,12 @@ class DashboardController extends Controller
                     ['day' => 'Kamis',   'jamaah' => 0, 'kbm' => 0, 'halaqah' => 0],
                     ['day' => 'Jum\'at', 'jamaah' => 0, 'kbm' => 0, 'halaqah' => 0],
                 ],
-                'presence_pie'             => $presencePie,
-                'students_by_period'       => $studentsByPeriod,
-                'programs_distribution'    => $programDistribution,
+                'presence_pie' => $presencePie,
+                'students_by_period' => $studentsByPeriod,
+                'programs_distribution' => $programDistribution,
                 'institution_distribution' => $institutionDistribution,
-                'active_schedules'         => $formattedSchedules,
-                'recent_notices'           => $notices,
+                'active_schedules' => $formattedSchedules,
+                'recent_notices' => $notices,
             ],
         ]);
     }

@@ -6,11 +6,22 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicQuarter;
 use App\Models\AcademicYear;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class AcademicQuarterController extends Controller
+class AcademicQuarterController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:tahun-akademik.create', only: ['store']),
+            new Middleware('permission:tahun-akademik.update', only: ['update', 'setActive']),
+            new Middleware('permission:tahun-akademik.delete', only: ['destroy']),
+        ];
+    }
+
     /**
      * Mengambil daftar periode triwulan (sub akademik)
      */

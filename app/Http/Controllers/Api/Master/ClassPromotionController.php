@@ -10,11 +10,20 @@ use App\Models\ClassGroup;
 use App\Models\Student;
 use App\Models\StudentClass;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ClassPromotionController extends Controller
+class ClassPromotionController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:kenaikan-kelas.update', only: ['bulkPromote']),
+        ];
+    }
+
     /**
      * Ambil daftar santri dalam rombel asal beserta evaluasi nilai akhir triwulan,
      * progres nilai, status remidi mapel khusus, dan rekomendasi kenaikan kelas.
@@ -51,24 +60,26 @@ class ClassPromotionController extends Controller
                 ->map(function ($m) use ($evalByStudent) {
                     $ev = $evalByStudent->get($m->student_id);
                     $m->evaluation = $ev;
+
                     return $m;
                 });
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data kandidat kenaikan kelas beserta evaluasi nilai triwulan berhasil diambil',
-                'data'    => [
+                'data' => [
                     'class_group' => $classGroup,
-                    'quarter'     => $quarter,
-                    'summary'     => $eval['summary'] ?? [],
-                    'candidates'  => $memberships,
+                    'quarter' => $quarter,
+                    'summary' => $eval['summary'] ?? [],
+                    'candidates' => $memberships,
                 ],
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching promotion candidates: ' . $e->getMessage());
+            Log::error('Error fetching promotion candidates: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengambil data kandidat: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengambil data kandidat: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -79,17 +90,17 @@ class ClassPromotionController extends Controller
     public function bulkPromote(Request $request)
     {
         $validated = $request->validate([
-            'source_class_group_id'   => 'required|exists:class_groups,id',
-            'target_class_group_id'   => 'nullable|exists:class_groups,id',
+            'source_class_group_id' => 'required|exists:class_groups,id',
+            'target_class_group_id' => 'nullable|exists:class_groups,id',
             'target_academic_year_id' => 'nullable|exists:academic_years,id',
-            'students'                => 'required|array|min:1',
-            'students.*.student_id'   => 'required|exists:students,id',
-            'students.*.action'       => 'required|in:naik_kelas,tinggal_kelas,lulus',
-            'students.*.note'         => 'nullable|string',
+            'students' => 'required|array|min:1',
+            'students.*.student_id' => 'required|exists:students,id',
+            'students.*.action' => 'required|in:naik_kelas,tinggal_kelas,lulus',
+            'students.*.note' => 'nullable|string',
         ]);
 
         $sourceGroup = ClassGroup::findOrFail($validated['source_class_group_id']);
-        $targetGroup = !empty($validated['target_class_group_id'])
+        $targetGroup = ! empty($validated['target_class_group_id'])
             ? ClassGroup::find($validated['target_class_group_id'])
             : null;
 
@@ -113,34 +124,34 @@ class ClassPromotionController extends Controller
                     ->where('status', 'aktif')
                     ->first();
 
-                if (!$currentMembership) {
+                if (! $currentMembership) {
                     continue;
                 }
 
                 if ($action === 'naik_kelas') {
-                    if (!$targetGroup) {
+                    if (! $targetGroup) {
                         throw new \Exception('Rombel tujuan wajib dipilih untuk aksi Naik Kelas.');
                     }
 
                     // 1. Tutup status rombel lama
                     $currentMembership->update([
-                        'status'  => 'selesai',
+                        'status' => 'selesai',
                         'left_at' => today(),
-                        'note'    => $note ?? "Selesai di {$sourceGroup->name}, naik ke {$targetGroup->name}",
+                        'note' => $note ?? "Selesai di {$sourceGroup->name}, naik ke {$targetGroup->name}",
                     ]);
 
                     // 2. Buat keanggotaan baru di rombel tujuan (update jika sudah ada record)
                     StudentClass::updateOrCreate(
                         [
-                            'student_id'     => $studentId,
+                            'student_id' => $studentId,
                             'class_group_id' => $targetGroup->id,
                         ],
                         [
-                            'academic_year_id'           => $targetAcademicYearId,
+                            'academic_year_id' => $targetAcademicYearId,
                             'educational_institution_id' => $targetGroup->educational_institution_id,
-                            'joined_at'                  => today(),
-                            'status'                     => 'aktif',
-                            'note'                       => $note ?? "Naik kelas dari {$sourceGroup->name}",
+                            'joined_at' => today(),
+                            'status' => 'aktif',
+                            'note' => $note ?? "Naik kelas dari {$sourceGroup->name}",
                         ]
                     );
 
@@ -152,9 +163,9 @@ class ClassPromotionController extends Controller
                     $retainedCount++;
                 } elseif ($action === 'lulus') {
                     $currentMembership->update([
-                        'status'  => 'selesai',
+                        'status' => 'selesai',
                         'left_at' => today(),
-                        'note'    => $note ?? "Lulus pendidikan dari {$sourceGroup->name}",
+                        'note' => $note ?? "Lulus pendidikan dari {$sourceGroup->name}",
                     ]);
 
                     Student::where('id', $studentId)->update([
@@ -168,20 +179,21 @@ class ClassPromotionController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Proses berhasil: {$promotedCount} naik kelas, {$retainedCount} tinggal kelas, {$graduatedCount} lulus.",
-                'data'    => [
-                    'promoted'  => $promotedCount,
-                    'retained'  => $retainedCount,
+                'data' => [
+                    'promoted' => $promotedCount,
+                    'retained' => $retainedCount,
                     'graduated' => $graduatedCount,
                 ],
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error processing bulk promotion: ' . $e->getMessage());
+            Log::error('Error processing bulk promotion: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memproses kenaikan kelas: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memproses kenaikan kelas: '.$e->getMessage(),
             ], 500);
         }
     }

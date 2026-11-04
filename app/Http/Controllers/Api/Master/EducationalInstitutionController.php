@@ -7,18 +7,31 @@ use App\Models\Education;
 use App\Models\EducationalInstitution;
 use App\Models\EducationType;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Color;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-class EducationalInstitutionController extends Controller
+class EducationalInstitutionController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:jenjang.create', only: ['store', 'import']),
+            new Middleware('permission:jenjang.update', only: ['update']),
+            new Middleware('permission:jenjang.delete', only: ['destroy']),
+        ];
+    }
+
     public function index()
     {
         try {
@@ -34,15 +47,17 @@ class EducationalInstitutionController extends Controller
             }
 
             $institutions = $query->get();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data institusi pendidikan berhasil diambil',
-                'data'    => $institutions,
+                'data' => $institutions,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error retrieving institutions: ' . $e->getMessage());
+            Log::error('Error retrieving institutions: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil data institusi pendidikan',
             ], 500);
         }
@@ -51,21 +66,21 @@ class EducationalInstitutionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'                 => 'required|string|max:255',
-            'short_name'           => 'nullable|string|max:30',
-            'education_type_id'    => 'nullable|exists:education_types,id',
-            'registration_number'  => 'nullable|string|unique:educational_institutions,registration_number',
-            'progression_type'     => 'required|in:triwulan,semester,leveling',
-            'address'              => 'nullable|string',
-            'phone'                => 'nullable|string|max:30',
-            'email'                => 'nullable|email|max:255',
-            'website'              => 'nullable|string|max:255',
-            'status'               => 'nullable|in:active,inactive',
-            'description'          => 'nullable|string',
-            'headmaster_id'        => 'nullable|integer',
-            'headmaster_name'      => 'nullable|string|max:255',
-            'logo'                 => 'nullable',
-            'letterhead'           => 'nullable',
+            'name' => 'required|string|max:255',
+            'short_name' => 'nullable|string|max:30',
+            'education_type_id' => 'nullable|exists:education_types,id',
+            'registration_number' => 'nullable|string|unique:educational_institutions,registration_number',
+            'progression_type' => 'required|in:triwulan,semester,leveling',
+            'address' => 'nullable|string',
+            'phone' => 'nullable|string|max:30',
+            'email' => 'nullable|email|max:255',
+            'website' => 'nullable|string|max:255',
+            'status' => 'nullable|in:active,inactive',
+            'description' => 'nullable|string',
+            'headmaster_id' => 'nullable|integer',
+            'headmaster_name' => 'nullable|string|max:255',
+            'logo' => 'nullable',
+            'letterhead' => 'nullable',
         ]);
 
         try {
@@ -89,16 +104,17 @@ class EducationalInstitutionController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Institusi pendidikan berhasil ditambahkan',
-                'data'    => $institution,
+                'data' => $institution,
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error creating institution: ' . $e->getMessage());
+            Log::error('Error creating institution: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menambahkan institusi: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menambahkan institusi: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -107,17 +123,17 @@ class EducationalInstitutionController extends Controller
     {
         $institution = EducationalInstitution::with(['educationType', 'educations', 'classrooms', 'classes'])->find($id);
 
-        if (!$institution) {
+        if (! $institution) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Institusi pendidikan tidak ditemukan',
             ], 404);
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail institusi pendidikan berhasil diambil',
-            'data'    => $institution,
+            'data' => $institution,
         ], 200);
     }
 
@@ -125,31 +141,31 @@ class EducationalInstitutionController extends Controller
     {
         $institution = EducationalInstitution::find($id);
 
-        if (!$institution) {
+        if (! $institution) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Institusi pendidikan tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
-            'name'                 => 'sometimes|required|string|max:255',
-            'short_name'           => 'nullable|string|max:30',
-            'education_type_id'    => 'nullable|exists:education_types,id',
-            'registration_number'  => 'nullable|string|unique:educational_institutions,registration_number,' . $id,
-            'progression_type'     => 'sometimes|required|in:triwulan,semester,leveling',
-            'address'              => 'nullable|string',
-            'phone'                => 'nullable|string|max:30',
-            'email'                => 'nullable|email|max:255',
-            'website'              => 'nullable|string|max:255',
-            'status'               => 'nullable|in:active,inactive',
-            'description'          => 'nullable|string',
-            'headmaster_id'        => 'nullable|integer',
-            'headmaster_name'      => 'nullable|string|max:255',
-            'logo'                 => 'nullable',
-            'letterhead'           => 'nullable',
-            'remove_logo'          => 'nullable|boolean',
-            'remove_letterhead'    => 'nullable|boolean',
+            'name' => 'sometimes|required|string|max:255',
+            'short_name' => 'nullable|string|max:30',
+            'education_type_id' => 'nullable|exists:education_types,id',
+            'registration_number' => 'nullable|string|unique:educational_institutions,registration_number,'.$id,
+            'progression_type' => 'sometimes|required|in:triwulan,semester,leveling',
+            'address' => 'nullable|string',
+            'phone' => 'nullable|string|max:30',
+            'email' => 'nullable|email|max:255',
+            'website' => 'nullable|string|max:255',
+            'status' => 'nullable|in:active,inactive',
+            'description' => 'nullable|string',
+            'headmaster_id' => 'nullable|integer',
+            'headmaster_name' => 'nullable|string|max:255',
+            'logo' => 'nullable',
+            'letterhead' => 'nullable',
+            'remove_logo' => 'nullable|boolean',
+            'remove_letterhead' => 'nullable|boolean',
         ]);
 
         try {
@@ -193,16 +209,17 @@ class EducationalInstitutionController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Institusi pendidikan berhasil diperbarui',
-                'data'    => $institution->fresh(['educationType', 'educations', 'classrooms']),
+                'data' => $institution->fresh(['educationType', 'educations', 'classrooms']),
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error updating institution: ' . $e->getMessage());
+            Log::error('Error updating institution: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memperbarui institusi: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memperbarui institusi: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -211,23 +228,25 @@ class EducationalInstitutionController extends Controller
     {
         $institution = EducationalInstitution::find($id);
 
-        if (!$institution) {
+        if (! $institution) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Institusi pendidikan tidak ditemukan',
             ], 404);
         }
 
         try {
             $institution->delete();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Institusi pendidikan berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting institution: ' . $e->getMessage());
+            Log::error('Error deleting institution: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghapus institusi',
             ], 500);
         }
@@ -241,7 +260,7 @@ class EducationalInstitutionController extends Controller
         try {
             $institutions = EducationalInstitution::with(['educationType', 'educations'])->get();
 
-            $spreadsheet = new Spreadsheet();
+            $spreadsheet = new Spreadsheet;
             $spreadsheet->getProperties()
                 ->setCreator('Tarbiyah — Sistem Manajemen Pendidikan')
                 ->setTitle('Data Institusi & Jenjang Pendidikan')
@@ -253,33 +272,33 @@ class EducationalInstitutionController extends Controller
             // Header Judul
             $sheet->setCellValue('A1', 'DATA MASTER INSTITUSI & JENJANG PENDIDIKAN');
             $sheet->mergeCells('A1:I1');
-            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('0B57D0'));
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->setColor(new Color('0B57D0'));
 
-            $sheet->setCellValue('A2', 'Tanggal Ekspor: ' . now()->translatedFormat('d F Y H:i'));
+            $sheet->setCellValue('A2', 'Tanggal Ekspor: '.now()->translatedFormat('d F Y H:i'));
             $sheet->mergeCells('A2:I2');
-            $sheet->getStyle('A2')->getFont()->setSize(10)->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('64748B'));
+            $sheet->getStyle('A2')->getFont()->setSize(10)->setItalic(true)->setColor(new Color('64748B'));
 
             // Table Header
             $headers = ['No', 'Nama Institusi', 'Singkatan', 'Kelompok', 'No. Registrasi / NPSN', 'Model Kenaikan', 'Kontak (Telp/Email)', 'Status', 'Daftar Jenjang / Tingkat'];
             $colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
             foreach ($headers as $idx => $header) {
-                $sheet->setCellValue($colLetters[$idx] . '4', $header);
+                $sheet->setCellValue($colLetters[$idx].'4', $header);
             }
 
             $sheet->getStyle('A4:I4')->applyFromArray([
                 'font' => [
-                    'bold'  => true,
+                    'bold' => true,
                     'color' => ['rgb' => 'FFFFFF'],
-                    'size'  => 11,
+                    'size' => 11,
                 ],
                 'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
+                    'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['rgb' => '0B57D0'],
                 ],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical'   => Alignment::VERTICAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
                 ],
             ]);
             $sheet->getRowDimension(4)->setRowHeight(26);
@@ -287,23 +306,23 @@ class EducationalInstitutionController extends Controller
             $rowIdx = 5;
             foreach ($institutions as $i => $inst) {
                 $jenjangList = $inst->educations->pluck('name')->implode(', ');
-                $contact = trim(($inst->phone ? $inst->phone . ' ' : '') . ($inst->email ? '(' . $inst->email . ')' : ''));
+                $contact = trim(($inst->phone ? $inst->phone.' ' : '').($inst->email ? '('.$inst->email.')' : ''));
 
-                $sheet->setCellValue('A' . $rowIdx, $i + 1);
-                $sheet->setCellValue('B' . $rowIdx, $inst->name);
-                $sheet->setCellValue('C' . $rowIdx, $inst->short_name ?? '-');
-                $sheet->setCellValue('D' . $rowIdx, $inst->educationType?->name ?? '-');
-                $sheet->setCellValueExplicit('E' . $rowIdx, $inst->registration_number ?? '-', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-                $sheet->setCellValue('F' . $rowIdx, ucfirst($inst->progression_type));
-                $sheet->setCellValue('G' . $rowIdx, $contact ?: '-');
-                $sheet->setCellValue('H' . $rowIdx, $inst->status === 'active' ? 'Aktif' : 'Nonaktif');
-                $sheet->setCellValue('I' . $rowIdx, $jenjangList ?: '-');
+                $sheet->setCellValue('A'.$rowIdx, $i + 1);
+                $sheet->setCellValue('B'.$rowIdx, $inst->name);
+                $sheet->setCellValue('C'.$rowIdx, $inst->short_name ?? '-');
+                $sheet->setCellValue('D'.$rowIdx, $inst->educationType?->name ?? '-');
+                $sheet->setCellValueExplicit('E'.$rowIdx, $inst->registration_number ?? '-', DataType::TYPE_STRING);
+                $sheet->setCellValue('F'.$rowIdx, ucfirst($inst->progression_type));
+                $sheet->setCellValue('G'.$rowIdx, $contact ?: '-');
+                $sheet->setCellValue('H'.$rowIdx, $inst->status === 'active' ? 'Aktif' : 'Nonaktif');
+                $sheet->setCellValue('I'.$rowIdx, $jenjangList ?: '-');
 
-                $sheet->getStyle('A' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('C' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('E' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('F' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('H' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('A'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('C'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('F'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('H'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
                 if ($rowIdx % 2 === 0) {
                     $sheet->getStyle("A{$rowIdx}:I{$rowIdx}")->getFill()
@@ -319,7 +338,7 @@ class EducationalInstitutionController extends Controller
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => Border::BORDER_THIN,
-                        'color'       => ['rgb' => 'CBD5E1'],
+                        'color' => ['rgb' => 'CBD5E1'],
                     ],
                 ],
             ]);
@@ -328,21 +347,22 @@ class EducationalInstitutionController extends Controller
                 $sheet->getColumnDimension($col)->setAutoSize(true);
             }
 
-            $filename = 'Master_Institusi_Pendidikan_' . date('Ymd_His') . '.xlsx';
+            $filename = 'Master_Institusi_Pendidikan_'.date('Ymd_His').'.xlsx';
 
             return response()->streamDownload(function () use ($spreadsheet) {
                 $writer = new Xlsx($spreadsheet);
                 $writer->save('php://output');
             }, $filename, [
-                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-                'Cache-Control'       => 'max-age=0',
+                'Cache-Control' => 'max-age=0',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error exporting institutions: ' . $e->getMessage());
+            Log::error('Error exporting institutions: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengekspor data institusi: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengekspor data institusi: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -353,7 +373,7 @@ class EducationalInstitutionController extends Controller
     public function downloadTemplate()
     {
         try {
-            $spreadsheet = new Spreadsheet();
+            $spreadsheet = new Spreadsheet;
             $spreadsheet->getProperties()
                 ->setCreator('Tarbiyah — Sistem Manajemen Pendidikan')
                 ->setTitle('Template Import Institusi & Jenjang');
@@ -364,35 +384,35 @@ class EducationalInstitutionController extends Controller
             // Petunjuk Pengisian
             $sheet->setCellValue('A1', 'PETUNJUK PENGISIAN TEMPLATE INSTITUSI & JENJANG');
             $sheet->mergeCells('A1:G1');
-            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('0B57D0'));
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12)->setColor(new Color('0B57D0'));
 
             $sheet->setCellValue('A2', '1. Kolom "Nama Institusi" wajib diisi.');
             $sheet->setCellValue('A3', '2. Kolom "Model Kenaikan" diisi: triwulan (pesantren), semester (formal), atau leveling (tahfidz).');
             $sheet->setCellValue('A4', '3. Kolom "Kelompok" diisi nama kelompok: Formal, Nonformal, Diniyah, Salafiyah, dll.');
             $sheet->setCellValue('A5', '4. Kolom "Daftar Jenjang" pisahkan dengan tanda koma (Contoh: "Kelas 7, Kelas 8, Kelas 9").');
-            $sheet->getStyle('A2:A5')->getFont()->setSize(9)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('64748B'));
+            $sheet->getStyle('A2:A5')->getFont()->setSize(9)->setColor(new Color('64748B'));
 
             // Table Header (Baris 7)
             $headers = ['Nama Institusi *', 'Singkatan', 'Kelompok', 'No. Registrasi / NPSN', 'Model Kenaikan *', 'Telepon / Email', 'Daftar Jenjang (Pisah Koma)'];
             $colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
             foreach ($headers as $idx => $header) {
-                $sheet->setCellValue($colLetters[$idx] . '7', $header);
+                $sheet->setCellValue($colLetters[$idx].'7', $header);
             }
 
             $sheet->getStyle('A7:G7')->applyFromArray([
                 'font' => [
-                    'bold'  => true,
+                    'bold' => true,
                     'color' => ['rgb' => 'FFFFFF'],
-                    'size'  => 10,
+                    'size' => 10,
                 ],
                 'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
+                    'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['rgb' => '0B57D0'],
                 ],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical'   => Alignment::VERTICAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
                 ],
             ]);
             $sheet->getRowDimension(7)->setRowHeight(25);
@@ -406,7 +426,7 @@ class EducationalInstitutionController extends Controller
             foreach ($examples as $eIdx => $ex) {
                 $rowNum = 8 + $eIdx;
                 foreach ($ex as $cIdx => $val) {
-                    $sheet->setCellValue($colLetters[$cIdx] . $rowNum, $val);
+                    $sheet->setCellValue($colLetters[$cIdx].$rowNum, $val);
                 }
             }
 
@@ -414,7 +434,7 @@ class EducationalInstitutionController extends Controller
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => Border::BORDER_THIN,
-                        'color'       => ['rgb' => 'CBD5E1'],
+                        'color' => ['rgb' => 'CBD5E1'],
                     ],
                 ],
             ]);
@@ -429,15 +449,16 @@ class EducationalInstitutionController extends Controller
                 $writer = new Xlsx($spreadsheet);
                 $writer->save('php://output');
             }, $filename, [
-                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-                'Cache-Control'       => 'max-age=0',
+                'Cache-Control' => 'max-age=0',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error generating institution template: ' . $e->getMessage());
+            Log::error('Error generating institution template: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal membuat template import institusi: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal membuat template import institusi: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -459,7 +480,7 @@ class EducationalInstitutionController extends Controller
 
             if (empty($rows) || count($rows) < 2) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'File Excel kosong atau tidak memiliki baris data.',
                 ], 422);
             }
@@ -509,7 +530,7 @@ class EducationalInstitutionController extends Controller
                 }
             }
 
-            $educationTypes = EducationType::all()->keyBy(fn($t) => strtolower(trim($t->name)));
+            $educationTypes = EducationType::all()->keyBy(fn ($t) => strtolower(trim($t->name)));
 
             $insertedCount = 0;
             $updatedCount = 0;
@@ -564,24 +585,24 @@ class EducationalInstitutionController extends Controller
 
                 if ($institution) {
                     $institution->update([
-                        'short_name'          => $shortName ?: $institution->short_name,
-                        'education_type_id'   => $typeId ?: $institution->education_type_id,
+                        'short_name' => $shortName ?: $institution->short_name,
+                        'education_type_id' => $typeId ?: $institution->education_type_id,
                         'registration_number' => $regNumber ?: $institution->registration_number,
-                        'progression_type'    => $progressionType,
-                        'phone'               => $phone ?: $institution->phone,
-                        'email'               => $email ?: $institution->email,
+                        'progression_type' => $progressionType,
+                        'phone' => $phone ?: $institution->phone,
+                        'email' => $email ?: $institution->email,
                     ]);
                     $updatedCount++;
                 } else {
                     $institution = EducationalInstitution::create([
-                        'name'                => $name,
-                        'short_name'          => $shortName ?: null,
-                        'education_type_id'   => $typeId,
+                        'name' => $name,
+                        'short_name' => $shortName ?: null,
+                        'education_type_id' => $typeId,
                         'registration_number' => $regNumber ?: null,
-                        'progression_type'    => $progressionType,
-                        'phone'               => $phone,
-                        'email'               => $email,
-                        'status'              => 'active',
+                        'progression_type' => $progressionType,
+                        'phone' => $phone,
+                        'email' => $email,
+                        'status' => 'active',
                     ]);
                     $insertedCount++;
                 }
@@ -590,11 +611,13 @@ class EducationalInstitutionController extends Controller
                 if ($rawLevels !== '' && $rawLevels !== '-') {
                     $levelNames = array_map('trim', explode(',', $rawLevels));
                     foreach ($levelNames as $lIdx => $lvlName) {
-                        if ($lvlName === '') continue;
+                        if ($lvlName === '') {
+                            continue;
+                        }
                         Education::firstOrCreate(
                             [
                                 'educational_institution_id' => $institution->id,
-                                'name'                       => $lvlName,
+                                'name' => $lvlName,
                             ],
                             [
                                 'level' => $lIdx + 1,
@@ -607,20 +630,21 @@ class EducationalInstitutionController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Import berhasil: {$insertedCount} institusi baru ditambahkan, {$updatedCount} diperbarui.",
-                'data'    => [
+                'data' => [
                     'inserted' => $insertedCount,
-                    'updated'  => $updatedCount,
-                    'total'    => $insertedCount + $updatedCount,
+                    'updated' => $updatedCount,
+                    'total' => $insertedCount + $updatedCount,
                 ],
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error importing institutions: ' . $e->getMessage());
+            Log::error('Error importing institutions: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengimpor institusi: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengimpor institusi: '.$e->getMessage(),
             ], 500);
         }
     }

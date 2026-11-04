@@ -6,17 +6,30 @@ use App\Http\Controllers\Controller;
 use App\Models\EducationalInstitution;
 use App\Models\Study;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Color;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-class StudyController extends Controller
+class StudyController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:mapel.create', only: ['store', 'import']),
+            new Middleware('permission:mapel.update', only: ['update']),
+            new Middleware('permission:mapel.delete', only: ['destroy']),
+        ];
+    }
+
     public function index(Request $request)
     {
         try {
@@ -28,7 +41,7 @@ class StudyController extends Controller
                 $instId = $request->query('educational_institution_id');
                 $query->where(function ($q) use ($instId) {
                     $q->where('educational_institution_id', $instId)
-                      ->orWhereNull('educational_institution_id');
+                        ->orWhereNull('educational_institution_id');
                 });
             }
 
@@ -49,7 +62,7 @@ class StudyController extends Controller
                 $search = $request->query('search');
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('code', 'like', "%{$search}%");
+                        ->orWhere('code', 'like', "%{$search}%");
                 });
             }
 
@@ -59,14 +72,15 @@ class StudyController extends Controller
                 ->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data mata pelajaran berhasil diambil',
-                'data'    => $studies,
+                'data' => $studies,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error retrieving studies: ' . $e->getMessage());
+            Log::error('Error retrieving studies: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil data mata pelajaran',
             ], 500);
         }
@@ -76,15 +90,15 @@ class StudyController extends Controller
     {
         $validated = $request->validate([
             'educational_institution_id' => 'nullable|exists:educational_institutions,id',
-            'code'                       => 'nullable|string|max:20',
-            'name'                       => 'required|string|max:255',
-            'study_type'                 => 'nullable|in:reguler,khusus,muatan_lokal',
-            'kkm'                        => 'nullable|numeric|min:0|max:100',
-            'order'                      => 'nullable|integer',
-            'description'                => 'nullable|string',
-            'is_active'                  => 'nullable|boolean',
-            'teacher_ids'                => 'nullable|array',
-            'teacher_ids.*'              => 'exists:teachers,id',
+            'code' => 'nullable|string|max:20',
+            'name' => 'required|string|max:255',
+            'study_type' => 'nullable|in:reguler,khusus,muatan_lokal',
+            'kkm' => 'nullable|numeric|min:0|max:100',
+            'order' => 'nullable|integer',
+            'description' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
+            'teacher_ids' => 'nullable|array',
+            'teacher_ids.*' => 'exists:teachers,id',
         ]);
 
         try {
@@ -92,32 +106,33 @@ class StudyController extends Controller
 
             $study = Study::create([
                 'educational_institution_id' => $validated['educational_institution_id'] ?? null,
-                'code'                       => $validated['code'] ?? null,
-                'name'                       => $validated['name'],
-                'study_type'                 => $validated['study_type'] ?? 'reguler',
-                'kkm'                        => $validated['kkm'] ?? 75.00,
-                'order'                      => $validated['order'] ?? 1,
-                'description'                => $validated['description'] ?? null,
-                'is_active'                  => $validated['is_active'] ?? true,
+                'code' => $validated['code'] ?? null,
+                'name' => $validated['name'],
+                'study_type' => $validated['study_type'] ?? 'reguler',
+                'kkm' => $validated['kkm'] ?? 75.00,
+                'order' => $validated['order'] ?? 1,
+                'description' => $validated['description'] ?? null,
+                'is_active' => $validated['is_active'] ?? true,
             ]);
 
-            if (!empty($validated['teacher_ids'])) {
+            if (! empty($validated['teacher_ids'])) {
                 $study->teachers()->sync($validated['teacher_ids']);
             }
 
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Mata pelajaran berhasil ditambahkan',
-                'data'    => $study->load(['educationalInstitution', 'teachers']),
+                'data' => $study->load(['educationalInstitution', 'teachers']),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error creating study: ' . $e->getMessage());
+            Log::error('Error creating study: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menambahkan mata pelajaran: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menambahkan mata pelajaran: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -126,17 +141,17 @@ class StudyController extends Controller
     {
         $study = Study::with(['educationalInstitution', 'teachers'])->find($id);
 
-        if (!$study) {
+        if (! $study) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Mata pelajaran tidak ditemukan',
             ], 404);
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail mata pelajaran berhasil diambil',
-            'data'    => $study,
+            'data' => $study,
         ], 200);
     }
 
@@ -144,24 +159,24 @@ class StudyController extends Controller
     {
         $study = Study::find($id);
 
-        if (!$study) {
+        if (! $study) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Mata pelajaran tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
             'educational_institution_id' => 'nullable|exists:educational_institutions,id',
-            'code'                       => 'nullable|string|max:20',
-            'name'                       => 'sometimes|required|string|max:255',
-            'study_type'                 => 'sometimes|required|in:reguler,khusus,muatan_lokal',
-            'kkm'                        => 'nullable|numeric|min:0|max:100',
-            'order'                      => 'nullable|integer',
-            'description'                => 'nullable|string',
-            'is_active'                  => 'nullable|boolean',
-            'teacher_ids'                => 'nullable|array',
-            'teacher_ids.*'              => 'exists:teachers,id',
+            'code' => 'nullable|string|max:20',
+            'name' => 'sometimes|required|string|max:255',
+            'study_type' => 'sometimes|required|in:reguler,khusus,muatan_lokal',
+            'kkm' => 'nullable|numeric|min:0|max:100',
+            'order' => 'nullable|integer',
+            'description' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
+            'teacher_ids' => 'nullable|array',
+            'teacher_ids.*' => 'exists:teachers,id',
         ]);
 
         try {
@@ -176,15 +191,16 @@ class StudyController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Mata pelajaran berhasil diperbarui',
-                'data'    => $study->fresh(['educationalInstitution', 'teachers']),
+                'data' => $study->fresh(['educationalInstitution', 'teachers']),
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error updating study: ' . $e->getMessage());
+            Log::error('Error updating study: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui mata pelajaran',
             ], 500);
         }
@@ -194,23 +210,25 @@ class StudyController extends Controller
     {
         $study = Study::find($id);
 
-        if (!$study) {
+        if (! $study) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Mata pelajaran tidak ditemukan',
             ], 404);
         }
 
         try {
             $study->delete();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Mata pelajaran berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting study: ' . $e->getMessage());
+            Log::error('Error deleting study: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghapus mata pelajaran',
             ], 500);
         }
@@ -234,7 +252,7 @@ class StudyController extends Controller
 
             $studies = $query->orderBy('order', 'asc')->orderBy('name', 'asc')->get();
 
-            $spreadsheet = new Spreadsheet();
+            $spreadsheet = new Spreadsheet;
             $spreadsheet->getProperties()
                 ->setCreator('Tarbiyah — Sistem Manajemen Pendidikan')
                 ->setTitle('Data Mata Pelajaran')
@@ -246,12 +264,12 @@ class StudyController extends Controller
             // Header Judul
             $sheet->setCellValue('A1', 'DATA MASTER MATA PELAJARAN');
             $sheet->mergeCells('A1:H1');
-            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('0B57D0'));
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->setColor(new Color('0B57D0'));
             $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
 
-            $sheet->setCellValue('A2', 'Tanggal Ekspor: ' . now()->translatedFormat('d F Y H:i'));
+            $sheet->setCellValue('A2', 'Tanggal Ekspor: '.now()->translatedFormat('d F Y H:i'));
             $sheet->mergeCells('A2:H2');
-            $sheet->getStyle('A2')->getFont()->setSize(10)->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('64748B'));
+            $sheet->getStyle('A2')->getFont()->setSize(10)->setItalic(true)->setColor(new Color('64748B'));
 
             // Table Header
             $headers = ['No', 'Kode Mapel', 'Nama Mata Pelajaran', 'Institusi Pendidikan', 'Kategori/Tipe', 'KKM', 'Urutan', 'Status'];
@@ -259,44 +277,44 @@ class StudyController extends Controller
 
             foreach ($headers as $idx => $header) {
                 $col = $colLetters[$idx];
-                $sheet->setCellValue($col . '4', $header);
+                $sheet->setCellValue($col.'4', $header);
             }
 
             $headerRange = 'A4:H4';
             $sheet->getStyle($headerRange)->applyFromArray([
                 'font' => [
-                    'bold'  => true,
+                    'bold' => true,
                     'color' => ['rgb' => 'FFFFFF'],
-                    'size'  => 11,
+                    'size' => 11,
                 ],
                 'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
+                    'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['rgb' => '0B57D0'],
                 ],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical'   => Alignment::VERTICAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
                 ],
             ]);
             $sheet->getRowDimension(4)->setRowHeight(26);
 
             $rowIdx = 5;
             foreach ($studies as $i => $s) {
-                $sheet->setCellValue('A' . $rowIdx, $i + 1);
-                $sheet->setCellValueExplicit('B' . $rowIdx, $s->code ?? '-', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-                $sheet->setCellValue('C' . $rowIdx, $s->name);
-                $sheet->setCellValue('D' . $rowIdx, $s->educationalInstitution?->name ?? 'Semua Institusi / Umum');
-                $sheet->setCellValue('E' . $rowIdx, ucfirst(str_replace('_', ' ', $s->study_type ?? 'reguler')));
-                $sheet->setCellValue('F' . $rowIdx, (float) $s->kkm);
-                $sheet->setCellValue('G' . $rowIdx, (int) $s->order);
-                $sheet->setCellValue('H' . $rowIdx, $s->is_active ? 'Aktif' : 'Nonaktif');
+                $sheet->setCellValue('A'.$rowIdx, $i + 1);
+                $sheet->setCellValueExplicit('B'.$rowIdx, $s->code ?? '-', DataType::TYPE_STRING);
+                $sheet->setCellValue('C'.$rowIdx, $s->name);
+                $sheet->setCellValue('D'.$rowIdx, $s->educationalInstitution?->name ?? 'Semua Institusi / Umum');
+                $sheet->setCellValue('E'.$rowIdx, ucfirst(str_replace('_', ' ', $s->study_type ?? 'reguler')));
+                $sheet->setCellValue('F'.$rowIdx, (float) $s->kkm);
+                $sheet->setCellValue('G'.$rowIdx, (int) $s->order);
+                $sheet->setCellValue('H'.$rowIdx, $s->is_active ? 'Aktif' : 'Nonaktif');
 
-                $sheet->getStyle('A' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('B' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('E' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('F' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                $sheet->getStyle('G' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('H' . $rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('A'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('B'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('F'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle('G'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('H'.$rowIdx)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
                 if ($rowIdx % 2 === 0) {
                     $sheet->getStyle("A{$rowIdx}:H{$rowIdx}")->getFill()
@@ -312,7 +330,7 @@ class StudyController extends Controller
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => Border::BORDER_THIN,
-                        'color'       => ['rgb' => 'CBD5E1'],
+                        'color' => ['rgb' => 'CBD5E1'],
                     ],
                 ],
             ]);
@@ -321,21 +339,22 @@ class StudyController extends Controller
                 $sheet->getColumnDimension($col)->setAutoSize(true);
             }
 
-            $filename = 'Master_Mata_Pelajaran_' . date('Ymd_His') . '.xlsx';
+            $filename = 'Master_Mata_Pelajaran_'.date('Ymd_His').'.xlsx';
 
             return response()->streamDownload(function () use ($spreadsheet) {
                 $writer = new Xlsx($spreadsheet);
                 $writer->save('php://output');
             }, $filename, [
-                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-                'Cache-Control'       => 'max-age=0',
+                'Cache-Control' => 'max-age=0',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error exporting studies: ' . $e->getMessage());
+            Log::error('Error exporting studies: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengekspor data mata pelajaran: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengekspor data mata pelajaran: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -346,7 +365,7 @@ class StudyController extends Controller
     public function downloadTemplate()
     {
         try {
-            $spreadsheet = new Spreadsheet();
+            $spreadsheet = new Spreadsheet;
             $spreadsheet->getProperties()
                 ->setCreator('Tarbiyah — Sistem Manajemen Pendidikan')
                 ->setTitle('Template Import Mata Pelajaran');
@@ -357,35 +376,35 @@ class StudyController extends Controller
             // Petunjuk Pengisian
             $sheet->setCellValue('A1', 'PETUNJUK PENGISIAN TEMPLATE MATA PELAJARAN');
             $sheet->mergeCells('A1:G1');
-            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('0B57D0'));
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12)->setColor(new Color('0B57D0'));
 
             $sheet->setCellValue('A2', '1. Kolom "Nama Mata Pelajaran" wajib diisi. Kolom lainnya opsional.');
             $sheet->setCellValue('A3', '2. Kolom "Tipe Mapel" diisi salah satu: reguler, khusus (diniyah), atau muatan_lokal.');
             $sheet->setCellValue('A4', '3. Kolom "Nama Institusi" diisi persis nama institusi/sekolah, atau biarkan kosong jika berlaku umum.');
             $sheet->setCellValue('A5', '4. Nilai KKM diisi angka (default 75). Status diisi "aktif" atau "nonaktif".');
-            $sheet->getStyle('A2:A5')->getFont()->setSize(9)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('64748B'));
+            $sheet->getStyle('A2:A5')->getFont()->setSize(9)->setColor(new Color('64748B'));
 
             // Header Tabel (Baris 7)
             $headers = ['Kode Mapel', 'Nama Mata Pelajaran *', 'Nama Institusi', 'Tipe Mapel', 'KKM', 'Urutan', 'Status'];
             $colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
             foreach ($headers as $idx => $header) {
-                $sheet->setCellValue($colLetters[$idx] . '7', $header);
+                $sheet->setCellValue($colLetters[$idx].'7', $header);
             }
 
             $sheet->getStyle('A7:G7')->applyFromArray([
                 'font' => [
-                    'bold'  => true,
+                    'bold' => true,
                     'color' => ['rgb' => 'FFFFFF'],
-                    'size'  => 10,
+                    'size' => 10,
                 ],
                 'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
+                    'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['rgb' => '0B57D0'],
                 ],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical'   => Alignment::VERTICAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
                 ],
             ]);
             $sheet->getRowDimension(7)->setRowHeight(25);
@@ -400,7 +419,7 @@ class StudyController extends Controller
             foreach ($examples as $eIdx => $ex) {
                 $rowNum = 8 + $eIdx;
                 foreach ($ex as $cIdx => $val) {
-                    $sheet->setCellValue($colLetters[$cIdx] . $rowNum, $val);
+                    $sheet->setCellValue($colLetters[$cIdx].$rowNum, $val);
                 }
             }
 
@@ -408,7 +427,7 @@ class StudyController extends Controller
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => Border::BORDER_THIN,
-                        'color'       => ['rgb' => 'CBD5E1'],
+                        'color' => ['rgb' => 'CBD5E1'],
                     ],
                 ],
             ]);
@@ -423,15 +442,16 @@ class StudyController extends Controller
                 $writer = new Xlsx($spreadsheet);
                 $writer->save('php://output');
             }, $filename, [
-                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-                'Cache-Control'       => 'max-age=0',
+                'Cache-Control' => 'max-age=0',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error generating study template: ' . $e->getMessage());
+            Log::error('Error generating study template: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal membuat template import mata pelajaran: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal membuat template import mata pelajaran: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -453,7 +473,7 @@ class StudyController extends Controller
 
             if (empty($rows) || count($rows) < 2) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'File Excel kosong atau tidak memiliki baris data.',
                 ], 422);
             }
@@ -506,7 +526,7 @@ class StudyController extends Controller
                 }
             }
 
-            $institutions = EducationalInstitution::all()->keyBy(fn($i) => strtolower(trim($i->name)));
+            $institutions = EducationalInstitution::all()->keyBy(fn ($i) => strtolower(trim($i->name)));
 
             $insertedCount = 0;
             $updatedCount = 0;
@@ -535,7 +555,7 @@ class StudyController extends Controller
                         $instId = $institutions[$instName]->id;
                     } else {
                         // Coba cari substring
-                        $found = $institutions->first(fn($it, $k) => str_contains($k, $instName) || str_contains($instName, $k));
+                        $found = $institutions->first(fn ($it, $k) => str_contains($k, $instName) || str_contains($instName, $k));
                         if ($found) {
                             $instId = $found->id;
                         }
@@ -551,14 +571,14 @@ class StudyController extends Controller
 
                 $kkm = is_numeric($rawKkm) ? (float) $rawKkm : 75.00;
                 $order = is_numeric($rawOrder) ? (int) $rawOrder : 1;
-                $isActive = !in_array($rawStatus, ['nonaktif', 'tidak', '0', 'false', 'inactive']);
+                $isActive = ! in_array($rawStatus, ['nonaktif', 'tidak', '0', 'false', 'inactive']);
 
                 // Cari berdasarkan code atau (name + educational_institution_id)
                 $existing = null;
                 if ($code !== '' && $code !== '-') {
                     $existing = Study::where('code', $code)->first();
                 }
-                if (!$existing) {
+                if (! $existing) {
                     $existing = Study::where('name', $name)
                         ->where('educational_institution_id', $instId)
                         ->first();
@@ -566,24 +586,24 @@ class StudyController extends Controller
 
                 if ($existing) {
                     $existing->update([
-                        'code'                       => $code !== '' && $code !== '-' ? $code : $existing->code,
-                        'name'                       => $name,
+                        'code' => $code !== '' && $code !== '-' ? $code : $existing->code,
+                        'name' => $name,
                         'educational_institution_id' => $instId,
-                        'study_type'                 => $studyType,
-                        'kkm'                        => $kkm,
-                        'order'                      => $order,
-                        'is_active'                  => $isActive,
+                        'study_type' => $studyType,
+                        'kkm' => $kkm,
+                        'order' => $order,
+                        'is_active' => $isActive,
                     ]);
                     $updatedCount++;
                 } else {
                     Study::create([
-                        'code'                       => $code !== '' && $code !== '-' ? $code : null,
-                        'name'                       => $name,
+                        'code' => $code !== '' && $code !== '-' ? $code : null,
+                        'name' => $name,
                         'educational_institution_id' => $instId,
-                        'study_type'                 => $studyType,
-                        'kkm'                        => $kkm,
-                        'order'                      => $order,
-                        'is_active'                  => $isActive,
+                        'study_type' => $studyType,
+                        'kkm' => $kkm,
+                        'order' => $order,
+                        'is_active' => $isActive,
                     ]);
                     $insertedCount++;
                 }
@@ -592,20 +612,21 @@ class StudyController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Import berhasil: {$insertedCount} mata pelajaran baru ditambahkan, {$updatedCount} diperbarui.",
-                'data'    => [
+                'data' => [
                     'inserted' => $insertedCount,
-                    'updated'  => $updatedCount,
-                    'total'    => $insertedCount + $updatedCount,
+                    'updated' => $updatedCount,
+                    'total' => $insertedCount + $updatedCount,
                 ],
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error importing studies: ' . $e->getMessage());
+            Log::error('Error importing studies: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengimpor mata pelajaran: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengimpor mata pelajaran: '.$e->getMessage(),
             ], 500);
         }
     }

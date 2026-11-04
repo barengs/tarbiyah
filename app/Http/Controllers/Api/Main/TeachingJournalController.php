@@ -3,21 +3,31 @@
 namespace App\Http\Controllers\Api\Main;
 
 use App\Http\Controllers\Controller;
-use App\Models\TeachingJournal;
-use App\Models\StudentPresence;
 use App\Models\ClassGroup;
-use App\Models\StudentClass;
 use App\Models\LessonSchedule;
+use App\Models\StudentClass;
+use App\Models\StudentPresence;
 use App\Models\Study;
-use App\Models\Teacher;
-use App\Models\AcademicYear;
+use App\Models\TeachingJournal;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class TeachingJournalController extends Controller
+class TeachingJournalController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:presensi.create|presensi.update', only: ['saveMultiDayGrid', 'saveDayGrid', 'batchPresence', 'updatePresences']),
+            new Middleware('permission:kbm.create', only: ['store']),
+            new Middleware('permission:kbm.update', only: ['update']),
+            new Middleware('permission:kbm.delete', only: ['destroy']),
+        ];
+    }
+
     public function index(Request $request)
     {
         try {
@@ -27,12 +37,20 @@ class TeachingJournalController extends Controller
                 'teacher',
                 'substituteTeacher',
                 'lessonSchedule',
-                'presences'
+                'presences',
             ])->withCount([
-                'presences as hadir_count' => function ($q) { $q->where('status', 'hadir'); },
-                'presences as sakit_count' => function ($q) { $q->where('status', 'sakit'); },
-                'presences as izin_count'  => function ($q) { $q->where('status', 'izin'); },
-                'presences as alpa_count'  => function ($q) { $q->where('status', 'alpa'); },
+                'presences as hadir_count' => function ($q) {
+                    $q->where('status', 'hadir');
+                },
+                'presences as sakit_count' => function ($q) {
+                    $q->where('status', 'sakit');
+                },
+                'presences as izin_count' => function ($q) {
+                    $q->where('status', 'izin');
+                },
+                'presences as alpa_count' => function ($q) {
+                    $q->where('status', 'alpa');
+                },
             ]);
 
             $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
@@ -59,14 +77,15 @@ class TeachingJournalController extends Controller
             $journals = $query->orderBy('date', 'desc')->orderBy('meeting_number', 'desc')->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data jurnal KBM berhasil diambil',
-                'data'    => $journals,
+                'data' => $journals,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error retrieving teaching journals: ' . $e->getMessage());
+            Log::error('Error retrieving teaching journals: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil jurnal KBM',
             ], 500);
         }
@@ -75,19 +94,19 @@ class TeachingJournalController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'academic_year_id'       => 'required|exists:academic_years,id',
-            'class_group_id'         => 'required|exists:class_groups,id',
-            'study_id'               => 'required|exists:studies,id',
-            'teacher_id'             => 'required|exists:teachers,id',
-            'lesson_schedule_id'     => 'nullable|exists:lesson_schedules,id',
-            'meeting_number'         => 'required|integer|min:1',
-            'date'                   => 'required|date',
-            'start_time'             => 'nullable|date_format:H:i',
-            'end_time'               => 'nullable|date_format:H:i',
-            'topic'                  => 'required|string|max:255',
-            'notes'                  => 'nullable|string',
-            'teacher_status'         => 'nullable|in:hadir,izin,tugas,digantikan',
-            'substitute_teacher_id'  => 'nullable|exists:teachers,id',
+            'academic_year_id' => 'required|exists:academic_years,id',
+            'class_group_id' => 'required|exists:class_groups,id',
+            'study_id' => 'required|exists:studies,id',
+            'teacher_id' => 'required|exists:teachers,id',
+            'lesson_schedule_id' => 'nullable|exists:lesson_schedules,id',
+            'meeting_number' => 'required|integer|min:1',
+            'date' => 'required|date',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_time' => 'nullable|date_format:H:i',
+            'topic' => 'required|string|max:255',
+            'notes' => 'nullable|string',
+            'teacher_status' => 'nullable|in:hadir,izin,tugas,digantikan',
+            'substitute_teacher_id' => 'nullable|exists:teachers,id',
         ]);
 
         try {
@@ -105,31 +124,32 @@ class TeachingJournalController extends Controller
             foreach ($activeStudents as $sc) {
                 $presences[] = [
                     'teaching_journal_id' => $journal->id,
-                    'student_id'          => $sc->student_id,
-                    'status'              => 'hadir',
-                    'notes'               => null,
-                    'created_at'          => $now,
-                    'updated_at'          => $now,
+                    'student_id' => $sc->student_id,
+                    'status' => 'hadir',
+                    'notes' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
                 ];
             }
 
-            if (!empty($presences)) {
+            if (! empty($presences)) {
                 StudentPresence::insert($presences);
             }
 
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Jurnal KBM berhasil dibuka dan presensi disiapkan',
-                'data'    => $journal->load(['classGroup', 'study', 'teacher', 'presences.student']),
+                'data' => $journal->load(['classGroup', 'study', 'teacher', 'presences.student']),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error creating teaching journal: ' . $e->getMessage());
+            Log::error('Error creating teaching journal: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal membuka jurnal KBM: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal membuka jurnal KBM: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -141,20 +161,20 @@ class TeachingJournalController extends Controller
             'study',
             'teacher',
             'substituteTeacher',
-            'presences.student'
+            'presences.student',
         ])->find($id);
 
-        if (!$journal) {
+        if (! $journal) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Jurnal KBM tidak ditemukan',
             ], 404);
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail jurnal KBM berhasil diambil',
-            'data'    => $journal,
+            'data' => $journal,
         ], 200);
     }
 
@@ -162,19 +182,19 @@ class TeachingJournalController extends Controller
     {
         $journal = TeachingJournal::find($id);
 
-        if (!$journal) {
+        if (! $journal) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Jurnal KBM tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
-            'meeting_number'        => 'sometimes|required|integer|min:1',
-            'date'                  => 'sometimes|required|date',
-            'topic'                 => 'sometimes|required|string|max:255',
-            'notes'                 => 'nullable|string',
-            'teacher_status'        => 'nullable|in:hadir,izin,tugas,digantikan',
+            'meeting_number' => 'sometimes|required|integer|min:1',
+            'date' => 'sometimes|required|date',
+            'topic' => 'sometimes|required|string|max:255',
+            'notes' => 'nullable|string',
+            'teacher_status' => 'nullable|in:hadir,izin,tugas,digantikan',
             'substitute_teacher_id' => 'nullable|exists:teachers,id',
         ]);
 
@@ -182,14 +202,15 @@ class TeachingJournalController extends Controller
             $journal->update($validated);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Jurnal KBM berhasil diperbarui',
-                'data'    => $journal->fresh(['classGroup', 'study', 'teacher']),
+                'data' => $journal->fresh(['classGroup', 'study', 'teacher']),
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error updating teaching journal: ' . $e->getMessage());
+            Log::error('Error updating teaching journal: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui jurnal KBM',
             ], 500);
         }
@@ -199,23 +220,25 @@ class TeachingJournalController extends Controller
     {
         $journal = TeachingJournal::find($id);
 
-        if (!$journal) {
+        if (! $journal) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Jurnal KBM tidak ditemukan',
             ], 404);
         }
 
         try {
             $journal->delete();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Jurnal KBM berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting teaching journal: ' . $e->getMessage());
+            Log::error('Error deleting teaching journal: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghapus jurnal KBM',
             ], 500);
         }
@@ -229,10 +252,10 @@ class TeachingJournalController extends Controller
         $journal = TeachingJournal::findOrFail($id);
 
         $validated = $request->validate([
-            'presences'              => 'required|array',
+            'presences' => 'required|array',
             'presences.*.student_id' => 'required|exists:students,id',
-            'presences.*.status'     => 'required|in:hadir,sakit,izin,alpa',
-            'presences.*.notes'      => 'nullable|string',
+            'presences.*.status' => 'required|in:hadir,sakit,izin,alpa',
+            'presences.*.notes' => 'nullable|string',
         ]);
 
         try {
@@ -242,11 +265,11 @@ class TeachingJournalController extends Controller
                 StudentPresence::updateOrCreate(
                     [
                         'teaching_journal_id' => $journal->id,
-                        'student_id'          => $item['student_id'],
+                        'student_id' => $item['student_id'],
                     ],
                     [
                         'status' => $item['status'],
-                        'notes'  => $item['notes'] ?? null,
+                        'notes' => $item['notes'] ?? null,
                     ]
                 );
             }
@@ -254,15 +277,16 @@ class TeachingJournalController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Presensi siswa berhasil disimpan',
-                'data'    => $journal->fresh('presences.student'),
+                'data' => $journal->fresh('presences.student'),
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error updating student presences: ' . $e->getMessage());
+            Log::error('Error updating student presences: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui presensi siswa',
             ], 500);
         }
@@ -275,7 +299,7 @@ class TeachingJournalController extends Controller
     {
         $validated = $request->validate([
             'class_group_id' => 'required|exists:class_groups,id',
-            'study_id'       => 'nullable|exists:studies,id',
+            'study_id' => 'nullable|exists:studies,id',
         ]);
 
         try {
@@ -286,7 +310,7 @@ class TeachingJournalController extends Controller
                 ->get();
 
             $journalsQuery = TeachingJournal::where('class_group_id', $classGroup->id);
-            if (!empty($validated['study_id'])) {
+            if (! empty($validated['study_id'])) {
                 $journalsQuery->where('study_id', $validated['study_id']);
             }
             $totalMeetings = $journalsQuery->count();
@@ -299,38 +323,39 @@ class TeachingJournalController extends Controller
                     ->where('student_id', $sId)->where('status', 'hadir')->count();
                 $sakit = StudentPresence::whereIn('teaching_journal_id', $journalIds)
                     ->where('student_id', $sId)->where('status', 'sakit')->count();
-                $izin  = StudentPresence::whereIn('teaching_journal_id', $journalIds)
+                $izin = StudentPresence::whereIn('teaching_journal_id', $journalIds)
                     ->where('student_id', $sId)->where('status', 'izin')->count();
-                $alpa  = StudentPresence::whereIn('teaching_journal_id', $journalIds)
+                $alpa = StudentPresence::whereIn('teaching_journal_id', $journalIds)
                     ->where('student_id', $sId)->where('status', 'alpa')->count();
 
                 $pct = $totalMeetings > 0 ? round(($hadir / $totalMeetings) * 100, 1) : 100;
 
                 $recapData[] = [
-                    'student_id'   => $sId,
-                    'name'         => $sc->student->name,
-                    'nis'          => $sc->student->nis,
-                    'hadir'        => $hadir,
-                    'sakit'        => $sakit,
-                    'izin'         => $izin,
-                    'alpa'         => $alpa,
-                    'percentage'   => $pct,
+                    'student_id' => $sId,
+                    'name' => $sc->student->name,
+                    'nis' => $sc->student->nis,
+                    'hadir' => $hadir,
+                    'sakit' => $sakit,
+                    'izin' => $izin,
+                    'alpa' => $alpa,
+                    'percentage' => $pct,
                 ];
             }
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Rekapitulasi presensi berhasil dihitung',
-                'data'    => [
-                    'class_group'    => $classGroup->name,
+                'data' => [
+                    'class_group' => $classGroup->name,
                     'total_meetings' => $totalMeetings,
-                    'students'       => $recapData,
+                    'students' => $recapData,
                 ],
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error generating attendance recap: ' . $e->getMessage());
+            Log::error('Error generating attendance recap: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghitung rekap presensi',
             ], 500);
         }
@@ -343,7 +368,7 @@ class TeachingJournalController extends Controller
     {
         $validated = $request->validate([
             'class_group_id' => 'required|exists:class_groups,id',
-            'study_id'       => 'nullable|exists:studies,id',
+            'study_id' => 'nullable|exists:studies,id',
         ]);
 
         try {
@@ -353,15 +378,15 @@ class TeachingJournalController extends Controller
                 'educationClass',
                 'classroom',
                 'homeroomTeacher',
-                'academicYear'
+                'academicYear',
             ])->findOrFail($validated['class_group_id']);
 
-            $study = !empty($validated['study_id']) ? Study::find($validated['study_id']) : null;
+            $study = ! empty($validated['study_id']) ? Study::find($validated['study_id']) : null;
 
             // Cari jadwal terkait untuk mata pelajaran ini jika ada
             $schedule = LessonSchedule::with(['teacher', 'lessonHour'])
                 ->where('class_group_id', $classGroup->id)
-                ->when($study, function($q) use ($study) {
+                ->when($study, function ($q) use ($study) {
                     $q->where('study_id', $study->id);
                 })
                 ->first();
@@ -371,7 +396,7 @@ class TeachingJournalController extends Controller
                 ->where('status', 'aktif')
                 ->with('student')
                 ->get()
-                ->sortBy(fn($sc) => $sc->student->name ?? '')
+                ->sortBy(fn ($sc) => $sc->student->name ?? '')
                 ->values();
 
             // Ambil seluruh jurnal untuk rombel (dan mapel jika difilter)
@@ -390,10 +415,10 @@ class TeachingJournalController extends Controller
                 $j = $journals->get($i);
                 $meetings[] = [
                     'meeting_number' => $i,
-                    'journal_id'     => $j?->id,
-                    'date'           => $j?->date?->format('Y-m-d'),
-                    'topic'          => $j?->topic,
-                    'is_recorded'    => !is_null($j),
+                    'journal_id' => $j?->id,
+                    'date' => $j?->date?->format('Y-m-d'),
+                    'topic' => $j?->topic,
+                    'is_recorded' => ! is_null($j),
                 ];
             }
 
@@ -412,49 +437,50 @@ class TeachingJournalController extends Controller
                         $presence = $j->presences->firstWhere('student_id', $s->id);
                         if ($presence) {
                             $status = $presence->status; // hadir, sakit, izin, alpa
-                            $notes  = $presence->notes;
+                            $notes = $presence->notes;
                         }
                     }
 
                     $rowAttendances[$i] = [
                         'status' => $status,
-                        'notes'  => $notes,
+                        'notes' => $notes,
                     ];
                 }
 
                 $sheetRows[] = [
-                    'student_id'   => $s->id,
-                    'nis'          => $s->nis,
-                    'name'         => $s->name,
-                    'gender'       => $s->gender,
-                    'attendances'  => $rowAttendances,
+                    'student_id' => $s->id,
+                    'nis' => $s->nis,
+                    'name' => $s->name,
+                    'gender' => $s->gender,
+                    'attendances' => $rowAttendances,
                 ];
             }
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Lembar presensi berhasil dimuat',
-                'data'    => [
+                'data' => [
                     'meta' => [
                         'academic_year' => $classGroup->academicYear?->name ?? '1446/1447 H',
-                        'program'       => $classGroup->program?->name ?? 'Kubar',
-                        'education'     => $classGroup->education?->name ?? 'Wustha',
-                        'class_level'   => $classGroup->educationClass?->name ?? 'Kelas 1',
-                        'class_group'   => $classGroup->name,
-                        'study'         => $study?->name ?? 'Semua Mata Pelajaran',
-                        'teacher'       => $schedule?->teacher?->name ?? $classGroup->homeroomTeacher?->name ?? '-',
-                        'lesson_hour'   => $schedule?->lessonHour ? ($schedule->lessonHour->start_time . ' - ' . $schedule->lessonHour->end_time) : '07:00 - 08:30',
+                        'program' => $classGroup->program?->name ?? 'Kubar',
+                        'education' => $classGroup->education?->name ?? 'Wustha',
+                        'class_level' => $classGroup->educationClass?->name ?? 'Kelas 1',
+                        'class_group' => $classGroup->name,
+                        'study' => $study?->name ?? 'Semua Mata Pelajaran',
+                        'teacher' => $schedule?->teacher?->name ?? $classGroup->homeroomTeacher?->name ?? '-',
+                        'lesson_hour' => $schedule?->lessonHour ? ($schedule->lessonHour->start_time.' - '.$schedule->lessonHour->end_time) : '07:00 - 08:30',
                     ],
                     'meetings' => $meetings,
                     'students' => $sheetRows,
-                ]
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Error loading attendance sheet: ' . $e->getMessage());
+            Log::error('Error loading attendance sheet: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memuat lembar presensi: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memuat lembar presensi: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -468,15 +494,15 @@ class TeachingJournalController extends Controller
     {
         $validated = $request->validate([
             'class_group_id' => 'required|exists:class_groups,id',
-            'mode'           => 'required|in:daily,weekly,custom_days',
-            'date'           => 'required|date',
-            'days'           => 'nullable|array',
-            'days.*'         => 'integer|between:1,7',
-            'exceptions'     => 'nullable|array',
+            'mode' => 'required|in:daily,weekly,custom_days',
+            'date' => 'required|date',
+            'days' => 'nullable|array',
+            'days.*' => 'integer|between:1,7',
+            'exceptions' => 'nullable|array',
             'exceptions.*.student_id' => 'required|exists:students,id',
-            'exceptions.*.status'     => 'required|in:sakit,izin,alpa,hadir',
-            'exceptions.*.notes'      => 'nullable|string',
-            'exceptions.*.scope'      => 'nullable|in:all,selected',
+            'exceptions.*.status' => 'required|in:sakit,izin,alpa,hadir',
+            'exceptions.*.notes' => 'nullable|string',
+            'exceptions.*.scope' => 'nullable|in:all,selected',
             'exceptions.*.lesson_hour_ids' => 'nullable|array',
         ]);
 
@@ -507,7 +533,7 @@ class TeachingJournalController extends Controller
 
             if ($activeStudents->isEmpty()) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Tidak ada santri aktif di rombel ini.',
                 ], 422);
             }
@@ -538,7 +564,7 @@ class TeachingJournalController extends Controller
                 // (Sabtu awal pekan sampai Kamis akhir pekan)
                 $currentDayOfWeek = $refDate->dayOfWeekIso; // 1=Mon..7=Sun
                 // Kita gunakan tanggal refDate jika daily, atau hitung offset jika weekly
-                $kbmDate = $validated['mode'] === 'daily' 
+                $kbmDate = $validated['mode'] === 'daily'
                     ? $refDate->format('Y-m-d')
                     : $refDate->copy()->startOfWeek(Carbon::SATURDAY)->addDays(($dayId == 6 ? 0 : ($dayId == 7 ? 1 : $dayId + 1)))->format('Y-m-d');
 
@@ -547,18 +573,18 @@ class TeachingJournalController extends Controller
                     // Cari atau buat jurnal untuk sesi ini
                     $journal = TeachingJournal::firstOrCreate(
                         [
-                            'class_group_id'     => $classGroup->id,
-                            'study_id'           => $sched->study_id,
-                            'date'               => $kbmDate,
+                            'class_group_id' => $classGroup->id,
+                            'study_id' => $sched->study_id,
+                            'date' => $kbmDate,
                             'lesson_schedule_id' => $sched->id,
                         ],
                         [
                             'academic_year_id' => $academicYearId,
-                            'teacher_id'       => $sched->teacher_id,
-                            'meeting_number'   => (TeachingJournal::where('class_group_id', $classGroup->id)->where('study_id', $sched->study_id)->count() + 1),
-                            'topic'            => 'KBM Terjadwal Jam Ke-' . ($sched->lessonHour->order ?? 1),
-                            'notes'            => 'Presensi massal sistem terpadu',
-                            'teacher_status'   => 'hadir',
+                            'teacher_id' => $sched->teacher_id,
+                            'meeting_number' => (TeachingJournal::where('class_group_id', $classGroup->id)->where('study_id', $sched->study_id)->count() + 1),
+                            'topic' => 'KBM Terjadwal Jam Ke-'.($sched->lessonHour->order ?? 1),
+                            'notes' => 'Presensi massal sistem terpadu',
+                            'teacher_status' => 'hadir',
                         ]
                     );
 
@@ -576,25 +602,25 @@ class TeachingJournalController extends Controller
 
                             if (($exc['scope'] ?? 'all') === 'selected') {
                                 $targetHours = $exc['lesson_hour_ids'] ?? [];
-                                if (!in_array($sched->lesson_hour_id, $targetHours)) {
+                                if (! in_array($sched->lesson_hour_id, $targetHours)) {
                                     $applies = false;
                                 }
                             }
 
                             if ($applies) {
                                 $status = $exc['status'];
-                                $notes  = $exc['notes'] ?? null;
+                                $notes = $exc['notes'] ?? null;
                             }
                         }
 
                         StudentPresence::updateOrCreate(
                             [
                                 'teaching_journal_id' => $journal->id,
-                                'student_id'          => $studentId,
+                                'student_id' => $studentId,
                             ],
                             [
                                 'status' => $status,
-                                'notes'  => $notes,
+                                'notes' => $notes,
                             ]
                         );
 
@@ -606,26 +632,26 @@ class TeachingJournalController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Presensi massal berhasil disimpan! ($journalsCreated sesi KBM, $presencesCreated catatan kehadiran)",
-                'data'    => [
-                    'journals_count'  => $journalsCreated,
+                'data' => [
+                    'journals_count' => $journalsCreated,
                     'presences_count' => $presencesCreated,
-                    'class_group_id'  => $classGroup->id,
-                    'mode'            => $validated['mode'],
-                ]
+                    'class_group_id' => $classGroup->id,
+                    'mode' => $validated['mode'],
+                ],
             ], 200);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error processing batch presence: ' . $e->getMessage());
+            Log::error('Error processing batch presence: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memproses presensi massal: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memproses presensi massal: '.$e->getMessage(),
             ], 500);
         }
     }
-
 
     /**
      * Ambil Grid Presensi Harian Berdasarkan Jam Pelajaran (Jam Ke-1 s.d Jam Ke-6)
@@ -636,7 +662,7 @@ class TeachingJournalController extends Controller
     {
         $validated = $request->validate([
             'class_group_id' => 'required|exists:class_groups,id',
-            'date'           => 'required|date',
+            'date' => 'required|date',
         ]);
 
         try {
@@ -646,7 +672,7 @@ class TeachingJournalController extends Controller
                 'educationClass',
                 'classroom',
                 'homeroomTeacher',
-                'academicYear'
+                'academicYear',
             ])->findOrFail($validated['class_group_id']);
 
             $refDate = Carbon::parse($validated['date']);
@@ -661,7 +687,7 @@ class TeachingJournalController extends Controller
                 2 => 'Selasa',
                 3 => 'Rabu',
                 4 => 'Kamis',
-                5 => 'Jumat'
+                5 => 'Jumat',
             ];
             $dayName = $dayNames[$dayNumber] ?? 'Hari Belajar';
 
@@ -671,23 +697,23 @@ class TeachingJournalController extends Controller
                 ->where('day', $dayNumber)
                 ->where('is_active', true)
                 ->get()
-                ->sortBy(fn($s) => $s->lessonHour->order ?? 0)
+                ->sortBy(fn ($s) => $s->lessonHour->order ?? 0)
                 ->values();
 
             // Format daftar jam pelajaran hari ini
             $hours = [];
             foreach ($schedules as $sched) {
                 $hours[] = [
-                    'schedule_id'    => $sched->id,
-                    'hour_id'        => $sched->lesson_hour_id,
-                    'order'          => $sched->lessonHour->order ?? 1,
-                    'hour_name'      => $sched->lessonHour->name ?? ('Jam Ke-' . ($sched->lessonHour->order ?? 1)),
-                    'time'           => substr($sched->lessonHour->start_time ?? '07:00', 0, 5) . ' - ' . substr($sched->lessonHour->end_time ?? '08:30', 0, 5),
-                    'study_id'       => $sched->study_id,
-                    'study_name'     => $sched->study->name ?? 'Mata Pelajaran',
-                    'study_code'     => $sched->study->code ?? '',
-                    'teacher_id'     => $sched->teacher_id,
-                    'teacher_name'   => $sched->teacher->name ?? '-',
+                    'schedule_id' => $sched->id,
+                    'hour_id' => $sched->lesson_hour_id,
+                    'order' => $sched->lessonHour->order ?? 1,
+                    'hour_name' => $sched->lessonHour->name ?? ('Jam Ke-'.($sched->lessonHour->order ?? 1)),
+                    'time' => substr($sched->lessonHour->start_time ?? '07:00', 0, 5).' - '.substr($sched->lessonHour->end_time ?? '08:30', 0, 5),
+                    'study_id' => $sched->study_id,
+                    'study_name' => $sched->study->name ?? 'Mata Pelajaran',
+                    'study_code' => $sched->study->code ?? '',
+                    'teacher_id' => $sched->teacher_id,
+                    'teacher_name' => $sched->teacher->name ?? '-',
                 ];
             }
 
@@ -703,7 +729,7 @@ class TeachingJournalController extends Controller
                 ->where('status', 'aktif')
                 ->with('student')
                 ->get()
-                ->sortBy(fn($sc) => $sc->student->name ?? '')
+                ->sortBy(fn ($sc) => $sc->student->name ?? '')
                 ->values();
 
             // Susun baris santri x jam pelajaran
@@ -716,60 +742,61 @@ class TeachingJournalController extends Controller
                     $order = $h['order'];
                     $schedId = $h['schedule_id'];
                     $status = 'hadir'; // DEFAULT: SELALU HADIR
-                    $notes  = null;
+                    $notes = null;
 
                     if ($existingJournals->has($schedId)) {
                         $j = $existingJournals->get($schedId);
                         $presence = $j->presences->firstWhere('student_id', $st->id);
                         if ($presence) {
                             $status = $presence->status;
-                            $notes  = $presence->notes;
+                            $notes = $presence->notes;
                         }
                     }
 
                     $attendances[$order] = [
                         'schedule_id' => $schedId,
-                        'study_id'    => $h['study_id'],
-                        'status'      => $status,
-                        'notes'       => $notes,
+                        'study_id' => $h['study_id'],
+                        'status' => $status,
+                        'notes' => $notes,
                     ];
                 }
 
                 $studentRows[] = [
-                    'student_id'   => $st->id,
-                    'nis'          => $st->nis,
-                    'name'         => $st->name,
-                    'gender'       => $st->gender,
-                    'attendances'  => $attendances,
+                    'student_id' => $st->id,
+                    'nis' => $st->nis,
+                    'name' => $st->name,
+                    'gender' => $st->gender,
+                    'attendances' => $attendances,
                 ];
             }
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Grid presensi harian berhasil dimuat',
-                'data'    => [
-                    'date'        => $refDate->format('Y-m-d'),
-                    'day_number'  => $dayNumber,
-                    'day_name'    => $dayName,
+                'data' => [
+                    'date' => $refDate->format('Y-m-d'),
+                    'day_number' => $dayNumber,
+                    'day_name' => $dayName,
                     'class_group' => [
-                        'id'               => $classGroup->id,
-                        'name'             => $classGroup->name,
-                        'academic_year'    => $classGroup->academicYear->name ?? '1446/1447 H',
-                        'program'          => $classGroup->program->name ?? '',
-                        'education'        => $classGroup->education->name ?? '',
-                        'education_class'  => $classGroup->educationClass->name ?? '',
+                        'id' => $classGroup->id,
+                        'name' => $classGroup->name,
+                        'academic_year' => $classGroup->academicYear->name ?? '1446/1447 H',
+                        'program' => $classGroup->program->name ?? '',
+                        'education' => $classGroup->education->name ?? '',
+                        'education_class' => $classGroup->educationClass->name ?? '',
                         'homeroom_teacher' => $classGroup->homeroomTeacher->name ?? '',
                     ],
-                    'hours'       => $hours,
-                    'students'    => $studentRows,
-                ]
+                    'hours' => $hours,
+                    'students' => $studentRows,
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Error loading day grid presence: ' . $e->getMessage());
+            Log::error('Error loading day grid presence: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memuat grid presensi harian: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memuat grid presensi harian: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -782,8 +809,8 @@ class TeachingJournalController extends Controller
     {
         $validated = $request->validate([
             'class_group_id' => 'required|exists:class_groups,id',
-            'date'           => 'required|date',
-            'grid'           => 'required|array',
+            'date' => 'required|date',
+            'grid' => 'required|array',
             'grid.*.student_id' => 'required|exists:students,id',
             'grid.*.attendances' => 'required|array',
         ]);
@@ -811,32 +838,34 @@ class TeachingJournalController extends Controller
 
                 foreach ($studentRow['attendances'] as $order => $att) {
                     $schedId = $att['schedule_id'] ?? null;
-                    $status  = $att['status'] ?? 'hadir';
-                    $notes   = $att['notes'] ?? null;
+                    $status = $att['status'] ?? 'hadir';
+                    $notes = $att['notes'] ?? null;
 
-                    if (!$schedId) {
+                    if (! $schedId) {
                         continue;
                     }
 
                     // Ambil atau buat jurnal untuk sesi jadwal ini
-                    if (!isset($journalCache[$schedId])) {
+                    if (! isset($journalCache[$schedId])) {
                         $sched = LessonSchedule::with('lessonHour')->find($schedId);
-                        if (!$sched) continue;
+                        if (! $sched) {
+                            continue;
+                        }
 
                         $journal = TeachingJournal::firstOrCreate(
                             [
-                                'class_group_id'     => $classGroup->id,
-                                'study_id'           => $sched->study_id,
-                                'date'               => $refDate->format('Y-m-d'),
+                                'class_group_id' => $classGroup->id,
+                                'study_id' => $sched->study_id,
+                                'date' => $refDate->format('Y-m-d'),
                                 'lesson_schedule_id' => $sched->id,
                             ],
                             [
                                 'academic_year_id' => $academicYearId,
-                                'teacher_id'       => $sched->teacher_id,
-                                'meeting_number'   => (TeachingJournal::where('class_group_id', $classGroup->id)->where('study_id', $sched->study_id)->count() + 1),
-                                'topic'            => 'KBM Jam Ke-' . ($sched->lessonHour->order ?? $order),
-                                'notes'            => 'Presensi harian terintegrasi jam pelajaran',
-                                'teacher_status'   => 'hadir',
+                                'teacher_id' => $sched->teacher_id,
+                                'meeting_number' => (TeachingJournal::where('class_group_id', $classGroup->id)->where('study_id', $sched->study_id)->count() + 1),
+                                'topic' => 'KBM Jam Ke-'.($sched->lessonHour->order ?? $order),
+                                'notes' => 'Presensi harian terintegrasi jam pelajaran',
+                                'teacher_status' => 'hadir',
                             ]
                         );
                         $journalCache[$schedId] = $journal;
@@ -847,11 +876,11 @@ class TeachingJournalController extends Controller
                     StudentPresence::updateOrCreate(
                         [
                             'teaching_journal_id' => $journal->id,
-                            'student_id'          => $studentId,
+                            'student_id' => $studentId,
                         ],
                         [
                             'status' => $status,
-                            'notes'  => $notes,
+                            'notes' => $notes,
                         ]
                     );
                 }
@@ -860,25 +889,25 @@ class TeachingJournalController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Presensi harian berdasarkan jam pelajaran berhasil disimpan!',
-                'data'    => [
-                    'date'           => $refDate->format('Y-m-d'),
+                'data' => [
+                    'date' => $refDate->format('Y-m-d'),
                     'class_group_id' => $classGroup->id,
                     'journals_count' => count($journalCache),
-                ]
+                ],
             ], 200);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error saving day grid presence: ' . $e->getMessage());
+            Log::error('Error saving day grid presence: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menyimpan presensi harian: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menyimpan presensi harian: '.$e->getMessage(),
             ], 500);
         }
     }
-
 
     /**
      * Ambil Grid Presensi untuk Rentang Hari Berurutan (Multi-Day / Sepekan Sabtu s.d. Kamis)
@@ -888,8 +917,8 @@ class TeachingJournalController extends Controller
     {
         $validated = $request->validate([
             'class_group_id' => 'required|exists:class_groups,id',
-            'start_date'     => 'required|date',
-            'end_date'       => 'required|date|after_or_equal:start_date',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
         try {
@@ -899,16 +928,16 @@ class TeachingJournalController extends Controller
                 'educationClass',
                 'classroom',
                 'homeroomTeacher',
-                'academicYear'
+                'academicYear',
             ])->findOrFail($validated['class_group_id']);
 
             $startDate = Carbon::parse($validated['start_date']);
-            $endDate   = Carbon::parse($validated['end_date']);
+            $endDate = Carbon::parse($validated['end_date']);
 
             // Batasi rentang maksimal 14 hari agar performa tetap ringan
             if ($startDate->diffInDays($endDate) > 14) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Rentang hari maksimal adalah 14 hari.',
                 ], 422);
             }
@@ -920,7 +949,7 @@ class TeachingJournalController extends Controller
                 2 => 'Selasa',
                 3 => 'Rabu',
                 4 => 'Kamis',
-                5 => 'Jumat'
+                5 => 'Jumat',
             ];
 
             // Ambil seluruh santri aktif
@@ -928,7 +957,7 @@ class TeachingJournalController extends Controller
                 ->where('status', 'aktif')
                 ->with('student')
                 ->get()
-                ->sortBy(fn($sc) => $sc->student->name ?? '')
+                ->sortBy(fn ($sc) => $sc->student->name ?? '')
                 ->values();
 
             $daysResult = [];
@@ -945,30 +974,30 @@ class TeachingJournalController extends Controller
                 // Jadwal pada hari tersebut sesuai tahun akademik & triwulan
                 $schedules = LessonSchedule::with(['lessonHour', 'study', 'teacher'])
                     ->where('class_group_id', $classGroup->id)
-                    ->when($targetYearId, fn($q) => $q->where('academic_year_id', $targetYearId))
-                    ->when($targetQuarterId, fn($q) => $q->where(function ($sub) use ($targetQuarterId) {
+                    ->when($targetYearId, fn ($q) => $q->where('academic_year_id', $targetYearId))
+                    ->when($targetQuarterId, fn ($q) => $q->where(function ($sub) use ($targetQuarterId) {
                         $sub->where('academic_quarter_id', $targetQuarterId)
                             ->orWhereNull('academic_quarter_id');
                     }))
                     ->where('day', $isoDay)
                     ->where('is_active', true)
                     ->get()
-                    ->sortBy(fn($s) => $s->lessonHour->order ?? 0)
+                    ->sortBy(fn ($s) => $s->lessonHour->order ?? 0)
                     ->values();
 
                 // Format daftar jam pelajaran
                 $hours = [];
                 foreach ($schedules as $sched) {
                     $hours[] = [
-                        'schedule_id'  => $sched->id,
-                        'hour_id'      => $sched->lesson_hour_id,
-                        'order'        => $sched->lessonHour->order ?? 1,
-                        'hour_name'    => $sched->lessonHour->name ?? ('Jam Ke-' . ($sched->lessonHour->order ?? 1)),
-                        'time'         => substr($sched->lessonHour->start_time ?? '07:00', 0, 5) . ' - ' . substr($sched->lessonHour->end_time ?? '08:30', 0, 5),
-                        'study_id'     => $sched->study_id,
-                        'study_name'   => $sched->study->name ?? 'Mata Pelajaran',
-                        'study_code'   => $sched->study->code ?? '',
-                        'teacher_id'   => $sched->teacher_id,
+                        'schedule_id' => $sched->id,
+                        'hour_id' => $sched->lesson_hour_id,
+                        'order' => $sched->lessonHour->order ?? 1,
+                        'hour_name' => $sched->lessonHour->name ?? ('Jam Ke-'.($sched->lessonHour->order ?? 1)),
+                        'time' => substr($sched->lessonHour->start_time ?? '07:00', 0, 5).' - '.substr($sched->lessonHour->end_time ?? '08:30', 0, 5),
+                        'study_id' => $sched->study_id,
+                        'study_name' => $sched->study->name ?? 'Mata Pelajaran',
+                        'study_code' => $sched->study->code ?? '',
+                        'teacher_id' => $sched->teacher_id,
                         'teacher_name' => $sched->teacher->name ?? '-',
                     ];
                 }
@@ -990,71 +1019,72 @@ class TeachingJournalController extends Controller
                         $order = $h['order'];
                         $schedId = $h['schedule_id'];
                         $status = 'hadir'; // DEFAULT SELALU HADIR
-                        $notes  = null;
+                        $notes = null;
 
                         if ($existingJournals->has($schedId)) {
                             $j = $existingJournals->get($schedId);
                             $presence = $j->presences->firstWhere('student_id', $st->id);
                             if ($presence) {
                                 $status = $presence->status;
-                                $notes  = $presence->notes;
+                                $notes = $presence->notes;
                             }
                         }
 
                         $attendances[$order] = [
                             'schedule_id' => $schedId,
-                            'study_id'    => $h['study_id'],
-                            'status'      => $status,
-                            'notes'       => $notes,
+                            'study_id' => $h['study_id'],
+                            'status' => $status,
+                            'notes' => $notes,
                         ];
                     }
 
                     $studentRows[] = [
-                        'student_id'   => $st->id,
-                        'nis'          => $st->nis,
-                        'name'         => $st->name,
-                        'gender'       => $st->gender,
-                        'attendances'  => $attendances,
+                        'student_id' => $st->id,
+                        'nis' => $st->nis,
+                        'name' => $st->name,
+                        'gender' => $st->gender,
+                        'attendances' => $attendances,
                     ];
                 }
 
                 $daysResult[] = [
-                    'date'        => $curDateStr,
-                    'day_number'  => $isoDay,
-                    'day_name'    => $dayName,
+                    'date' => $curDateStr,
+                    'day_number' => $isoDay,
+                    'day_name' => $dayName,
                     'hours_count' => count($hours),
-                    'hours'       => $hours,
-                    'students'    => $studentRows,
+                    'hours' => $hours,
+                    'students' => $studentRows,
                 ];
 
                 $cur->addDay();
             }
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Grid rentang hari berhasil dimuat',
-                'data'    => [
+                'data' => [
                     'class_group' => [
-                        'id'               => $classGroup->id,
-                        'name'             => $classGroup->name,
-                        'academic_year'    => $classGroup->academicYear->name ?? '1446/1447 H',
-                        'program'          => $classGroup->program->name ?? '',
-                        'education'        => $classGroup->education->name ?? '',
-                        'education_class'  => $classGroup->educationClass->name ?? '',
+                        'id' => $classGroup->id,
+                        'name' => $classGroup->name,
+                        'academic_year' => $classGroup->academicYear->name ?? '1446/1447 H',
+                        'program' => $classGroup->program->name ?? '',
+                        'education' => $classGroup->education->name ?? '',
+                        'education_class' => $classGroup->educationClass->name ?? '',
                         'homeroom_teacher' => $classGroup->homeroomTeacher->name ?? '',
                     ],
-                    'start_date'  => $startDate->format('Y-m-d'),
-                    'end_date'    => $endDate->format('Y-m-d'),
-                    'total_days'  => count($daysResult),
-                    'days'        => $daysResult,
-                ]
+                    'start_date' => $startDate->format('Y-m-d'),
+                    'end_date' => $endDate->format('Y-m-d'),
+                    'total_days' => count($daysResult),
+                    'days' => $daysResult,
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Error loading range grid: ' . $e->getMessage());
+            Log::error('Error loading range grid: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memuat grid rentang hari: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memuat grid rentang hari: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1066,9 +1096,9 @@ class TeachingJournalController extends Controller
     {
         $validated = $request->validate([
             'class_group_id' => 'required|exists:class_groups,id',
-            'days'           => 'required|array',
-            'days.*.date'    => 'required|date',
-            'days.*.grid'    => 'required|array',
+            'days' => 'required|array',
+            'days.*.date' => 'required|date',
+            'days.*.grid' => 'required|array',
             'days.*.grid.*.student_id' => 'required|exists:students,id',
             'days.*.grid.*.attendances' => 'required|array',
         ]);
@@ -1085,7 +1115,7 @@ class TeachingJournalController extends Controller
             foreach ($validated['days'] as $dayItem) {
                 $curDate = Carbon::parse($dayItem['date']);
                 $dateStr = $curDate->format('Y-m-d');
-                $isoDay  = $curDate->dayOfWeekIso;
+                $isoDay = $curDate->dayOfWeekIso;
 
                 $journalCache = [];
 
@@ -1094,29 +1124,33 @@ class TeachingJournalController extends Controller
 
                     foreach ($studentRow['attendances'] as $order => $att) {
                         $schedId = $att['schedule_id'] ?? null;
-                        $status  = $att['status'] ?? 'hadir';
-                        $notes   = $att['notes'] ?? null;
+                        $status = $att['status'] ?? 'hadir';
+                        $notes = $att['notes'] ?? null;
 
-                        if (!$schedId) continue;
+                        if (! $schedId) {
+                            continue;
+                        }
 
-                        if (!isset($journalCache[$schedId])) {
+                        if (! isset($journalCache[$schedId])) {
                             $sched = LessonSchedule::with('lessonHour')->find($schedId);
-                            if (!$sched) continue;
+                            if (! $sched) {
+                                continue;
+                            }
 
                             $journal = TeachingJournal::firstOrCreate(
                                 [
-                                    'class_group_id'     => $classGroup->id,
-                                    'study_id'           => $sched->study_id,
-                                    'date'               => $dateStr,
+                                    'class_group_id' => $classGroup->id,
+                                    'study_id' => $sched->study_id,
+                                    'date' => $dateStr,
                                     'lesson_schedule_id' => $sched->id,
                                 ],
                                 [
                                     'academic_year_id' => $academicYearId,
-                                    'teacher_id'       => $sched->teacher_id,
-                                    'meeting_number'   => (TeachingJournal::where('class_group_id', $classGroup->id)->where('study_id', $sched->study_id)->count() + 1),
-                                    'topic'            => 'KBM Jam Ke-' . ($sched->lessonHour->order ?? $order),
-                                    'notes'            => 'Presensi terintegrasi jadwal mingguan',
-                                    'teacher_status'   => 'hadir',
+                                    'teacher_id' => $sched->teacher_id,
+                                    'meeting_number' => (TeachingJournal::where('class_group_id', $classGroup->id)->where('study_id', $sched->study_id)->count() + 1),
+                                    'topic' => 'KBM Jam Ke-'.($sched->lessonHour->order ?? $order),
+                                    'notes' => 'Presensi terintegrasi jadwal mingguan',
+                                    'teacher_status' => 'hadir',
                                 ]
                             );
                             $journalCache[$schedId] = $journal;
@@ -1128,11 +1162,11 @@ class TeachingJournalController extends Controller
                         StudentPresence::updateOrCreate(
                             [
                                 'teaching_journal_id' => $journal->id,
-                                'student_id'          => $studentId,
+                                'student_id' => $studentId,
                             ],
                             [
                                 'status' => $status,
-                                'notes'  => $notes,
+                                'notes' => $notes,
                             ]
                         );
                         $totalPresencesSaved++;
@@ -1143,20 +1177,21 @@ class TeachingJournalController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Presensi sepekan berhasil disimpan! ($totalJournalsSaved sesi KBM, $totalPresencesSaved catatan presensi santri)",
-                'data'    => [
-                    'journals_count'  => $totalJournalsSaved,
+                'data' => [
+                    'journals_count' => $totalJournalsSaved,
                     'presences_count' => $totalPresencesSaved,
-                ]
+                ],
             ], 200);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error saving multi-day grid: ' . $e->getMessage());
+            Log::error('Error saving multi-day grid: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menyimpan presensi rentang hari: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menyimpan presensi rentang hari: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1173,13 +1208,21 @@ class TeachingJournalController extends Controller
                 'study',
                 'teacher',
                 'lessonSchedule.lessonHour',
-                'presences.student'
+                'presences.student',
             ])->withCount([
-                'presences as hadir_count' => function ($q) { $q->where('status', 'hadir'); },
-                'presences as sakit_count' => function ($q) { $q->where('status', 'sakit'); },
-                'presences as izin_count'  => function ($q) { $q->where('status', 'izin'); },
-                'presences as alpa_count'  => function ($q) { $q->where('status', 'alpa'); },
-                'presences as total_presented'
+                'presences as hadir_count' => function ($q) {
+                    $q->where('status', 'hadir');
+                },
+                'presences as sakit_count' => function ($q) {
+                    $q->where('status', 'sakit');
+                },
+                'presences as izin_count' => function ($q) {
+                    $q->where('status', 'izin');
+                },
+                'presences as alpa_count' => function ($q) {
+                    $q->where('status', 'alpa');
+                },
+                'presences as total_presented',
             ]);
 
             $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
@@ -1194,18 +1237,18 @@ class TeachingJournalController extends Controller
             $journals = $query->orderBy('date', 'desc')->orderBy('meeting_number', 'desc')->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Daftar jurnal dengan rekapitulasi kehadiran berhasil diambil',
-                'data'    => $journals,
+                'data' => $journals,
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Error listing journals with presence summary: ' . $e->getMessage());
+            Log::error('Error listing journals with presence summary: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal mengambil data: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal mengambil data: '.$e->getMessage(),
             ], 500);
         }
     }
-
 }

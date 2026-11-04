@@ -3,17 +3,29 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Controller;
-use App\Models\LessonSchedule;
-use App\Models\AcademicYear;
 use App\Models\AcademicQuarter;
+use App\Models\AcademicYear;
 use App\Models\ClassGroup;
 use App\Models\Education;
+use App\Models\LessonSchedule;
+use App\Models\Study;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class LessonScheduleController extends Controller
+class LessonScheduleController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:kbm.create', only: ['store', 'copyPeriod', 'copyAcademicYear']),
+            new Middleware('permission:kbm.update', only: ['update']),
+            new Middleware('permission:kbm.delete', only: ['destroy']),
+        ];
+    }
+
     public function index(Request $request)
     {
         try {
@@ -24,7 +36,7 @@ class LessonScheduleController extends Controller
                 'study',
                 'teacher',
                 'lessonHour',
-                'classroom'
+                'classroom',
             ]);
 
             $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
@@ -50,20 +62,21 @@ class LessonScheduleController extends Controller
             }
 
             $schedules = $query->orderBy('day', 'asc')
-                               ->join('lesson_hours', 'lesson_schedules.lesson_hour_id', '=', 'lesson_hours.id')
-                               ->orderBy('lesson_hours.order', 'asc')
-                               ->select('lesson_schedules.*')
-                               ->get();
+                ->join('lesson_hours', 'lesson_schedules.lesson_hour_id', '=', 'lesson_hours.id')
+                ->orderBy('lesson_hours.order', 'asc')
+                ->select('lesson_schedules.*')
+                ->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data jadwal KBM berhasil diambil',
-                'data'    => $schedules,
+                'data' => $schedules,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error retrieving schedules: ' . $e->getMessage());
+            Log::error('Error retrieving schedules: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil jadwal KBM',
             ], 500);
         }
@@ -72,15 +85,15 @@ class LessonScheduleController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'academic_year_id'    => 'required|exists:academic_years,id',
+            'academic_year_id' => 'required|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
-            'class_group_id'      => 'required|exists:class_groups,id',
-            'study_id'            => 'required|exists:studies,id',
-            'teacher_id'          => 'required|exists:teachers,id',
-            'lesson_hour_id'      => 'required|exists:lesson_hours,id',
-            'classroom_id'        => 'nullable|exists:classrooms,id',
-            'day'                 => 'required|integer|min:1|max:7',
-            'is_active'           => 'nullable|boolean',
+            'class_group_id' => 'required|exists:class_groups,id',
+            'study_id' => 'required|exists:studies,id',
+            'teacher_id' => 'required|exists:teachers,id',
+            'lesson_hour_id' => 'required|exists:lesson_hours,id',
+            'classroom_id' => 'nullable|exists:classrooms,id',
+            'day' => 'required|integer|min:1|max:7',
+            'is_active' => 'nullable|boolean',
         ]);
 
         if (empty($validated['academic_quarter_id'])) {
@@ -91,10 +104,10 @@ class LessonScheduleController extends Controller
         }
 
         // Cek 0: Mata Pelajaran Muatan Lokal (Non-Kelas) tidak boleh masuk ke jadwal pelajaran KBM
-        $studyObj = \App\Models\Study::find($validated['study_id']);
+        $studyObj = Study::find($validated['study_id']);
         if ($studyObj && $studyObj->study_type === 'muatan_lokal') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Mata pelajaran Muatan Lokal (Non-Kelas) tidak dimasukkan ke dalam jadwal pelajaran KBM, melainkan hanya dinilai pada akhir triwulan.',
             ], 422);
         }
@@ -111,7 +124,7 @@ class LessonScheduleController extends Controller
 
         if ($clashGroup) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Rombel ini sudah memiliki mata pelajaran pada hari dan jam tersebut di periode ini',
             ], 422);
         }
@@ -128,7 +141,7 @@ class LessonScheduleController extends Controller
 
         if ($clashTeacher) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Guru tersebut sudah terjadwal mengajar di rombel lain pada hari dan jam yang sama di periode ini',
             ], 422);
         }
@@ -137,15 +150,16 @@ class LessonScheduleController extends Controller
             $schedule = LessonSchedule::create($validated);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Jadwal pelajaran berhasil ditambahkan',
-                'data'    => $schedule->load(['academicQuarter', 'classGroup', 'study', 'teacher', 'lessonHour']),
+                'data' => $schedule->load(['academicQuarter', 'classGroup', 'study', 'teacher', 'lessonHour']),
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error creating schedule: ' . $e->getMessage());
+            Log::error('Error creating schedule: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal membuat jadwal pelajaran: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal membuat jadwal pelajaran: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -159,20 +173,20 @@ class LessonScheduleController extends Controller
             'study',
             'teacher',
             'lessonHour',
-            'classroom'
+            'classroom',
         ])->find($id);
 
-        if (!$schedule) {
+        if (! $schedule) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Jadwal tidak ditemukan',
             ], 404);
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail jadwal berhasil diambil',
-            'data'    => $schedule,
+            'data' => $schedule,
         ], 200);
     }
 
@@ -180,35 +194,36 @@ class LessonScheduleController extends Controller
     {
         $schedule = LessonSchedule::find($id);
 
-        if (!$schedule) {
+        if (! $schedule) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Jadwal tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
-            'study_id'            => 'sometimes|required|exists:studies,id',
-            'teacher_id'          => 'sometimes|required|exists:teachers,id',
-            'lesson_hour_id'      => 'sometimes|required|exists:lesson_hours,id',
-            'classroom_id'        => 'nullable|exists:classrooms,id',
-            'day'                 => 'sometimes|required|integer|min:1|max:7',
-            'is_active'           => 'nullable|boolean',
+            'study_id' => 'sometimes|required|exists:studies,id',
+            'teacher_id' => 'sometimes|required|exists:teachers,id',
+            'lesson_hour_id' => 'sometimes|required|exists:lesson_hours,id',
+            'classroom_id' => 'nullable|exists:classrooms,id',
+            'day' => 'sometimes|required|integer|min:1|max:7',
+            'is_active' => 'nullable|boolean',
         ]);
 
         try {
             $schedule->update($validated);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Jadwal berhasil diperbarui',
-                'data'    => $schedule->fresh(['academicQuarter', 'classGroup', 'study', 'teacher', 'lessonHour']),
+                'data' => $schedule->fresh(['academicQuarter', 'classGroup', 'study', 'teacher', 'lessonHour']),
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error updating schedule: ' . $e->getMessage());
+            Log::error('Error updating schedule: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui jadwal',
             ], 500);
         }
@@ -218,23 +233,25 @@ class LessonScheduleController extends Controller
     {
         $schedule = LessonSchedule::find($id);
 
-        if (!$schedule) {
+        if (! $schedule) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Jadwal tidak ditemukan',
             ], 404);
         }
 
         try {
             $schedule->delete();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Jadwal berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting schedule: ' . $e->getMessage());
+            Log::error('Error deleting schedule: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghapus jadwal',
             ], 500);
         }
@@ -247,12 +264,12 @@ class LessonScheduleController extends Controller
     public function copyPeriod(Request $request)
     {
         $validated = $request->validate([
-            'academic_year_id'        => 'required|exists:academic_years,id',
-            'from_quarter_id'         => 'required|exists:academic_quarters,id',
-            'to_quarter_id'           => 'required|exists:academic_quarters,id|different:from_quarter_id',
-            'education_id'            => 'nullable',
+            'academic_year_id' => 'required|exists:academic_years,id',
+            'from_quarter_id' => 'required|exists:academic_quarters,id',
+            'to_quarter_id' => 'required|exists:academic_quarters,id|different:from_quarter_id',
+            'education_id' => 'nullable',
             'target_academic_year_id' => 'nullable|exists:academic_years,id',
-            'mode'                    => 'nullable|in:overwrite,skip_existing',
+            'mode' => 'nullable|in:overwrite,skip_existing',
         ]);
 
         $sourceYearId = $validated['academic_year_id'];
@@ -264,17 +281,17 @@ class LessonScheduleController extends Controller
 
         // Validasi keberadaan periode
         $fromQuarter = AcademicQuarter::where('id', $fromQuarterId)->where('academic_year_id', $sourceYearId)->first();
-        if (!$fromQuarter) {
+        if (! $fromQuarter) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Periode asal tidak sesuai dengan tahun akademik asal.',
             ], 422);
         }
 
         $toQuarter = AcademicQuarter::where('id', $toQuarterId)->where('academic_year_id', $targetYearId)->first();
-        if (!$toQuarter) {
+        if (! $toQuarter) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Periode tujuan tidak sesuai dengan tahun akademik tujuan.',
             ], 422);
         }
@@ -288,7 +305,7 @@ class LessonScheduleController extends Controller
 
         if ($sourceGroupIds->isEmpty()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Tidak ditemukan rombel/kelas pada jenjang dan tahun akademik asal yang dipilih.',
             ], 404);
         }
@@ -301,7 +318,7 @@ class LessonScheduleController extends Controller
 
         if ($sourceSchedules->isEmpty()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Tidak ada jadwal pada {$fromQuarter->name} untuk jenjang yang dipilih.",
             ], 404);
         }
@@ -326,21 +343,21 @@ class LessonScheduleController extends Controller
                             }
                         })->first();
 
-                    if (!$tGroup) {
+                    if (! $tGroup) {
                         $tGroup = ClassGroup::create([
-                            'academic_year_id'           => $targetYearId,
+                            'academic_year_id' => $targetYearId,
                             'educational_institution_id' => $sGroup->educational_institution_id,
-                            'education_id'               => $sGroup->education_id,
-                            'education_class_id'         => $sGroup->education_class_id,
-                            'classroom_id'               => $sGroup->classroom_id,
-                            'homeroom_teacher_id'        => $sGroup->homeroom_teacher_id,
-                            'code'                       => $sGroup->code,
-                            'name'                       => $sGroup->name,
-                            'gender'                     => $sGroup->gender,
-                            'progression_type'           => $sGroup->progression_type,
-                            'target_level'               => $sGroup->target_level,
-                            'capacity'                   => $sGroup->capacity,
-                            'is_active'                  => true,
+                            'education_id' => $sGroup->education_id,
+                            'education_class_id' => $sGroup->education_class_id,
+                            'classroom_id' => $sGroup->classroom_id,
+                            'homeroom_teacher_id' => $sGroup->homeroom_teacher_id,
+                            'code' => $sGroup->code,
+                            'name' => $sGroup->name,
+                            'gender' => $sGroup->gender,
+                            'progression_type' => $sGroup->progression_type,
+                            'target_level' => $sGroup->target_level,
+                            'capacity' => $sGroup->capacity,
+                            'is_active' => true,
                         ]);
                     }
                     $groupMap[$sGroupId] = $tGroup->id;
@@ -352,8 +369,9 @@ class LessonScheduleController extends Controller
                     ? $source->class_group_id
                     : ($groupMap[$source->class_group_id] ?? null);
 
-                if (!$targetGroupId) {
+                if (! $targetGroupId) {
                     $skippedCount++;
+
                     continue;
                 }
 
@@ -367,10 +385,10 @@ class LessonScheduleController extends Controller
                 if ($existing) {
                     if ($mode === 'overwrite') {
                         $existing->update([
-                            'study_id'     => $source->study_id,
-                            'teacher_id'   => $source->teacher_id,
+                            'study_id' => $source->study_id,
+                            'teacher_id' => $source->teacher_id,
                             'classroom_id' => $source->classroom_id,
-                            'is_active'    => $source->is_active,
+                            'is_active' => $source->is_active,
                         ]);
                         $updatedCount++;
                     } else {
@@ -378,15 +396,15 @@ class LessonScheduleController extends Controller
                     }
                 } else {
                     LessonSchedule::create([
-                        'academic_year_id'    => $targetYearId,
+                        'academic_year_id' => $targetYearId,
                         'academic_quarter_id' => $toQuarterId,
-                        'class_group_id'      => $targetGroupId,
-                        'study_id'            => $source->study_id,
-                        'teacher_id'          => $source->teacher_id,
-                        'lesson_hour_id'      => $source->lesson_hour_id,
-                        'classroom_id'        => $source->classroom_id,
-                        'day'                 => $source->day,
-                        'is_active'           => $source->is_active,
+                        'class_group_id' => $targetGroupId,
+                        'study_id' => $source->study_id,
+                        'teacher_id' => $source->teacher_id,
+                        'lesson_hour_id' => $source->lesson_hour_id,
+                        'classroom_id' => $source->classroom_id,
+                        'day' => $source->day,
+                        'is_active' => $source->is_active,
                     ]);
                     $copiedCount++;
                 }
@@ -397,28 +415,31 @@ class LessonScheduleController extends Controller
             $eduName = 'Semua Jenjang';
             if ($educationId && $educationId !== 'all') {
                 $edu = Education::find($educationId);
-                if ($edu) $eduName = "Jenjang {$edu->name}";
+                if ($edu) {
+                    $eduName = "Jenjang {$edu->name}";
+                }
             }
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Jadwal {$eduName} berhasil disalin dari {$fromQuarter->name} ke {$toQuarter->name}",
-                'data'    => [
-                    'copied'       => $copiedCount,
-                    'overwritten'  => $updatedCount,
-                    'skipped'      => $skippedCount,
+                'data' => [
+                    'copied' => $copiedCount,
+                    'overwritten' => $updatedCount,
+                    'skipped' => $skippedCount,
                     'total_source' => $sourceSchedules->count(),
                     'from_quarter' => $fromQuarter->name,
-                    'to_quarter'   => $toQuarter->name,
-                    'education'    => $eduName,
+                    'to_quarter' => $toQuarter->name,
+                    'education' => $eduName,
                 ],
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error copying period schedules: ' . $e->getMessage());
+            Log::error('Error copying period schedules: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menyalin jadwal periode: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menyalin jadwal periode: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -430,13 +451,13 @@ class LessonScheduleController extends Controller
     public function copyAcademicYear(Request $request)
     {
         $validated = $request->validate([
-            'from_academic_year_id'    => 'required|exists:academic_years,id',
-            'to_academic_year_id'      => 'required|exists:academic_years,id|different:from_academic_year_id',
-            'education_id'             => 'nullable',
-            'from_quarter_id'          => 'nullable|exists:academic_quarters,id',
-            'to_quarter_id'            => 'nullable|exists:academic_quarters,id',
+            'from_academic_year_id' => 'required|exists:academic_years,id',
+            'to_academic_year_id' => 'required|exists:academic_years,id|different:from_academic_year_id',
+            'education_id' => 'nullable',
+            'from_quarter_id' => 'nullable|exists:academic_quarters,id',
+            'to_quarter_id' => 'nullable|exists:academic_quarters,id',
             'auto_create_class_groups' => 'nullable|boolean',
-            'mode'                     => 'nullable|in:overwrite,skip_existing',
+            'mode' => 'nullable|in:overwrite,skip_existing',
         ]);
 
         $fromYearId = $validated['from_academic_year_id'];
@@ -456,10 +477,10 @@ class LessonScheduleController extends Controller
             foreach ($fromQuarters as $fq) {
                 $newQ = AcademicQuarter::create([
                     'academic_year_id' => $toYearId,
-                    'name'             => $fq->name,
-                    'start_date'       => $toYear->start_date ?? now(),
-                    'end_date'         => $toYear->end_date ?? now()->addYear(),
-                    'active'           => $fq->active,
+                    'name' => $fq->name,
+                    'start_date' => $toYear->start_date ?? now(),
+                    'end_date' => $toYear->end_date ?? now()->addYear(),
+                    'active' => $fq->active,
                 ]);
                 $toQuarters->push($newQ);
             }
@@ -467,7 +488,7 @@ class LessonScheduleController extends Controller
 
         // Pemetaan quarter
         $quarterMap = [];
-        if (!empty($validated['from_quarter_id']) && !empty($validated['to_quarter_id'])) {
+        if (! empty($validated['from_quarter_id']) && ! empty($validated['to_quarter_id'])) {
             $quarterMap[$validated['from_quarter_id']] = $validated['to_quarter_id'];
         } else {
             foreach ($fromQuarters as $idx => $fq) {
@@ -487,7 +508,7 @@ class LessonScheduleController extends Controller
 
         if ($sourceGroups->isEmpty()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Tidak ada rombel pada tahun akademik {$fromYear->year}.",
             ], 404);
         }
@@ -507,21 +528,21 @@ class LessonScheduleController extends Controller
                         }
                     })->first();
 
-                if (!$tg && $autoCreateGroups) {
+                if (! $tg && $autoCreateGroups) {
                     $tg = ClassGroup::create([
-                        'academic_year_id'           => $toYearId,
+                        'academic_year_id' => $toYearId,
                         'educational_institution_id' => $sg->educational_institution_id,
-                        'education_id'               => $sg->education_id,
-                        'education_class_id'         => $sg->education_class_id,
-                        'classroom_id'               => $sg->classroom_id,
-                        'homeroom_teacher_id'        => $sg->homeroom_teacher_id,
-                        'code'                       => $sg->code,
-                        'name'                       => $sg->name,
-                        'gender'                     => $sg->gender,
-                        'progression_type'           => $sg->progression_type,
-                        'target_level'               => $sg->target_level,
-                        'capacity'                   => $sg->capacity,
-                        'is_active'                  => true,
+                        'education_id' => $sg->education_id,
+                        'education_class_id' => $sg->education_class_id,
+                        'classroom_id' => $sg->classroom_id,
+                        'homeroom_teacher_id' => $sg->homeroom_teacher_id,
+                        'code' => $sg->code,
+                        'name' => $sg->name,
+                        'gender' => $sg->gender,
+                        'progression_type' => $sg->progression_type,
+                        'target_level' => $sg->target_level,
+                        'capacity' => $sg->capacity,
+                        'is_active' => true,
                     ]);
                     $createdGroupsCount++;
                 }
@@ -535,7 +556,7 @@ class LessonScheduleController extends Controller
             $schedulesQuery = LessonSchedule::where('academic_year_id', $fromYearId)
                 ->whereIn('class_group_id', $sourceGroups->pluck('id'));
 
-            if (!empty($validated['from_quarter_id'])) {
+            if (! empty($validated['from_quarter_id'])) {
                 $schedulesQuery->where('academic_quarter_id', $validated['from_quarter_id']);
             }
 
@@ -543,7 +564,7 @@ class LessonScheduleController extends Controller
 
             if ($sourceSchedules->isEmpty()) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => "Tidak ditemukan jadwal untuk disalin pada tahun akademik {$fromYear->year}.",
                 ], 404);
             }
@@ -554,15 +575,16 @@ class LessonScheduleController extends Controller
 
             foreach ($sourceSchedules as $source) {
                 $targetGroupId = $groupMap[$source->class_group_id] ?? null;
-                if (!$targetGroupId) {
+                if (! $targetGroupId) {
                     $skippedCount++;
+
                     continue;
                 }
 
                 $targetQuarterId = $quarterMap[$source->academic_quarter_id] ?? $toQuarters->first()?->id;
 
                 $existing = LessonSchedule::where('academic_year_id', $toYearId)
-                    ->when($targetQuarterId, fn($q, $qid) => $q->where('academic_quarter_id', $qid))
+                    ->when($targetQuarterId, fn ($q, $qid) => $q->where('academic_quarter_id', $qid))
                     ->where('class_group_id', $targetGroupId)
                     ->where('day', $source->day)
                     ->where('lesson_hour_id', $source->lesson_hour_id)
@@ -571,10 +593,10 @@ class LessonScheduleController extends Controller
                 if ($existing) {
                     if ($mode === 'overwrite') {
                         $existing->update([
-                            'study_id'     => $source->study_id,
-                            'teacher_id'   => $source->teacher_id,
+                            'study_id' => $source->study_id,
+                            'teacher_id' => $source->teacher_id,
                             'classroom_id' => $source->classroom_id,
-                            'is_active'    => $source->is_active,
+                            'is_active' => $source->is_active,
                         ]);
                         $updatedCount++;
                     } else {
@@ -582,15 +604,15 @@ class LessonScheduleController extends Controller
                     }
                 } else {
                     LessonSchedule::create([
-                        'academic_year_id'    => $toYearId,
+                        'academic_year_id' => $toYearId,
                         'academic_quarter_id' => $targetQuarterId,
-                        'class_group_id'      => $targetGroupId,
-                        'study_id'            => $source->study_id,
-                        'teacher_id'          => $source->teacher_id,
-                        'lesson_hour_id'      => $source->lesson_hour_id,
-                        'classroom_id'        => $source->classroom_id,
-                        'day'                 => $source->day,
-                        'is_active'           => $source->is_active,
+                        'class_group_id' => $targetGroupId,
+                        'study_id' => $source->study_id,
+                        'teacher_id' => $source->teacher_id,
+                        'lesson_hour_id' => $source->lesson_hour_id,
+                        'classroom_id' => $source->classroom_id,
+                        'day' => $source->day,
+                        'is_active' => $source->is_active,
                     ]);
                     $copiedCount++;
                 }
@@ -599,24 +621,25 @@ class LessonScheduleController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Berhasil menyalin jadwal dari {$fromYear->year} ke {$toYear->year}",
-                'data'    => [
-                    'from_year'      => $fromYear->year,
-                    'to_year'        => $toYear->year,
-                    'copied'         => $copiedCount,
-                    'overwritten'    => $updatedCount,
-                    'skipped'        => $skippedCount,
+                'data' => [
+                    'from_year' => $fromYear->year,
+                    'to_year' => $toYear->year,
+                    'copied' => $copiedCount,
+                    'overwritten' => $updatedCount,
+                    'skipped' => $skippedCount,
                     'groups_created' => $createdGroupsCount,
-                    'total_source'   => $sourceSchedules->count(),
+                    'total_source' => $sourceSchedules->count(),
                 ],
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error copying academic year schedules: ' . $e->getMessage());
+            Log::error('Error copying academic year schedules: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menyalin jadwal ke tahun akademik baru: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menyalin jadwal ke tahun akademik baru: '.$e->getMessage(),
             ], 500);
         }
     }

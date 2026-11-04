@@ -7,12 +7,23 @@ use App\Models\AcademicQuarter;
 use App\Models\AcademicYear;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class AcademicYearController extends Controller
+class AcademicYearController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:tahun-akademik.create', only: ['store', 'syncFromSmpt']),
+            new Middleware('permission:tahun-akademik.update', only: ['update', 'setActive']),
+            new Middleware('permission:tahun-akademik.delete', only: ['destroy']),
+        ];
+    }
+
     /**
      * Mengambil daftar seluruh tahun akademik beserta sub-akademik triwulannya
      */

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Controller;
 use App\Models\Program;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -19,15 +18,16 @@ class ProgramController extends Controller
             $programs = Program::orderBy('id', 'asc')->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data program pesantren berhasil dimuat',
-                'data'    => $programs,
+                'data' => $programs,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching programs: ' . $e->getMessage());
+            Log::error('Error fetching programs: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memuat program pesantren: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal memuat program pesantren: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -44,13 +44,13 @@ class ProgramController extends Controller
         try {
             $response = Http::timeout(10)->withHeaders([
                 'X-Internal-Key' => $internalKey,
-                'Accept'         => 'application/json',
+                'Accept' => 'application/json',
             ])->get("{$smptCoreUrl}/api/internal/programs");
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Gagal menghubungi SMPT: ' . $response->body(),
+                    'status' => 'error',
+                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
                 ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
             }
 
@@ -72,8 +72,8 @@ class ProgramController extends Controller
                 Program::updateOrCreate(
                     ['id' => $item['id']],
                     [
-                        'name'        => $item['name'],
-                        'code'        => $code,
+                        'name' => $item['name'],
+                        'code' => $code,
                         'description' => $item['description'] ?? "Program Pesantren {$item['name']}",
                     ]
                 );
@@ -81,15 +81,16 @@ class ProgramController extends Controller
             }
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => "Berhasil menyinkronkan {$syncedCount} program pesantren dari SMPT.",
-                'data'    => Program::orderBy('id', 'asc')->get(),
+                'data' => Program::orderBy('id', 'asc')->get(),
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error syncing programs from SMPT: ' . $e->getMessage());
+            Log::error('Error syncing programs from SMPT: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Terjadi kesalahan saat menyinkronkan program dari SMPT: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat menyinkronkan program dari SMPT: '.$e->getMessage(),
             ], 500);
         }
     }

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -21,7 +20,7 @@ class UserController extends Controller
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -36,7 +35,7 @@ class UserController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $users,
+            'data' => $users,
         ]);
     }
 
@@ -46,28 +45,28 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|string|email|max:255|unique:users,email',
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:6',
-            'role'     => 'nullable|string|exists:roles,name',
-            'roles'    => 'nullable|array',
-            'roles.*'  => 'string|exists:roles,name',
+            'role' => 'nullable|string|exists:roles,name',
+            'roles' => 'nullable|array',
+            'roles.*' => 'string|exists:roles,name',
         ]);
 
         $user = User::create([
-            'name'     => $validated['name'],
-            'email'    => $validated['email'],
+            'name' => $validated['name'],
+            'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role'     => $validated['role'] ?? ($validated['roles'][0] ?? 'staf'),
+            'role' => $validated['role'] ?? ($validated['roles'][0] ?? 'staf'),
         ]);
 
         $rolesToSync = $validated['roles'] ?? (isset($validated['role']) ? [$validated['role']] : ['staf']);
         $user->syncRoles($rolesToSync);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'User berhasil ditambahkan.',
-            'data'    => $user->load('roles'),
+            'data' => $user->load('roles'),
         ], 201);
     }
 
@@ -80,7 +79,7 @@ class UserController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $user,
+            'data' => $user,
         ]);
     }
 
@@ -92,20 +91,20 @@ class UserController extends Controller
         $user = User::findOrFail($id);
 
         $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'name' => 'required|string|max:255',
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|string|min:6',
-            'role'     => 'nullable|string|exists:roles,name',
-            'roles'    => 'nullable|array',
-            'roles.*'  => 'string|exists:roles,name',
+            'role' => 'nullable|string|exists:roles,name',
+            'roles' => 'nullable|array',
+            'roles.*' => 'string|exists:roles,name',
         ]);
 
         $updateData = [
-            'name'  => $validated['name'],
+            'name' => $validated['name'],
             'email' => $validated['email'],
         ];
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $updateData['password'] = Hash::make($validated['password']);
         }
 
@@ -117,7 +116,7 @@ class UserController extends Controller
 
         if (isset($validated['roles'])) {
             $user->syncRoles($validated['roles']);
-            if (empty($validated['role']) && !empty($validated['roles'])) {
+            if (empty($validated['role']) && ! empty($validated['roles'])) {
                 $user->update(['role' => $validated['roles'][0]]);
             }
         } elseif (isset($validated['role'])) {
@@ -125,9 +124,9 @@ class UserController extends Controller
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'User berhasil diperbarui.',
-            'data'    => $user->load('roles'),
+            'data' => $user->load('roles'),
         ]);
     }
 
@@ -141,7 +140,7 @@ class UserController extends Controller
 
         if ($user->id == $currentUserId) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Anda tidak dapat menghapus akun Anda sendiri.',
             ], 403);
         }
@@ -150,7 +149,7 @@ class UserController extends Controller
             $superCount = User::role('superadmin')->count();
             if ($superCount <= 1) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Tidak dapat menghapus superadmin terakhir di sistem.',
                 ], 403);
             }
@@ -159,7 +158,7 @@ class UserController extends Controller
         $user->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'User berhasil dihapus.',
         ]);
     }
@@ -179,7 +178,7 @@ class UserController extends Controller
         $user->save();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => "Password untuk {$user->name} berhasil di-reset.",
         ]);
     }

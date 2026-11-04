@@ -5,10 +5,21 @@ namespace App\Http\Controllers\Api\Master;
 use App\Http\Controllers\Controller;
 use App\Models\LessonHour;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Log;
 
-class LessonHourController extends Controller
+class LessonHourController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:jam-pelajaran.create', only: ['store']),
+            new Middleware('permission:jam-pelajaran.update', only: ['update']),
+            new Middleware('permission:jam-pelajaran.delete', only: ['destroy']),
+        ];
+    }
+
     public function index(Request $request)
     {
         try {
@@ -25,14 +36,15 @@ class LessonHourController extends Controller
             $hours = $query->orderBy('order', 'asc')->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data jam pelajaran berhasil diambil',
-                'data'    => $hours,
+                'data' => $hours,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error retrieving lesson hours: ' . $e->getMessage());
+            Log::error('Error retrieving lesson hours: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil data jam pelajaran',
             ], 500);
         }
@@ -42,28 +54,29 @@ class LessonHourController extends Controller
     {
         $validated = $request->validate([
             'educational_institution_id' => 'nullable|exists:educational_institutions,id',
-            'name'                       => 'required|string|max:100',
-            'start_time'                 => 'required|date_format:H:i',
-            'end_time'                   => 'required|date_format:H:i|after:start_time',
-            'order'                      => 'nullable|integer',
-            'is_break'                   => 'nullable|boolean',
-            'description'                => 'nullable|string',
-            'is_active'                  => 'nullable|boolean',
+            'name' => 'required|string|max:100',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i|after:start_time',
+            'order' => 'nullable|integer',
+            'is_break' => 'nullable|boolean',
+            'description' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
         ]);
 
         try {
             $hour = LessonHour::create($validated);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Jam pelajaran berhasil ditambahkan',
-                'data'    => $hour->load('educationalInstitution'),
+                'data' => $hour->load('educationalInstitution'),
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error creating lesson hour: ' . $e->getMessage());
+            Log::error('Error creating lesson hour: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menambahkan jam pelajaran: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menambahkan jam pelajaran: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -72,17 +85,17 @@ class LessonHourController extends Controller
     {
         $hour = LessonHour::with('educationalInstitution')->find($id);
 
-        if (!$hour) {
+        if (! $hour) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Jam pelajaran tidak ditemukan',
             ], 404);
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail jam pelajaran berhasil diambil',
-            'data'    => $hour,
+            'data' => $hour,
         ], 200);
     }
 
@@ -90,36 +103,37 @@ class LessonHourController extends Controller
     {
         $hour = LessonHour::find($id);
 
-        if (!$hour) {
+        if (! $hour) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Jam pelajaran tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
             'educational_institution_id' => 'nullable|exists:educational_institutions,id',
-            'name'                       => 'sometimes|required|string|max:100',
-            'start_time'                 => 'sometimes|required|date_format:H:i',
-            'end_time'                   => 'sometimes|required|date_format:H:i',
-            'order'                      => 'nullable|integer',
-            'is_break'                   => 'nullable|boolean',
-            'description'                => 'nullable|string',
-            'is_active'                  => 'nullable|boolean',
+            'name' => 'sometimes|required|string|max:100',
+            'start_time' => 'sometimes|required|date_format:H:i',
+            'end_time' => 'sometimes|required|date_format:H:i',
+            'order' => 'nullable|integer',
+            'is_break' => 'nullable|boolean',
+            'description' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
         ]);
 
         try {
             $hour->update($validated);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Jam pelajaran berhasil diperbarui',
-                'data'    => $hour->fresh('educationalInstitution'),
+                'data' => $hour->fresh('educationalInstitution'),
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error updating lesson hour: ' . $e->getMessage());
+            Log::error('Error updating lesson hour: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui jam pelajaran',
             ], 500);
         }
@@ -129,23 +143,25 @@ class LessonHourController extends Controller
     {
         $hour = LessonHour::find($id);
 
-        if (!$hour) {
+        if (! $hour) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Jam pelajaran tidak ditemukan',
             ], 404);
         }
 
         try {
             $hour->delete();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Jam pelajaran berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting lesson hour: ' . $e->getMessage());
+            Log::error('Error deleting lesson hour: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghapus jam pelajaran',
             ], 500);
         }

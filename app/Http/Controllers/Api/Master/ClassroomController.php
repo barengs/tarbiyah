@@ -5,10 +5,21 @@ namespace App\Http\Controllers\Api\Master;
 use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Log;
 
-class ClassroomController extends Controller
+class ClassroomController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:kelas.create', only: ['store']),
+            new Middleware('permission:kelas.update', only: ['update']),
+            new Middleware('permission:kelas.delete', only: ['destroy']),
+        ];
+    }
+
     /**
      * Tampilkan daftar ruang kelas fisik (Gedung, Lab, Ruang Belajar).
      */
@@ -26,21 +37,22 @@ class ClassroomController extends Controller
                 $search = $request->query('search');
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%");
+                        ->orWhere('description', 'like', "%{$search}%");
                 });
             }
 
             $classrooms = $query->orderBy('name', 'asc')->get();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Data ruang kelas berhasil diambil',
-                'data'    => $classrooms,
+                'data' => $classrooms,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching classrooms: ' . $e->getMessage());
+            Log::error('Error fetching classrooms: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal mengambil data ruang kelas',
             ], 500);
         }
@@ -53,29 +65,30 @@ class ClassroomController extends Controller
     {
         $validated = $request->validate([
             'educational_institution_id' => 'nullable|exists:educational_institutions,id',
-            'name'                       => 'required|string|max:255',
-            'capacity'                   => 'nullable|integer|min:1',
-            'description'                => 'nullable|string',
+            'name' => 'required|string|max:255',
+            'capacity' => 'nullable|integer|min:1',
+            'description' => 'nullable|string',
         ]);
 
         try {
             $classroom = Classroom::create([
                 'educational_institution_id' => $validated['educational_institution_id'] ?? null,
-                'name'                       => $validated['name'],
-                'capacity'                   => $validated['capacity'] ?? 30,
-                'description'                => $validated['description'] ?? null,
+                'name' => $validated['name'],
+                'capacity' => $validated['capacity'] ?? 30,
+                'description' => $validated['description'] ?? null,
             ]);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Ruang kelas berhasil ditambahkan',
-                'data'    => $classroom->load('educationalInstitution'),
+                'data' => $classroom->load('educationalInstitution'),
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error creating classroom: ' . $e->getMessage());
+            Log::error('Error creating classroom: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menambahkan ruang kelas: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menambahkan ruang kelas: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -89,17 +102,17 @@ class ClassroomController extends Controller
             ->withCount(['classGroups', 'schedules'])
             ->find($id);
 
-        if (!$classroom) {
+        if (! $classroom) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Ruang kelas tidak ditemukan',
             ], 404);
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail ruang kelas berhasil diambil',
-            'data'    => $classroom,
+            'data' => $classroom,
         ], 200);
     }
 
@@ -110,32 +123,33 @@ class ClassroomController extends Controller
     {
         $classroom = Classroom::find($id);
 
-        if (!$classroom) {
+        if (! $classroom) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Ruang kelas tidak ditemukan',
             ], 404);
         }
 
         $validated = $request->validate([
             'educational_institution_id' => 'nullable|exists:educational_institutions,id',
-            'name'                       => 'sometimes|required|string|max:255',
-            'capacity'                   => 'nullable|integer|min:1',
-            'description'                => 'nullable|string',
+            'name' => 'sometimes|required|string|max:255',
+            'capacity' => 'nullable|integer|min:1',
+            'description' => 'nullable|string',
         ]);
 
         try {
             $classroom->update($validated);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Ruang kelas berhasil diperbarui',
-                'data'    => $classroom->fresh('educationalInstitution'),
+                'data' => $classroom->fresh('educationalInstitution'),
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error updating classroom: ' . $e->getMessage());
+            Log::error('Error updating classroom: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal memperbarui ruang kelas',
             ], 500);
         }
@@ -148,16 +162,16 @@ class ClassroomController extends Controller
     {
         $classroom = Classroom::withCount(['classGroups', 'schedules'])->find($id);
 
-        if (!$classroom) {
+        if (! $classroom) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Ruang kelas tidak ditemukan',
             ], 404);
         }
 
         if ($classroom->class_groups_count > 0 || $classroom->schedules_count > 0) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Ruang kelas tidak dapat dihapus karena masih digunakan dalam {$classroom->class_groups_count} rombel atau {$classroom->schedules_count} jadwal KBM.",
             ], 422);
         }
@@ -166,16 +180,16 @@ class ClassroomController extends Controller
             $classroom->delete();
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Ruang kelas berhasil dihapus',
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error deleting classroom: ' . $e->getMessage());
+            Log::error('Error deleting classroom: '.$e->getMessage());
+
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Gagal menghapus ruang kelas',
             ], 500);
         }
     }
 }
-

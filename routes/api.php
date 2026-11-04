@@ -71,7 +71,7 @@ Route::prefix('internal')->middleware('internal.key')->group(function () {
 });
 
 // Security & Role/Menu/User Management (Admin & Superadmin only)
-Route::prefix('security')->middleware(['autoprovision', 'auth:api'])->group(function () {
+Route::prefix('security')->middleware(['autoprovision', 'auth:api', 'role:superadmin|admin'])->group(function () {
     // Menu Management
     Route::get('menus', [SecurityController::class, 'getMenus']);
     Route::post('menus/reorder', [SecurityController::class, 'reorderMenus']);

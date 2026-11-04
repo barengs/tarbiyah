@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -17,11 +17,11 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $loginInput = $request->input('email') ?? $request->input('username');
-        $password   = $request->input('password');
+        $password = $request->input('password');
 
         if (empty($loginInput) || empty($password)) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Email/Username dan Password wajib diisi.',
             ], 422);
         }
@@ -31,24 +31,24 @@ class AuthController extends Controller
             ->orWhere('name', $loginInput)
             ->first();
 
-        if (!$user || !Hash::check($password, $user->password)) {
+        if (! $user || ! Hash::check($password, $user->password)) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Email atau Password salah.',
             ], 401);
         }
 
         try {
-            if (!$token = JWTAuth::fromUser($user)) {
+            if (! $token = JWTAuth::fromUser($user)) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Gagal membuat token autentikasi.',
                 ], 401);
             }
         } catch (JWTException $e) {
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal membuat token: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal membuat token: '.$e->getMessage(),
             ], 500);
         }
 
@@ -64,15 +64,16 @@ class AuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $user,
+            'data' => $user,
         ]);
     }
 
     public function logout()
     {
         auth('api')->logout();
+
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Berhasil logout.',
         ]);
     }
@@ -85,11 +86,12 @@ class AuthController extends Controller
             if ($user) {
                 $user->load('roles');
             }
+
             return $this->respondWithToken($token, $user);
         } catch (\Exception $e) {
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Token tidak valid untuk di-refresh: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Token tidak valid untuk di-refresh: '.$e->getMessage(),
             ], 401);
         }
     }
@@ -102,16 +104,16 @@ class AuthController extends Controller
     protected function respondWithToken($token, $user = null)
     {
         $userData = $user ?? auth('api')->user();
-        if ($userData && !$userData->relationLoaded('roles')) {
+        if ($userData && ! $userData->relationLoaded('roles')) {
             $userData->load('roles');
         }
 
         return response()->json([
-            'status'       => 'success',
+            'status' => 'success',
             'access_token' => $token,
-            'token_type'   => 'bearer',
-            'expires_in'   => auth('api')->factory()->getTTL() * 60,
-            'user'         => $userData,
+            'token_type' => 'bearer',
+            'expires_in' => auth('api')->factory()->getTTL() * 60,
+            'user' => $userData,
         ]);
     }
 
@@ -129,7 +131,7 @@ class AuthController extends Controller
             $smptUser = JWTAuth::setToken($validated['token'])->getPayload();
         } catch (JWTException $e) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'SSO gagal: token pesantren tidak valid atau kedaluwarsa.',
             ], 401);
         }
@@ -137,7 +139,7 @@ class AuthController extends Controller
         $email = $smptUser['email'] ?? null;
         if (empty($email)) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'SSO gagal: token tidak memuat email pengguna.',
             ], 401);
         }
@@ -146,22 +148,22 @@ class AuthController extends Controller
         $rawRole = $smptUser['role'] ?? ($smptUser['roles'][0] ?? 'staf');
         $roleMap = [
             'superadmin' => 'superadmin',
-            'admin'      => 'admin',
-            'asatidz'    => 'asatidz',
-            'guru'       => 'asatidz',
-            'staf'       => 'staf',
-            'staff'      => 'staf',
-            'walikelas'  => 'walikelas',
+            'admin' => 'admin',
+            'asatidz' => 'asatidz',
+            'guru' => 'asatidz',
+            'staf' => 'staf',
+            'staff' => 'staf',
+            'walikelas' => 'walikelas',
         ];
         $tarbiyahRole = $roleMap[strtolower((string) $rawRole)] ?? 'staf';
 
         $user = User::where('email', $email)->first();
-        if (!$user) {
+        if (! $user) {
             $user = User::create([
-                'name'     => $smptUser['name'] ?? ($smptUser['sub_name'] ?? $email),
-                'email'    => $email,
+                'name' => $smptUser['name'] ?? ($smptUser['sub_name'] ?? $email),
+                'email' => $email,
                 'password' => Hash::make(Str::random(32)),
-                'role'     => $tarbiyahRole,
+                'role' => $tarbiyahRole,
             ]);
         } else {
             $user->update([
@@ -180,8 +182,8 @@ class AuthController extends Controller
             $token = JWTAuth::fromUser($user);
         } catch (JWTException $e) {
             return response()->json([
-                'status'  => 'error',
-                'message' => 'SSO gagal membuat token tarbiyah: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'SSO gagal membuat token tarbiyah: '.$e->getMessage(),
             ], 500);
         }
 

@@ -19,6 +19,8 @@ use App\Services\BankSantriService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -31,8 +33,16 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-class AssessmentController extends Controller
+class AssessmentController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:rapor.create|rapor.update', only: ['updateGradingPeriod', 'saveQuarterlySheet', 'toggleScoreLock', 'saveRemedialScores', 'importCollectiveExcel', 'saveScores', 'store', 'update']),
+            new Middleware('permission:rapor.delete', only: ['destroy']),
+        ];
+    }
+
     /**
      * Petakan nama kuartal (Triwulan I..IV) ke kode standar triwulan_1..4.
      */

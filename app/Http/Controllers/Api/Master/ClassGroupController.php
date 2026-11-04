@@ -9,11 +9,22 @@ use App\Models\Education;
 use App\Models\EducationalInstitution;
 use App\Models\StudentClass;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ClassGroupController extends Controller
+class ClassGroupController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:rombel.create', only: ['store', 'addStudent', 'assignSubject']),
+            new Middleware('permission:rombel.update', only: ['update', 'promoteTahfidzLevel']),
+            new Middleware('permission:rombel.delete', only: ['destroy', 'removeStudent']),
+        ];
+    }
+
     public function index(Request $request)
     {
         try {

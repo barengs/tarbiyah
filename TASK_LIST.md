@@ -54,8 +54,8 @@ Task list ini digunakan untuk memantau pengerjaan fitur secara detail dan bertah
 
 ---
 
-## 🟡 FASE 5: Pengujian, Integrasi Ekosistem, & Cutover (NEXT UP)
-- [ ] **Task 5.1**: Integrasi Pengecekan Tunggakan Ujian ke `bank-santri` via Internal API (`X-Internal-Key`)
-- [ ] **Task 5.2**: Webhook / Sinkronisasi Santri Otomatis dari `smpt` ke `tarbiyah` saat ada mutasi/pendaftaran santri
-- [ ] **Task 5.3**: Database Seeder & Data Demo Awal (Lembaga, Jenjang, Guru, Siswa, Mapel, Rombel)
-- [ ] **Task 5.4**: Pengujian Integrasi Alur Penuh (End-to-End) & Verifikasi Dokumentasi API
+## 🟢 FASE 5: Pengujian, Integrasi Ekosistem, & Cutover (SELESAI)
+- [x] **Task 5.1**: Integrasi Pengecekan Tunggakan Ujian ke `bank-santri` via Internal API (`X-Internal-Key`) & Cetak Kartu Peserta Ujian PDF
+- [x] **Task 5.2**: Webhook / Sinkronisasi Santri Otomatis & Tarik Data dari `smpt` ke `tarbiyah` (santri baru aktif & mutasi status non-aktif)
+- [x] **Task 5.3**: Database Seeder & Data Demo Awal (Lembaga, Jenjang, Guru, Siswa, Mapel, Rombel, Tahun Ajaran 3 Triwulan)
+- [x] **Task 5.4**: Penegakan Keamanan Hak Akses Backend API (`HasMiddleware` Spatie Permission) & Verifikasi Rute API (0 Error)

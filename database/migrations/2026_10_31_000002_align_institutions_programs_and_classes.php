@@ -26,6 +26,22 @@ return new class extends Migration
         // 1b. Perluas enum progression_type pada tabel class_groups agar mencakup 'triwulan'
         DB::statement("ALTER TABLE class_groups MODIFY COLUMN progression_type ENUM('triwulan', 'semester', 'leveling') NOT NULL DEFAULT 'triwulan'");
 
+        // 1c. Pastikan master education_types (ID 1 & 2) tersedia saat migrasi dijalankan di DB kosong
+        DB::table('education_types')->insertOrIgnore([
+            [
+                'id'         => 1,
+                'name'       => "Pesantren Mu'allimin",
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id'         => 2,
+                'name'       => 'Pesantren Takhossus',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
         // 2. Koreksi & Lengkapi Data Master Institusi Pendidikan (Institusi == Jenjang)
         // ID 1: Madrasah Diniyah Ula (MDU)
         DB::table('educational_institutions')->updateOrInsert(

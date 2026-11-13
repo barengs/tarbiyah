@@ -1,0 +1,85 @@
+name: Build & Deploy Tarbiyah
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to VPS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Execute remote deployment commands via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SERVER_IP }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_SERVER_PORT || 22 }}
+          script: |
+            set -e
+            echo "🚀 Deploying Tarbiyah..."
+            cd /var/www/tarbiyah
+
+            echo "📥 Pulling latest image..."
+            docker compose pull
+
+            echo "🔄 Updating containers..."
+            docker compose up -d --remove-orphans
+
+            echo "📦 Running migrations..."
+            docker compose exec -T tarbiyah-app php artisan migrate --force
+
+            echo "⚡ Clearing and caching optimizations..."
+            docker compose exec -T tarbiyah-app php artisan optimize:clear
+            docker compose exec -T tarbiyah-app php artisan optimize
+
+            echo "🧹 Cleaning up dangling images..."
+            docker image prune -f
+
+            echo "✅ Deployment Tarbiyah complete!"
+

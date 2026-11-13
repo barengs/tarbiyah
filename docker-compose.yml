@@ -1,0 +1,44 @@
+services:
+  tarbiyah-app:
+    image: ghcr.io/barengs/tarbiyah:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tarbiyah-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - tarbiyah_storage:/var/www/html/storage/app/public
+    networks:
+      - tamjid-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/up || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  tarbiyah-worker:
+    image: ghcr.io/barengs/tarbiyah:latest
+    container_name: tarbiyah-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=90"]
+    volumes:
+      - tarbiyah_storage:/var/www/html/storage/app/public
+    networks:
+      - tamjid-net
+    depends_on:
+      tarbiyah-app:
+        condition: service_healthy
+
+volumes:
+  tarbiyah_storage:
+    name: tarbiyah_storage
+
+networks:
+  tamjid-net:
+    external: true
+

@@ -355,7 +355,7 @@ class DashboardController extends Controller
                     'triwulan' => $triwulanName,
                     'triwulan_detail' => $triwulanDetail,
                     'period' => $triwulanName.' • TA '.$hijriYear,
-                    'full_label' => "Tahun Akademik {$selectedYear->year} {$triwulanName}",
+                    'full_label' => 'Tahun Akademik '.($selectedYear ? $selectedYear->year : '1446-1447')." {$triwulanName}",
                     'hijri' => '14 Syawal 1446 H',
                     'is_system_active' => $isSystemActive,
                 ],

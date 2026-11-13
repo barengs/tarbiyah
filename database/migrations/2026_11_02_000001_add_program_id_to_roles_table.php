@@ -12,16 +12,38 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('roles', function (Blueprint $table) {
-            $table->foreignId('program_id')
-                ->nullable()
-                ->after('guard_name')
-                ->constrained('programs')
-                ->nullOnDelete();
-        });
+        if (!Schema::hasColumn('roles', 'program_id')) {
+            Schema::table('roles', function (Blueprint $table) {
+                $table->foreignId('program_id')
+                    ->nullable()
+                    ->after('guard_name')
+                    ->constrained('programs')
+                    ->nullOnDelete();
+            });
+        }
 
         // Seed / inisialisasi default roles berbasis cakupan program pesantren
         $now = now();
+
+        // Pastikan master programs (ID 1 & 2) tersedia saat migrasi dijalankan di DB kosong
+        DB::table('programs')->insertOrIgnore([
+            [
+                'id'          => 1,
+                'name'        => 'Tibyan',
+                'code'        => 'TBY',
+                'description' => 'Program Dirasah Takhossus Pendalaman Kitab Kuning',
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ],
+            [
+                'id'          => 2,
+                'name'        => 'Kubar',
+                'code'        => 'KBR',
+                'description' => "Program Kuliyyah Tarbiyah Mu'allimin Pesantren",
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ],
+        ]);
         $rolesToSeed = [
             [
                 'name'       => 'staf-kubar',

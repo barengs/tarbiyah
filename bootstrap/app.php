@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: '*');
         $middleware->alias([
             'internal.key'       => \App\Http\Middleware\InternalApiKey::class,
             'autoprovision'      => \App\Http\Middleware\AutoProvisionUser::class,

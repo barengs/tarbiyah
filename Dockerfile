@@ -14,7 +14,7 @@ RUN npm run build
 FROM composer:2 AS composer-builder
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts --ignore-platform-req=ext-gd --ignore-platform-req=ext-zip --ignore-platform-req=ext-intl
 
 # =============================================================
 # Stage 3: Final Production Runtime (PHP 8.4-FPM + Nginx)

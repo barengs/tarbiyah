@@ -123,7 +123,7 @@ export default function ClassGroupPage() {
         setEditingItem(null);
         setName('');
         setCode('');
-        setInstitutionId(instFilter || institutions[0]?.id || '');
+        setInstitutionId(instFilter || '');
         setEducationClassId('');
         setHomeroomTeacherId('');
         setGender('campur');
@@ -774,7 +774,10 @@ export default function ClassGroupPage() {
                             <select
                                 required
                                 value={institutionId}
-                                onChange={(e) => setInstitutionId(e.target.value)}
+                                onChange={(e) => {
+                                    setInstitutionId(e.target.value);
+                                    setEducationClassId('');
+                                }}
                                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                             >
                                 <option value="">-- Pilih Lembaga --</option>
@@ -795,9 +798,16 @@ export default function ClassGroupPage() {
                             >
                                 <option value="">-- Tanpa Tingkat Khusus --</option>
                                 {educationClasses.map((cls) => (
-                                    <option key={cls.id} value={cls.id}>{cls.name} ({cls.code})</option>
+                                    <option key={cls.id} value={cls.id}>
+                                        {cls.name} ({cls.code})
+                                    </option>
                                 ))}
                             </select>
+                            {institutionId && educationClasses.length === 0 && (
+                                <p className="mt-1 text-[11px] text-amber-600">
+                                    Belum ada tingkat kelas untuk lembaga ini. Pilih lembaga lain atau tambahkan di menu Tingkat Kelas.
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Wali Kelas</label>

@@ -31,27 +31,28 @@ export default function BulkAssignProgramModal({ open, onClose, selectedStudents
     }, [classGroups]);
 
     const filteredClassGroups = useMemo(() => {
-        if (!programId) return classGroups;
-        return classGroups.filter((cg) => String(cg.program_id) === String(programId));
+        if (!programId || programId === '0') return classGroups;
+        return classGroups.filter((cg) => {
+            const cgProgramId = cg.program_id ?? cg.educational_institution?.program_id ?? cg.education?.program_id;
+            return !cgProgramId || String(cgProgramId) === String(programId);
+        });
     }, [classGroups, programId]);
 
-    // Kelompok rombel per jenjang untuk tampilan rapi
+    // Kelompok rombel per jenjang / lembaga untuk tampilan rapi
     const classGroupsByEducation = useMemo(() => {
         const map = {};
         (filteredClassGroups || []).forEach((cg) => {
-            const key = cg.education_id || 'unset';
-            if (!map[key]) map[key] = { label: key === 'unset' ? 'Belum ditentukan jenjang' : (cg.education?.name || 'Jenjang lain'), groups: [] };
+            const key = cg.education_id ? `edu-${cg.education_id}` : (cg.educational_institution_id ? `inst-${cg.educational_institution_id}` : 'unset');
+            const label = cg.education?.name || cg.educational_institution?.name || 'Lainnya';
+            if (!map[key]) map[key] = { label, groups: [] };
             map[key].groups.push(cg);
         });
-        // Urutkan: jenjang yang sudah ada dulu, "unset" terakhir
         return Object.entries(map).sort(([aKey, a], [bKey, b]) => {
             if (aKey === 'unset') return 1;
             if (bKey === 'unset') return -1;
-            const aName = educations.find((e) => String(e.id) === aKey)?.name || aKey;
-            const bName = educations.find((e) => String(e.id) === bKey)?.name || bKey;
-            return aName.localeCompare(bName);
+            return a.label.localeCompare(b.label);
         });
-    }, [filteredClassGroups, educations]);
+    }, [filteredClassGroups]);
 
     // Program list: dari props (sudah difetch di parent) atau derive dari rombel
     const availablePrograms = programsFromParent?.length ? programsFromParent : programs;

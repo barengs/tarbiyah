@@ -94,6 +94,7 @@ class ClassGroupController extends Controller implements HasMiddleware
     {
         $validated = $request->validate([
             'academic_year_id' => 'required|exists:academic_years,id',
+            'program_id' => 'nullable|exists:programs,id',
             'educational_institution_id' => 'required|exists:educational_institutions,id',
             'education_id' => 'nullable|exists:educations,id',
             'education_class_id' => 'nullable|exists:education_classes,id',
@@ -113,11 +114,16 @@ class ClassGroupController extends Controller implements HasMiddleware
             if (empty($validated['progression_type'])) {
                 $validated['progression_type'] = $inst?->progression_type ?? 'triwulan';
             }
+            if (empty($validated['program_id']) && $inst?->program_id) {
+                $validated['program_id'] = $inst->program_id;
+            }
             if (empty($validated['education_id']) && $inst) {
                 $edu = Education::where('educational_institution_id', $inst->id)->first();
                 if ($edu) {
                     $validated['education_id'] = $edu->id;
-                    $validated['program_id'] = $edu->program_id;
+                    if (empty($validated['program_id'])) {
+                        $validated['program_id'] = $edu->program_id;
+                    }
                 }
             }
 

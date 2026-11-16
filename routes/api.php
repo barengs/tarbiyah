@@ -130,6 +130,8 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
     Route::apiResource('academic-quarters', AcademicQuarterController::class);
 
     // Data Guru (Guru Pesantren & Guru Luar)
+    Route::get('teachers/pull-preview', [TeacherController::class, 'previewPullFromSmpt']);
+    Route::post('teachers/pull-from-smpt', [TeacherController::class, 'pullFromSmpt']);
     Route::post('teachers/{id}/studies', [TeacherController::class, 'syncStudies']);
     Route::apiResource('teachers', TeacherController::class);
 

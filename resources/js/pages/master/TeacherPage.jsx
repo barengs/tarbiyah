@@ -4,13 +4,15 @@ import {
     useGetTeachersQuery, 
     useCreateTeacherMutation, 
     useUpdateTeacherMutation, 
-    useDeleteTeacherMutation 
+    useDeleteTeacherMutation,
+    usePreviewPullTeachersQuery,
+    usePullTeachersFromSmptMutation,
 } from '../../store/slices/teacherApi';
 import DataTable from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AssignStudyModal from '../../components/organisms/AssignStudyModal';
-import { Plus, Edit2, Trash2, ShieldAlert, BookOpen, PlusCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, ShieldAlert, BookOpen, PlusCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function TeacherPage() {
@@ -26,8 +28,31 @@ export default function TeacherPage() {
     const [deleteTeacher, { isLoading: isDeleting }] = useDeleteTeacherMutation();
 
     const [modalOpen, setModalOpen] = useState(false);
+    const [pullModalOpen, setPullModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
+
+    const { data: pullPreviewData, isFetching: isPreviewLoading, refetch: refetchPreview } = usePreviewPullTeachersQuery(
+        undefined,
+        { skip: !pullModalOpen }
+    );
+    const [pullTeachersFromSmpt, { isLoading: isPulling }] = usePullTeachersFromSmptMutation();
+
+    const handleOpenPullModal = () => {
+        setPullModalOpen(true);
+        refetchPreview?.();
+    };
+
+    const handleConfirmPull = async () => {
+        try {
+            const res = await pullTeachersFromSmpt().unwrap();
+            toast.success(res?.message || 'Data guru berhasil ditarik dari SMPT');
+            setPullModalOpen(false);
+            refetch();
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal menarik data guru dari SMPT');
+        }
+    };
 
     // Penugasan Mata Pelajaran Modal
     const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -257,13 +282,23 @@ export default function TeacherPage() {
                         Kelola data dewan asatidz pesantren, guru formal, dan tenaga pengajar luar (mandiri).
                     </p>
                 </div>
-                <button
-                    onClick={openCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md hover:bg-[#0842a0] transition-colors shadow-sm self-start sm:self-auto"
-                >
-                    <Plus className="w-4 h-4" />
-                    Daftarkan Guru Baru
-                </button>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <button
+                        type="button"
+                        onClick={handleOpenPullModal}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white text-sm font-semibold rounded-md hover:bg-emerald-800 transition-colors shadow-sm"
+                    >
+                        <RefreshCw className="w-4 h-4" />
+                        Tarik Data Guru
+                    </button>
+                    <button
+                        onClick={openCreateModal}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md hover:bg-[#0842a0] transition-colors shadow-sm"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Daftarkan Guru Baru
+                    </button>
+                </div>
             </div>
 
             {/* Note banner */}
@@ -430,6 +465,92 @@ export default function TeacherPage() {
                 onConfirm={handleDelete}
                 onCancel={() => setDeleteTarget(null)}
             />
+
+            {/* Modal Tarik Data Guru dari SMPT */}
+            <Modal
+                open={pullModalOpen}
+                onClose={() => setPullModalOpen(false)}
+                title="Tarik Data Guru dari SMPT"
+                size="lg"
+                footer={
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => setPullModalOpen(false)}
+                            className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="button"
+                            disabled={isPulling || isPreviewLoading || !pullPreviewData?.data?.total_smpt}
+                            onClick={handleConfirmPull}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white text-xs font-bold rounded-md hover:bg-emerald-800 disabled:opacity-50"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isPulling ? 'animate-spin' : ''}`} />
+                            {isPulling ? 'Menyinkronkan...' : 'Tarik & Sinkronkan Sekarang'}
+                        </button>
+                    </>
+                }
+            >
+                {isPreviewLoading ? (
+                    <div className="py-8 text-center text-xs text-slate-500">
+                        Memuat pratinjau data guru dari SMPT...
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
+                                <p className="text-[11px] text-slate-500 font-semibold">Total Guru di SMPT</p>
+                                <p className="text-lg font-bold text-slate-800">{pullPreviewData?.data?.total_smpt ?? 0}</p>
+                            </div>
+                            <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200">
+                                <p className="text-[11px] text-emerald-700 font-semibold">Guru Baru</p>
+                                <p className="text-lg font-bold text-emerald-800">{pullPreviewData?.data?.new_teachers ?? 0}</p>
+                            </div>
+                            <div className="p-3 rounded-md bg-blue-50 border border-blue-200">
+                                <p className="text-[11px] text-blue-700 font-semibold">Sudah di Tarbiyah</p>
+                                <p className="text-lg font-bold text-blue-800">{pullPreviewData?.data?.already_in_tarbiyah ?? 0}</p>
+                            </div>
+                        </div>
+
+                        {pullPreviewData?.data?.preview_sample?.length > 0 ? (
+                            <div className="border border-slate-200 rounded-md overflow-hidden">
+                                <table className="w-full text-xs text-left">
+                                    <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-3 py-2">NIP / Kode</th>
+                                            <th className="px-3 py-2">Nama Guru</th>
+                                            <th className="px-3 py-2">Role SMPT</th>
+                                            <th className="px-3 py-2">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {pullPreviewData.data.preview_sample.map((row, idx) => (
+                                            <tr key={row.staff_id || idx}>
+                                                <td className="px-3 py-2 font-mono text-[11px]">{row.nip}</td>
+                                                <td className="px-3 py-2 font-semibold text-slate-800">{row.name}</td>
+                                                <td className="px-3 py-2 text-slate-600">{(row.roles || []).join(', ') || '-'}</td>
+                                                <td className="px-3 py-2">
+                                                    {row.is_new ? (
+                                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-700">Baru</span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-700">Update</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-500 text-center py-4">
+                                Tidak ada data staf dengan role guru/asatidz/walikelas yang ditemukan di SMPT.
+                            </p>
+                        )}
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }

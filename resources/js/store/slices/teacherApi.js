@@ -44,6 +44,16 @@ export const teacherApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: ['Teacher'],
         }),
+        previewPullTeachers: builder.query({
+            query: () => 'master/teachers/pull-preview',
+        }),
+        pullTeachersFromSmpt: builder.mutation({
+            query: () => ({
+                url: 'master/teachers/pull-from-smpt',
+                method: 'POST',
+            }),
+            invalidatesTags: ['Teacher'],
+        }),
     }),
 });
 
@@ -54,4 +64,6 @@ export const {
     useUpdateTeacherMutation,
     useAssignTeacherStudiesMutation,
     useDeleteTeacherMutation,
+    usePreviewPullTeachersQuery,
+    usePullTeachersFromSmptMutation,
 } = teacherApi;

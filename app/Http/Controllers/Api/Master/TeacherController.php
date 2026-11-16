@@ -10,6 +10,7 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class TeacherController extends Controller implements HasMiddleware
@@ -17,7 +18,7 @@ class TeacherController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('permission:guru.create', only: ['store']),
+            new Middleware('permission:guru.create', only: ['store', 'pullFromSmpt']),
             new Middleware('permission:guru.update', only: ['update', 'syncStudies']),
             new Middleware('permission:guru.delete', only: ['destroy']),
         ];
@@ -264,6 +265,159 @@ class TeacherController extends Controller implements HasMiddleware
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus data guru',
+            ], 500);
+        }
+    }
+
+    /**
+     * Pratinjau data guru/staf ber-role guru dari SMPT sebelum ditarik.
+     * GET /api/master/teachers/pull-preview
+     */
+    public function previewPullFromSmpt()
+    {
+        $smptCoreUrl = config('services.smpt.core_url', 'http://localhost:8000');
+        $internalKey = config('services.smpt.internal_key', 'smpt-tarbiyah-internal-secret-2026');
+
+        try {
+            $response = Http::timeout(10)->withHeaders([
+                'X-Internal-Key' => $internalKey,
+                'Accept' => 'application/json',
+            ])->get("{$smptCoreUrl}/api/internal/teachers");
+
+            if (! $response->successful()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
+                ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
+            }
+
+            $teachers = $response->json('data', []);
+            $existingStaffIds = Teacher::whereNotNull('staff_id')->pluck('id', 'staff_id')->all();
+            $existingNips = Teacher::whereNotNull('nip')->pluck('id', 'nip')->all();
+
+            $alreadyInTarbiyah = 0;
+            $newTeachers = 0;
+            $previewSample = [];
+
+            foreach ($teachers as $item) {
+                $staffId = $item['staff_id'] ?? null;
+                $nip = ! empty($item['nip']) ? trim($item['nip']) : null;
+
+                $exists = ($staffId && isset($existingStaffIds[$staffId])) || ($nip && isset($existingNips[$nip]));
+                if ($exists) {
+                    $alreadyInTarbiyah++;
+                } else {
+                    $newTeachers++;
+                }
+
+                if (count($previewSample) < 10) {
+                    $previewSample[] = [
+                        'staff_id' => $staffId,
+                        'nip' => $nip ?? '-',
+                        'name' => $item['name'] ?? 'Guru',
+                        'gender' => $item['gender'] ?? 'L',
+                        'phone' => $item['phone'] ?? '-',
+                        'roles' => $item['roles'] ?? [],
+                        'is_new' => ! $exists,
+                    ];
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'total_smpt' => count($teachers),
+                    'already_in_tarbiyah' => $alreadyInTarbiyah,
+                    'new_teachers' => $newTeachers,
+                    'preview_sample' => $previewSample,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error previewing teachers from SMPT: '.$e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat memuat pratinjau guru dari SMPT: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Tarik & sinkronisasi data guru/staf ber-role guru dari SMPT.
+     * POST /api/master/teachers/pull-from-smpt
+     */
+    public function pullFromSmpt()
+    {
+        $smptCoreUrl = config('services.smpt.core_url', 'http://localhost:8000');
+        $internalKey = config('services.smpt.internal_key', 'smpt-tarbiyah-internal-secret-2026');
+
+        try {
+            $response = Http::timeout(15)->withHeaders([
+                'X-Internal-Key' => $internalKey,
+                'Accept' => 'application/json',
+            ])->get("{$smptCoreUrl}/api/internal/teachers");
+
+            if (! $response->successful()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
+                ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
+            }
+
+            $teachers = $response->json('data', []);
+            $created = 0;
+            $updated = 0;
+
+            foreach ($teachers as $item) {
+                $staffId = $item['staff_id'] ?? null;
+                $nip = ! empty($item['nip']) ? trim($item['nip']) : null;
+                if (! $staffId && ! $nip) {
+                    continue;
+                }
+
+                $existing = null;
+                if ($staffId) {
+                    $existing = Teacher::where('staff_id', $staffId)->first();
+                }
+                if (! $existing && $nip) {
+                    $existing = Teacher::where('nip', $nip)->first();
+                }
+
+                $payload = [
+                    'staff_id' => $staffId,
+                    'nip' => $nip,
+                    'name' => trim($item['name'] ?? 'Guru'),
+                    'gender' => ($item['gender'] ?? 'L') === 'P' ? 'P' : 'L',
+                    'phone' => $item['phone'] ?? null,
+                    'email' => $item['email'] ?? null,
+                    'status' => $item['status'] ?? 'tetap',
+                    'is_active' => (bool) ($item['is_active'] ?? true),
+                ];
+
+                if ($existing) {
+                    $existing->update($payload);
+                    $updated++;
+                } else {
+                    Teacher::create($payload);
+                    $created++;
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Sinkronisasi selesai: {$created} guru baru ditambahkan, {$updated} guru diperbarui.",
+                'data' => [
+                    'created' => $created,
+                    'updated' => $updated,
+                    'total' => $created + $updated,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error pulling teachers from SMPT: '.$e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat menarik data guru dari SMPT: '.$e->getMessage(),
             ], 500);
         }
     }

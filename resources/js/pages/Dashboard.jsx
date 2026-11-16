@@ -13,6 +13,8 @@ import { resetToSystemActive } from '../store/slices/academicContextSlice';
 import HeroBanner from '../components/organisms/HeroBanner';
 import MetricCard from '../components/molecules/MetricCard';
 import PresenceChartCard from '../components/organisms/PresenceChartCard';
+import PresencePieChartCard from '../components/organisms/PresencePieChartCard';
+import StudentPeriodPieChartCard from '../components/organisms/StudentPeriodPieChartCard';
 import EducationDistributionCard from '../components/organisms/EducationDistributionCard';
 import ActiveScheduleWidget from '../components/organisms/ActiveScheduleWidget';
 import NoticeDisciplineWidget from '../components/organisms/NoticeDisciplineWidget';
@@ -52,6 +54,8 @@ export default function Dashboard() {
         { day: "Jum'at", jamaah: 0, kbm: 0, halaqah: 0 },
     ];
     const institutionDistribution = dashboardData?.data?.institution_distribution || [];
+    const studentsByAngkatan = dashboardData?.data?.students_by_angkatan || [];
+    const presencePie = dashboardData?.data?.presence_pie || [];
     const activeSchedules = dashboardData?.data?.active_schedules || [];
     const recentNotices = dashboardData?.data?.recent_notices || [];
 
@@ -180,6 +184,22 @@ export default function Dashboard() {
                 <div className="lg:col-span-5">
                     <EducationDistributionCard
                         institutions={institutionDistribution}
+                    />
+                </div>
+            </div>
+
+            {/* 3b. PIE CHARTS ROW: SANTRI PER PERIODE & KOMPOSISI PRESENSI */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                <div className="lg:col-span-6">
+                    <StudentPeriodPieChartCard
+                        data={studentsByAngkatan}
+                        totalSantri={ov.total_santri?.value ?? 0}
+                    />
+                </div>
+                <div className="lg:col-span-6">
+                    <PresencePieChartCard
+                        pieData={presencePie}
+                        summary={ov.presence || {}}
                     />
                 </div>
             </div>

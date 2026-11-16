@@ -112,6 +112,25 @@ class DashboardController extends Controller
             ? (clone $scopedStudentQuery)->whereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]))->count()
             : 0;
 
+        // 3b. DISTRIBUSI SANTRI AKTIF BERDASARKAN PERIODE / ANGKATAN (untuk Pie Chart)
+        $periodColors = ['#093c30', '#059669', '#0284c7', '#d97706', '#7c3aed', '#e11d48', '#64748b'];
+        $rawPeriodCounts = (clone $scopedStudentQuery)
+            ->selectRaw("COALESCE(NULLIF(TRIM(period), ''), 'Belum Diatur') as period_label, COUNT(*) as total")
+            ->groupBy('period_label')
+            ->orderByDesc('period_label')
+            ->get();
+
+        $studentsByAngkatan = [];
+        foreach ($rawPeriodCounts as $idx => $row) {
+            $count = (int) $row->total;
+            $studentsByAngkatan[] = [
+                'name' => $row->period_label,
+                'value' => $count,
+                'percentage' => $totalSantri > 0 ? round(($count / $totalSantri) * 100, 1) : 0,
+                'color' => $periodColors[$idx % count($periodColors)],
+            ];
+        }
+
         // 4. STATISTIK SISWA TIAP PERIODE AKADEMIK (TRIWULAN PESANTREN)
         $quarters = AcademicQuarter::where('academic_year_id', $selectedYear ? $selectedYear->id : null)
             ->orderBy('id', 'asc')
@@ -405,6 +424,7 @@ class DashboardController extends Controller
                 ],
                 'presence_pie' => $presencePie,
                 'students_by_period' => $studentsByPeriod,
+                'students_by_angkatan' => $studentsByAngkatan,
                 'programs_distribution' => $programDistribution,
                 'institution_distribution' => $institutionDistribution,
                 'active_schedules' => $formattedSchedules,

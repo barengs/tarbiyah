@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Internal;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicQuarter;
 use App\Models\ReportCard;
 use App\Models\Student;
 use App\Models\StudentClass;
@@ -20,6 +21,9 @@ class InternalStudentController extends Controller
         $validated = $request->validate([
             'santri_id' => 'required|integer',
             'nis' => 'required|string|max:255',
+            'period' => 'nullable|string|max:20',
+            'program_id' => 'nullable|integer',
+            'hostel_id' => 'nullable|integer',
             'nik' => 'nullable|string|max:30',
             'nisn' => 'nullable|string|max:50',
             'name' => 'required|string|max:255',
@@ -34,22 +38,15 @@ class InternalStudentController extends Controller
         ]);
 
         try {
-            $statusMap = [
-                'aktif' => 'aktif',
-                'lulus' => 'lulus',
-                'mutasi' => 'mutasi',
-                'keluar' => 'keluar',
-                'tugas' => 'aktif',
-                'dikeluarkan' => 'keluar',
-                'tidak aktif' => 'keluar',
-            ];
-            $rawStatus = strtolower($validated['status'] ?? 'aktif');
-            $status = $statusMap[$rawStatus] ?? 'aktif';
+            [$studentStatus, $classStatus] = $this->mapStatuses($validated['status'] ?? 'Aktif');
 
             $student = Student::updateOrCreate(
                 ['nis' => $validated['nis']],
                 [
                     'santri_id' => $validated['santri_id'],
+                    'period' => $validated['period'] ?? null,
+                    'program_id' => $validated['program_id'] ?? null,
+                    'hostel_id' => $validated['hostel_id'] ?? null,
                     'nik' => $validated['nik'] ?? null,
                     'nisn' => $validated['nisn'] ?? null,
                     'name' => $validated['name'],
@@ -61,16 +58,16 @@ class InternalStudentController extends Controller
                     'born_in' => $validated['born_in'] ?? null,
                     'born_at' => $validated['born_at'] ?? null,
                     'photo' => $validated['photo'] ?? null,
-                    'status' => $status,
+                    'status' => $studentStatus,
                 ]
             );
 
             // Jika santri non-aktif (lulus, keluar, mutasi), nonaktifkan keanggotaan kelas aktifnya
-            if ($status !== 'aktif') {
+            if ($classStatus !== 'aktif') {
                 StudentClass::where('student_id', $student->id)
                     ->where('status', 'aktif')
                     ->update([
-                        'status' => $status,
+                        'status' => $classStatus,
                         'left_at' => now(),
                     ]);
             }
@@ -102,6 +99,9 @@ class InternalStudentController extends Controller
             'students' => 'required|array',
             'students.*.santri_id' => 'required|integer',
             'students.*.nis' => 'required|string|max:255',
+            'students.*.period' => 'nullable|string|max:20',
+            'students.*.program_id' => 'nullable|integer',
+            'students.*.hostel_id' => 'nullable|integer',
             'students.*.nik' => 'nullable|string|max:30',
             'students.*.nisn' => 'nullable|string|max:50',
             'students.*.name' => 'required|string|max:255',
@@ -119,23 +119,16 @@ class InternalStudentController extends Controller
         $updated = 0;
 
         foreach ($validated['students'] as $data) {
-            $statusMap = [
-                'aktif' => 'aktif',
-                'lulus' => 'lulus',
-                'mutasi' => 'mutasi',
-                'keluar' => 'keluar',
-                'tugas' => 'aktif',
-                'dikeluarkan' => 'keluar',
-                'tidak aktif' => 'keluar',
-            ];
-            $rawStatus = strtolower($data['status'] ?? 'aktif');
-            $status = $statusMap[$rawStatus] ?? 'aktif';
+            [$studentStatus, $classStatus] = $this->mapStatuses($data['status'] ?? 'Aktif');
 
             $existing = Student::where('nis', $data['nis'])->first();
             $student = Student::updateOrCreate(
                 ['nis' => $data['nis']],
                 [
                     'santri_id' => $data['santri_id'],
+                    'period' => $data['period'] ?? null,
+                    'program_id' => $data['program_id'] ?? null,
+                    'hostel_id' => $data['hostel_id'] ?? null,
                     'nik' => $data['nik'] ?? null,
                     'nisn' => $data['nisn'] ?? null,
                     'name' => $data['name'],
@@ -147,15 +140,15 @@ class InternalStudentController extends Controller
                     'born_in' => $data['born_in'] ?? null,
                     'born_at' => $data['born_at'] ?? null,
                     'photo' => $data['photo'] ?? null,
-                    'status' => $status,
+                    'status' => $studentStatus,
                 ]
             );
 
-            if ($status !== 'aktif') {
+            if ($classStatus !== 'aktif') {
                 StudentClass::where('student_id', $student->id)
                     ->where('status', 'aktif')
                     ->update([
-                        'status' => $status,
+                        'status' => $classStatus,
                         'left_at' => now(),
                     ]);
             }
@@ -253,5 +246,124 @@ class InternalStudentController extends Controller
                 ]),
             ],
         ]);
+    }
+
+    /**
+     * Batch ambil kelas aktif santri berdasarkan daftar NIS untuk SMPT.
+     * POST /api/internal/students/current-classes
+     */
+    public function getCurrentClasses(Request $request)
+    {
+        $validated = $request->validate([
+            'nis_list' => 'required|array|max:500',
+            'nis_list.*' => 'required|string|max:50',
+        ]);
+
+        $students = Student::whereIn('nis', $validated['nis_list'])->get(['id', 'nis']);
+        if ($students->isEmpty()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [],
+            ]);
+        }
+
+        $nisByStudentId = $students->pluck('nis', 'id');
+
+        $activeClasses = StudentClass::with([
+            'academicYear',
+            'educationalInstitution',
+            'classGroup.classroom',
+            'classGroup.educationClass',
+        ])
+            ->whereIn('student_id', $students->pluck('id'))
+            ->where('status', 'aktif')
+            ->orderByDesc('id')
+            ->get()
+            ->unique('student_id');
+
+        $result = [];
+        foreach ($activeClasses as $sc) {
+            $nis = $nisByStudentId->get($sc->student_id);
+            if (! $nis) {
+                continue;
+            }
+
+            $result[$nis] = [
+                'id' => $sc->id,
+                'class_group_id' => $sc->class_group_id,
+                'class_name' => $sc->classGroup?->name ?? '-',
+                'class_group' => $sc->classGroup?->name ?? '-',
+                'grade_level' => $sc->classGroup?->educationClass?->name ?? null,
+                'institution' => $sc->educationalInstitution?->institution_name ?? '-',
+                'classroom' => $sc->classGroup?->classroom?->name ?? '-',
+                'academic_year' => $sc->academicYear?->year ?? '-',
+            ];
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * Endpoint internal untuk SMPT menarik master triwulan ujian (academic_quarters).
+     * GET /api/internal/academic-quarters
+     */
+    public function getAcademicQuarters()
+    {
+        $quarters = AcademicQuarter::with('academicYear')
+            ->orderByDesc('academic_year_id')
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($q) => [
+                'id' => $q->id,
+                'academic_year_id' => $q->academic_year_id,
+                'academic_year' => $q->academicYear?->year,
+                'name' => $q->name,
+                'start_date' => optional($q->start_date)->toDateString(),
+                'end_date' => optional($q->end_date)->toDateString(),
+                'active' => (bool) $q->active,
+            ]);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $quarters,
+        ]);
+    }
+
+    /**
+     * Petakan status SMPT ke enum students.status (Title Case) & student_classes.status (lowercase).
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function mapStatuses(?string $raw): array
+    {
+        $key = strtolower(trim($raw ?? 'aktif'));
+
+        $studentStatusMap = [
+            'aktif' => 'Aktif',
+            'tugas' => 'Tugas',
+            'lulus' => 'Lulus',
+            'mutasi' => 'Mutasi',
+            'keluar' => 'Keluar',
+            'dikeluarkan' => 'Dikeluarkan',
+            'tidak aktif' => 'Tidak Aktif',
+        ];
+
+        $classStatusMap = [
+            'aktif' => 'aktif',
+            'tugas' => 'aktif',
+            'lulus' => 'lulus',
+            'mutasi' => 'mutasi',
+            'keluar' => 'keluar',
+            'dikeluarkan' => 'keluar',
+            'tidak aktif' => 'keluar',
+        ];
+
+        return [
+            $studentStatusMap[$key] ?? 'Aktif',
+            $classStatusMap[$key] ?? 'aktif',
+        ];
     }
 }

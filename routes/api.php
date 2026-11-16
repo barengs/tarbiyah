@@ -67,7 +67,9 @@ Route::prefix('internal')->middleware('internal.key')->group(function () {
     // Endpoint sinkronisasi santri dari SMPT backend
     Route::post('students/sync', [InternalStudentController::class, 'sync']);
     Route::post('students/sync-bulk', [InternalStudentController::class, 'bulkSync']);
+    Route::post('students/current-classes', [InternalStudentController::class, 'getCurrentClasses']);
     Route::get('students/{nis}/education-history', [InternalStudentController::class, 'getEducationHistory']);
+    Route::get('academic-quarters', [InternalStudentController::class, 'getAcademicQuarters']);
 });
 
 // Security & Role/Menu/User Management (Admin & Superadmin only)

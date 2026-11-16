@@ -38,18 +38,11 @@ class StudentController extends Controller implements HasMiddleware
             $yearPeriodSlash = $selectedYear ? trim($selectedYear->year) : null;
 
             $yearScope = function ($q) use ($selectedYear, $yearPeriodDash, $yearPeriodSlash) {
-                if (! $selectedYear) {
+                if (! $selectedYear || $selectedYear->active) {
                     return;
                 }
-                if ($selectedYear->active) {
-                    $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                        ->orWhereNull('period')
-                        ->orWhere('period', '<=', $yearPeriodDash)
-                        ->orWhere('period', $yearPeriodSlash);
-                } else {
-                    $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                        ->orWhereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]));
-                }
+                $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                    ->orWhereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]));
             };
 
             $query = Student::query()->where($yearScope);

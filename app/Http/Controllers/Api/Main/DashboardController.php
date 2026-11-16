@@ -91,22 +91,12 @@ class DashboardController extends Controller
         $yearPeriodSlash = $selectedYear ? trim($selectedYear->year) : null;
 
         $scopedStudentQuery = Student::whereIn('status', ['Aktif', 'aktif']);
-        if ($selectedYear) {
-            if ($selectedYear->active) {
-                // Tahun akademik aktif: mencakup santri yang punya rombel di tahun ini atau angkatan <= tahun ini
-                $scopedStudentQuery->where(function ($q) use ($selectedYear, $yearPeriodDash, $yearPeriodSlash) {
-                    $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                        ->orWhereNull('period')
-                        ->orWhere('period', '<=', $yearPeriodDash)
-                        ->orWhere('period', $yearPeriodSlash);
-                });
-            } else {
-                // Tahun akademik arsip / tahun baru lainnya: hanya santri yang terdaftar di rombel tahun ini atau angkatan tahun ini
-                $scopedStudentQuery->where(function ($q) use ($selectedYear, $yearPeriodDash, $yearPeriodSlash) {
-                    $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
-                        ->orWhereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]));
-                });
-            }
+        if ($selectedYear && ! $selectedYear->active) {
+            // Tahun akademik arsip / non-aktif: hanya santri yang terdaftar di rombel tahun ini atau angkatan tahun ini
+            $scopedStudentQuery->where(function ($q) use ($selectedYear, $yearPeriodDash, $yearPeriodSlash) {
+                $q->whereHas('studentClasses', fn ($sc) => $sc->where('academic_year_id', $selectedYear->id))
+                    ->orWhereIn('period', array_filter([$yearPeriodDash, $yearPeriodSlash]));
+            });
         }
 
         $totalSantri = (clone $scopedStudentQuery)->count();

@@ -20,6 +20,7 @@ class InternalStudentController extends Controller
     {
         $validated = $request->validate([
             'santri_id' => 'required|integer',
+            'parent_id' => 'nullable|string|max:30',
             'nis' => 'required|string|max:255',
             'period' => 'nullable|string|max:20',
             'program_id' => 'nullable|integer',
@@ -44,6 +45,7 @@ class InternalStudentController extends Controller
                 ['nis' => $validated['nis']],
                 [
                     'santri_id' => $validated['santri_id'],
+                    'parent_id' => $validated['parent_id'] ?? null,
                     'period' => $validated['period'] ?? null,
                     'program_id' => $validated['program_id'] ?? null,
                     'hostel_id' => $validated['hostel_id'] ?? null,
@@ -98,6 +100,7 @@ class InternalStudentController extends Controller
         $validated = $request->validate([
             'students' => 'required|array',
             'students.*.santri_id' => 'required|integer',
+            'students.*.parent_id' => 'nullable|string|max:30',
             'students.*.nis' => 'required|string|max:255',
             'students.*.period' => 'nullable|string|max:20',
             'students.*.program_id' => 'nullable|integer',
@@ -126,6 +129,7 @@ class InternalStudentController extends Controller
                 ['nis' => $data['nis']],
                 [
                     'santri_id' => $data['santri_id'],
+                    'parent_id' => $data['parent_id'] ?? null,
                     'period' => $data['period'] ?? null,
                     'program_id' => $data['program_id'] ?? null,
                     'hostel_id' => $data['hostel_id'] ?? null,

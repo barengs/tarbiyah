@@ -611,10 +611,15 @@ class StudentController extends Controller implements HasMiddleware
                 // Sanitasi NIK, KK, & Telepon
                 $nik = ! empty($item['nik']) ? ltrim(trim($item['nik']), "'\"") : null;
                 $kk = ! empty($item['kk']) ? ltrim(trim($item['kk']), "'\"") : null;
-                $phone = ! empty($item['parent_phone']) ? ltrim(trim($item['parent_phone']), "'\"") : null;
-                if ($phone === '0822________' || $phone === '085_________') {
-                    $phone = null;
+                $studentPhone = ! empty($item['phone']) ? ltrim(trim($item['phone']), "'\"") : null;
+                $parentPhone = ! empty($item['parent_phone']) ? ltrim(trim($item['parent_phone']), "'\"") : null;
+                if ($studentPhone === '0822________' || $studentPhone === '085_________') {
+                    $studentPhone = null;
                 }
+                if ($parentPhone === '0822________' || $parentPhone === '085_________') {
+                    $parentPhone = null;
+                }
+                $phone = $studentPhone ?? $parentPhone;
 
                 // Validasi Gender: SANTRI 100% BANIN (L).
                 // Jika data raw tertulis P/perempuan, itu kesalahan algoritma dan distandarkan ke L.
@@ -647,7 +652,7 @@ class StudentController extends Controller implements HasMiddleware
                         'postal_code' => $item['postal_code'] ?? null,
                         'phone' => $phone,
                         'parent_name' => $item['parent_name'] ?? null,
-                        'parent_phone' => $phone,
+                        'parent_phone' => $parentPhone ?? $phone,
                         'address' => $item['address'] ?? null,
                         'born_in' => $item['born_in'] ?? null,
                         'born_at' => $bornAt,
@@ -662,6 +667,61 @@ class StudentController extends Controller implements HasMiddleware
                 $existing ? $updated++ : $created++;
             }
 
+            // Sinkronkan penempatan kelas lama dari SMPT jika tabelnya masih tersedia di SMPT
+            $classesAssigned = 0;
+            try {
+                $classRes = Http::timeout(10)->withHeaders([
+                    'X-Internal-Key' => $internalKey,
+                    'Accept' => 'application/json',
+                ])->get("{$smptCoreUrl}/api/internal/student-classes");
+
+                if ($classRes->successful()) {
+                    $legacyClasses = $classRes->json('data', []);
+                    if (! empty($legacyClasses)) {
+                        $studentMap = Student::pluck('id', 'nis')->all();
+                        $classGroups = ClassGroup::with('academicYear')->get();
+
+                        foreach ($legacyClasses as $lc) {
+                            $nis = trim($lc['nis'] ?? '');
+                            $groupName = trim($lc['class_group_name'] ?? '');
+                            if (! $nis || ! $groupName || ! isset($studentMap[$nis])) {
+                                continue;
+                            }
+
+                            $matchedGroup = $classGroups->first(function ($cg) use ($groupName, $lc) {
+                                $nameMatch = strcasecmp(trim($cg->name), $groupName) === 0;
+                                if (! $nameMatch) {
+                                    return false;
+                                }
+                                if (! empty($lc['academic_year']) && $cg->academicYear) {
+                                    return str_replace('/', '-', $cg->academicYear->year) === str_replace('/', '-', $lc['academic_year']);
+                                }
+
+                                return true;
+                            });
+
+                            if ($matchedGroup) {
+                                StudentClass::firstOrCreate(
+                                    [
+                                        'student_id' => $studentMap[$nis],
+                                        'class_group_id' => $matchedGroup->id,
+                                        'academic_year_id' => $matchedGroup->academic_year_id,
+                                    ],
+                                    [
+                                        'educational_institution_id' => $matchedGroup->educational_institution_id,
+                                        'status' => 'aktif',
+                                        'joined_at' => now(),
+                                    ]
+                                );
+                                $classesAssigned++;
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $classEx) {
+                Log::warning('Pull legacy student classes skipped: '.$classEx->getMessage());
+            }
+
             return response()->json([
                 'status' => 'success',
                 'message' => "Penarikan data selesai: {$created} santri baru berhasil ditambahkan, {$updated} santri diperbarui.",
@@ -669,6 +729,7 @@ class StudentController extends Controller implements HasMiddleware
                     'total_fetched' => count($students),
                     'created' => $created,
                     'updated' => $updated,
+                    'classes_assigned' => $classesAssigned,
                     'gender_audit' => '100% Putra (L)',
                     'anomalies_corrected' => $anomalyCount,
                 ],

@@ -11,6 +11,12 @@ class InstitutionResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'program_id' => $this->program_id,
+            'program' => $this->whenLoaded('program', fn() => [
+                'id' => $this->program->id,
+                'name' => $this->program->name,
+                'code' => $this->program->code,
+            ]),
             'education_type_id' => $this->education_type_id,
             'education_type' => $this->whenLoaded('educationType', fn() => [
                 'id' => $this->educationType->id,

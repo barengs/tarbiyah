@@ -15,7 +15,7 @@ class ProgramController extends Controller
     public function index()
     {
         try {
-            $programs = Program::orderBy('id', 'asc')->get();
+            $programs = Program::withCount('institutions')->orderBy('id', 'asc')->get();
 
             return response()->json([
                 'status' => 'success',

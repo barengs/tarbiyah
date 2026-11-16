@@ -35,14 +35,17 @@ class EducationalInstitutionController extends Controller implements HasMiddlewa
     public function index()
     {
         try {
-            $query = EducationalInstitution::with(['educationType', 'educations', 'classrooms', 'classes']);
+            $query = EducationalInstitution::with(['program', 'educationType', 'educations', 'classrooms', 'classes']);
 
             $user = auth('api')->user();
             $userProgramId = $user?->getActiveProgramId();
 
             if ($userProgramId) {
-                $query->whereHas('educations', function ($q) use ($userProgramId) {
-                    $q->where('program_id', $userProgramId);
+                $query->where(function ($q) use ($userProgramId) {
+                    $q->where('program_id', $userProgramId)
+                        ->orWhereHas('educations', function ($sq) use ($userProgramId) {
+                            $sq->where('program_id', $userProgramId);
+                        });
                 });
             }
 
@@ -68,6 +71,7 @@ class EducationalInstitutionController extends Controller implements HasMiddlewa
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'short_name' => 'nullable|string|max:30',
+            'program_id' => 'nullable|exists:programs,id',
             'education_type_id' => 'nullable|exists:education_types,id',
             'registration_number' => 'nullable|string|unique:educational_institutions,registration_number',
             'progression_type' => 'required|in:triwulan,semester,leveling',
@@ -151,6 +155,7 @@ class EducationalInstitutionController extends Controller implements HasMiddlewa
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'short_name' => 'nullable|string|max:30',
+            'program_id' => 'nullable|exists:programs,id',
             'education_type_id' => 'nullable|exists:education_types,id',
             'registration_number' => 'nullable|string|unique:educational_institutions,registration_number,'.$id,
             'progression_type' => 'sometimes|required|in:triwulan,semester,leveling',

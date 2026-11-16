@@ -18,6 +18,12 @@ class Program extends Model
         'description',
     ];
 
+    // ── Relasi: Program memiliki banyak Institusi Pendidikan ──
+    public function institutions()
+    {
+        return $this->hasMany(EducationalInstitution::class, 'program_id');
+    }
+
     // ── Relasi: Program memiliki banyak Jenjang Pendidikan ──
     public function educations()
     {

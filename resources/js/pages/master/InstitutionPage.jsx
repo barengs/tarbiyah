@@ -8,10 +8,8 @@ import {
     useGetEducationsQuery,
     useCreateEducationMutation,
     useDeleteEducationMutation,
-    useGetEducationTypesQuery,
-    useCreateEducationTypeMutation,
-    useUpdateEducationTypeMutation,
-    useDeleteEducationTypeMutation,
+    useGetProgramsQuery,
+    useSyncProgramsFromSmptMutation,
 } from '../../store/slices/institutionApi';
 import DataTable from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
@@ -33,6 +31,7 @@ import {
     Calendar,
     CheckCircle2,
     Tag,
+    RefreshCw,
     X,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -59,14 +58,15 @@ const PROGRESSION_TYPES = {
 };
 
 export default function InstitutionPage() {
-    const [activeTab, setActiveTab] = useState('institutions'); // 'institutions' | 'education_types'
+    const [activeTab, setActiveTab] = useState('institutions'); // 'institutions' | 'programs'
 
     // ================== INSTITUSI & JENJANG ==================
     const { data: response, isLoading } = useGetInstitutionsQuery();
     const institutions = response?.data || [];
 
-    const { data: typeRes } = useGetEducationTypesQuery();
-    const educationTypes = typeRes?.data || [];
+    const { data: programRes, isFetching: isFetchingPrograms } = useGetProgramsQuery();
+    const programs = programRes?.data || [];
+    const [syncProgramsFromSmpt, { isLoading: isSyncingPrograms }] = useSyncProgramsFromSmptMutation();
 
     const [createInstitution, { isLoading: isCreating }] = useCreateInstitutionMutation();
     const [updateInstitution, { isLoading: isUpdating }] = useUpdateInstitutionMutation();
@@ -85,7 +85,7 @@ export default function InstitutionPage() {
     // Form state Institusi
     const [name, setName] = useState('');
     const [shortName, setShortName] = useState('');
-    const [educationTypeId, setEducationTypeId] = useState('');
+    const [programId, setProgramId] = useState('');
     const [progressionType, setProgressionType] = useState('triwulan');
     const [regNumber, setRegNumber] = useState('');
     const [phone, setPhone] = useState('');
@@ -112,22 +112,21 @@ export default function InstitutionPage() {
     const [createEducation] = useCreateEducationMutation();
     const [deleteEducation] = useDeleteEducationMutation();
 
-    // ================== KELOMPOK PENDIDIKAN (EDUCATION TYPES) ==================
-    const [typeModalOpen, setTypeModalOpen] = useState(false);
-    const [editingType, setEditingType] = useState(null);
-    const [deleteTypeTarget, setDeleteTypeTarget] = useState(null);
-    const [typeName, setTypeName] = useState('');
-    const [typeDesc, setTypeDesc] = useState('');
-
-    const [createEducationType, { isLoading: isCreatingType }] = useCreateEducationTypeMutation();
-    const [updateEducationType, { isLoading: isUpdatingType }] = useUpdateEducationTypeMutation();
-    const [deleteEducationType, { isLoading: isDeletingType }] = useDeleteEducationTypeMutation();
+    // ================== PROGRAM PESANTREN (SMPT) HANDLER ==================
+    const handleSyncPrograms = async () => {
+        try {
+            const res = await syncProgramsFromSmpt().unwrap();
+            toast.success(res?.message || 'Program pesantren berhasil disinkronkan dari SMPT');
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal menyinkronkan program pesantren dari SMPT');
+        }
+    };
 
     const openCreateModal = () => {
         setEditingItem(null);
         setName('');
         setShortName('');
-        setEducationTypeId('');
+        setProgramId('');
         setProgressionType('triwulan');
         setRegNumber('');
         setPhone('');
@@ -146,7 +145,7 @@ export default function InstitutionPage() {
         setEditingItem(item);
         setName(item.name || '');
         setShortName(item.short_name || '');
-        setEducationTypeId(item.education_type_id ? String(item.education_type_id) : '');
+        setProgramId(item.program_id ? String(item.program_id) : '');
         setProgressionType(item.progression_type || 'triwulan');
         setRegNumber(item.registration_number || '');
         setPhone(item.phone || '');
@@ -203,7 +202,7 @@ export default function InstitutionPage() {
         const formData = new FormData();
         formData.append('name', name);
         if (shortName) formData.append('short_name', shortName);
-        if (educationTypeId) formData.append('education_type_id', educationTypeId);
+        if (programId) formData.append('program_id', programId);
         formData.append('progression_type', progressionType);
         if (regNumber) formData.append('registration_number', regNumber);
         if (phone) formData.append('phone', phone);
@@ -236,7 +235,7 @@ export default function InstitutionPage() {
                     ...prev,
                     name,
                     short_name: shortName,
-                    education_type_id: educationTypeId,
+                    program_id: programId,
                     progression_type: progressionType,
                     registration_number: regNumber,
                     phone,
@@ -351,53 +350,6 @@ export default function InstitutionPage() {
         }
     };
 
-    // ================== KELOMPOK PENDIDIKAN HANDLERS ==================
-    const openCreateTypeModal = () => {
-        setEditingType(null);
-        setTypeName('');
-        setTypeDesc('');
-        setTypeModalOpen(true);
-    };
-
-    const openEditTypeModal = (t) => {
-        setEditingType(t);
-        setTypeName(t.name || '');
-        setTypeDesc(t.description || '');
-        setTypeModalOpen(true);
-    };
-
-    const handleTypeSubmit = async (e) => {
-        e.preventDefault();
-        const payload = {
-            name: typeName,
-            description: typeDesc,
-        };
-
-        try {
-            if (editingType) {
-                await updateEducationType({ id: editingType.id, ...payload }).unwrap();
-                toast.success('Kelompok pendidikan berhasil diperbarui');
-            } else {
-                await createEducationType(payload).unwrap();
-                toast.success('Kelompok pendidikan berhasil ditambahkan');
-            }
-            setTypeModalOpen(false);
-        } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menyimpan kelompok pendidikan');
-        }
-    };
-
-    const handleTypeDelete = async () => {
-        if (!deleteTypeTarget) return;
-        try {
-            await deleteEducationType(deleteTypeTarget.id).unwrap();
-            toast.success('Kelompok pendidikan berhasil dihapus');
-            setDeleteTypeTarget(null);
-        } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menghapus kelompok pendidikan');
-        }
-    };
-
     const institutionColumns = [
         {
             key: 'name',
@@ -435,12 +387,12 @@ export default function InstitutionPage() {
             render: (row) => <span className="font-medium text-slate-700">{row.short_name || '-'}</span>,
         },
         {
-            key: 'education_type',
-            label: 'Kelompok',
+            key: 'program',
+            label: 'Program Pesantren',
             render: (row) => (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                    <Tag className="w-3 h-3 text-slate-400" />
-                    {row.education_type?.name || '-'}
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <Tag className="w-3 h-3 text-emerald-600" />
+                    {row.program?.name || '-'}
                 </span>
             ),
         },
@@ -497,14 +449,14 @@ export default function InstitutionPage() {
         },
     ];
 
-    const typeColumns = [
+    const programColumns = [
         {
             key: 'name',
-            label: 'Nama Kelompok Pendidikan',
+            label: 'Program Pesantren (SMPT)',
             render: (row) => (
                 <div className="flex items-center gap-2.5">
-                    <span className="w-8 h-8 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-200">
-                        <Tag className="w-4 h-4" />
+                    <span className="w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200 font-bold text-xs">
+                        {row.code || 'PRG'}
                     </span>
                     <div>
                         <span className="font-bold text-slate-900 text-sm block">{row.name}</span>
@@ -516,44 +468,18 @@ export default function InstitutionPage() {
             ),
         },
         {
+            key: 'code',
+            label: 'Kode',
+            render: (row) => <span className="font-mono text-xs font-semibold text-slate-700">{row.code || '-'}</span>,
+        },
+        {
             key: 'usage',
             label: 'Institusi Terhubung',
             render: (row) => (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <Building2 className="w-3.5 h-3.5" />
-                    {row.institutions_count || 0} Lembaga
+                    {row.institutions_count ?? 0} Lembaga
                 </span>
-            ),
-        },
-        {
-            key: 'actions',
-            label: 'Aksi',
-            render: (row) => (
-                <div className="flex items-center justify-end gap-1">
-                    <button
-                        onClick={() => openEditTypeModal(row)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
-                        title="Edit Kelompok"
-                    >
-                        <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={() => setDeleteTypeTarget(row)}
-                        disabled={row.institutions_count > 0}
-                        className={`p-1.5 rounded transition-colors ${
-                            row.institutions_count > 0
-                                ? 'text-slate-300 cursor-not-allowed'
-                                : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
-                        }`}
-                        title={
-                            row.institutions_count > 0
-                                ? 'Masih digunakan oleh institusi'
-                                : 'Hapus Kelompok'
-                        }
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
-                </div>
             ),
         },
     ];
@@ -565,10 +491,10 @@ export default function InstitutionPage() {
                 <div>
                     <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                         <Building2 className="w-6 h-6 text-[#093c30]" />
-                        Institusi &amp; Kelompok Pendidikan
+                        Institusi &amp; Program Pesantren
                     </h2>
                     <p className="text-sm text-slate-500 mt-1">
-                        Kelola lembaga pendidikan formal &amp; kepesantrenan, tingkat/jenjang, kelompok pendidikan, dan mekanisme kenaikan kelas.
+                        Kelola lembaga pendidikan formal &amp; kepesantrenan, tingkat/jenjang, relasi program pesantren (SMPT), dan mekanisme kenaikan kelas.
                     </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -600,11 +526,12 @@ export default function InstitutionPage() {
                         </>
                     ) : (
                         <button
-                            onClick={openCreateTypeModal}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b57d0] text-white rounded-md text-xs font-semibold hover:bg-[#0842a0] shadow-xs transition-colors cursor-pointer"
+                            onClick={handleSyncPrograms}
+                            disabled={isSyncingPrograms}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-md text-xs font-semibold hover:bg-emerald-800 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                         >
-                            <Plus className="w-4 h-4" />
-                            Tambah Kelompok
+                            <RefreshCw className={`w-4 h-4 ${isSyncingPrograms ? 'animate-spin' : ''}`} />
+                            {isSyncingPrograms ? 'Menyinkronkan...' : 'Sinkronkan Program SMPT'}
                         </button>
                     )}
                 </div>
@@ -624,15 +551,15 @@ export default function InstitutionPage() {
                     Institusi &amp; Jenjang ({institutions.length})
                 </button>
                 <button
-                    onClick={() => setActiveTab('education_types')}
+                    onClick={() => setActiveTab('programs')}
                     className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
-                        activeTab === 'education_types'
+                        activeTab === 'programs'
                             ? 'border-[#093c30] text-[#093c30]'
                             : 'border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                 >
                     <Tag className="w-4 h-4" />
-                    Kelompok Pendidikan ({educationTypes.length})
+                    Program Pesantren ({programs.length})
                 </button>
             </div>
 
@@ -666,7 +593,7 @@ export default function InstitutionPage() {
                                     <div>
                                         <h3 className="text-base font-bold text-slate-900">{selectedInstForDetail.name}</h3>
                                         <p className="text-xs text-slate-500">
-                                            {selectedInstForDetail.short_name} • {selectedInstForDetail.education_type?.name || 'Kelompok Umum'} • Model Kenaikan:{' '}
+                                            {selectedInstForDetail.short_name} • {selectedInstForDetail.program?.name || 'Program Umum'} • Model Kenaikan:{' '}
                                             <span className="font-semibold text-slate-700">
                                                 {PROGRESSION_TYPES[selectedInstForDetail.progression_type]?.badgeLabel}
                                             </span>
@@ -720,21 +647,21 @@ export default function InstitutionPage() {
                 </>
             )}
 
-            {/* TAB CONTENT 2: KELOMPOK PENDIDIKAN */}
-            {activeTab === 'education_types' && (
+            {/* TAB CONTENT 2: PROGRAM PESANTREN (SMPT) */}
+            {activeTab === 'programs' && (
                 <div className="space-y-4">
-                    <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-md text-xs text-blue-800">
-                        <p className="font-semibold">Informasi Kelompok Pendidikan</p>
-                        <p className="mt-0.5 text-blue-700">
-                            Kelompok pendidikan mendefinisikan kategori entitas pendidikan di lingkungan pesantren (seperti Pendidikan Formal, Madrasah Diniyah Salafiyah, Tahfidz Al-Qur'an, dll).
+                    <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-md text-xs text-emerald-900">
+                        <p className="font-semibold">Program Pesantren (Sumber Data: SMPT)</p>
+                        <p className="mt-0.5 text-emerald-800">
+                            Pendidikan mengikuti program pesantren yang dikelola dari SMPT (seperti Kubar dan Tibyan). Gunakan tombol <strong>Sinkronkan Program SMPT</strong> jika ada perubahan data program di SMPT.
                         </p>
                     </div>
 
                     <DataTable
-                        columns={typeColumns}
-                        data={educationTypes}
-                        isLoading={isLoading}
-                        searchPlaceholder="Cari nama kelompok pendidikan..."
+                        columns={programColumns}
+                        data={programs}
+                        isLoading={isFetchingPrograms}
+                        searchPlaceholder="Cari nama program pesantren..."
                     />
                 </div>
             )}
@@ -778,17 +705,17 @@ export default function InstitutionPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                                Kelompok Pendidikan
+                                Program Pesantren (SMPT)
                             </label>
                             <select
-                                value={educationTypeId}
-                                onChange={(e) => setEducationTypeId(e.target.value)}
+                                value={programId}
+                                onChange={(e) => setProgramId(e.target.value)}
                                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium"
                             >
-                                <option value="">-- Pilih Kelompok Pendidikan --</option>
-                                {educationTypes.map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                        {t.name}
+                                <option value="">-- Pilih Program Pesantren --</option>
+                                {programs.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.name} ({p.code || 'PRG'})
                                     </option>
                                 ))}
                             </select>
@@ -942,59 +869,6 @@ export default function InstitutionPage() {
                 </form>
             </Modal>
 
-            {/* ═══════════════════ MODAL TAMBAH/EDIT KELOMPOK PENDIDIKAN ═══════════════════ */}
-            <Modal
-                open={typeModalOpen}
-                title={editingType ? 'Edit Kelompok Pendidikan' : 'Tambah Kelompok Pendidikan'}
-                onClose={() => setTypeModalOpen(false)}
-            >
-                <form onSubmit={handleTypeSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                            Nama Kelompok Pendidikan *
-                        </label>
-                        <input
-                            type="text"
-                            required
-                            value={typeName}
-                            onChange={(e) => setTypeName(e.target.value)}
-                            placeholder="Contoh: Formal, Nonformal, Diniyah Salafiyah, Tahfidz"
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                            Deskripsi / Keterangan
-                        </label>
-                        <textarea
-                            rows={3}
-                            value={typeDesc}
-                            onChange={(e) => setTypeDesc(e.target.value)}
-                            placeholder="Deskripsi peruntukan kelompok pendidikan..."
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                        />
-                    </div>
-
-                    <div className="pt-2 flex justify-end gap-3 border-t border-slate-100">
-                        <button
-                            type="button"
-                            onClick={() => setTypeModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 cursor-pointer"
-                        >
-                            Batal
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isCreatingType || isUpdatingType}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-[#0b57d0] rounded-md hover:bg-[#0842a0] disabled:opacity-50 cursor-pointer shadow-xs"
-                        >
-                            {isCreatingType || isUpdatingType ? 'Menyimpan...' : 'Simpan Kelompok'}
-                        </button>
-                    </div>
-                </form>
-            </Modal>
-
             {/* ═══════════════════ MODAL IMPOR EXCEL INSTITUSI ═══════════════════ */}
             <Modal
                 open={importModalOpen}
@@ -1138,16 +1012,6 @@ export default function InstitutionPage() {
                 onConfirm={handleDelete}
                 onCancel={() => setDeleteTarget(null)}
                 isLoading={isDeleting}
-            />
-
-            {/* Confirm Delete Kelompok Pendidikan */}
-            <ConfirmDialog
-                open={!!deleteTypeTarget}
-                title="Hapus Kelompok Pendidikan"
-                message={`Yakin ingin menghapus kelompok pendidikan "${deleteTypeTarget?.name}"?`}
-                onConfirm={handleTypeDelete}
-                onCancel={() => setDeleteTypeTarget(null)}
-                isLoading={isDeletingType}
             />
         </div>
     );

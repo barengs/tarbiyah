@@ -40,6 +40,11 @@ class EducationalInstitution extends Model
         return asset('storage/' . ltrim($this->letterhead, '/'));
     }
 
+    public function program()
+    {
+        return $this->belongsTo(Program::class, 'program_id');
+    }
+
     public function educationType()
     {
         return $this->belongsTo(EducationType::class, 'education_type_id');

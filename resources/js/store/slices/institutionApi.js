@@ -105,6 +105,17 @@ export const institutionApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: [{ type: 'EducationType', id: 'LIST' }],
         }),
+        getPrograms: builder.query({
+            query: () => 'master/programs',
+            providesTags: [{ type: 'Program', id: 'LIST' }],
+        }),
+        syncProgramsFromSmpt: builder.mutation({
+            query: () => ({
+                url: 'master/programs/sync-from-smpt',
+                method: 'POST',
+            }),
+            invalidatesTags: [{ type: 'Program', id: 'LIST' }, { type: 'Institution', id: 'LIST' }],
+        }),
     }),
 });
 
@@ -121,4 +132,6 @@ export const {
     useCreateEducationTypeMutation,
     useUpdateEducationTypeMutation,
     useDeleteEducationTypeMutation,
+    useGetProgramsQuery,
+    useSyncProgramsFromSmptMutation,
 } = institutionApi;

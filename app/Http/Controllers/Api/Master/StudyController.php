@@ -489,9 +489,14 @@ class StudyController extends Controller implements HasMiddleware
             $statusCol = 6;
 
             foreach ($rows as $idx => $row) {
+                $firstCell = strtoupper(trim((string) ($row[0] ?? '')));
+                if (str_starts_with($firstCell, 'PETUNJUK') || preg_match('/^\d+\./', $firstCell)) {
+                    continue;
+                }
+
                 foreach ($row as $colIdx => $cellVal) {
                     $val = strtolower(trim((string) $cellVal));
-                    if (str_contains($val, 'nama mata') || str_contains($val, 'nama mapel') || $val === 'mata pelajaran') {
+                    if (strlen($val) <= 50 && (str_contains($val, 'nama mata') || str_contains($val, 'nama mapel') || $val === 'mata pelajaran')) {
                         $headerRowIdx = $idx;
                         $nameCol = $colIdx;
                         break 2;
@@ -538,7 +543,7 @@ class StudyController extends Controller implements HasMiddleware
                 $row = $rows[$r];
                 $name = trim((string) ($row[$nameCol] ?? ''));
 
-                if ($name === '' || str_starts_with($name, 'PETUNJUK') || str_starts_with($name, '1.') || str_starts_with($name, '2.')) {
+                if ($name === '' || str_starts_with(strtoupper($name), 'PETUNJUK') || preg_match('/^\d+\./', $name)) {
                     continue;
                 }
 

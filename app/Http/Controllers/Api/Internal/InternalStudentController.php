@@ -337,6 +337,30 @@ class InternalStudentController extends Controller
     }
 
     /**
+     * Endpoint internal untuk menerima push sinkronisasi tahun akademik dari SMPT.
+     * POST /api/internal/academic-years/sync
+     */
+    public function syncAcademicYears(Request $request)
+    {
+        $validated = $request->validate([
+            'academic_years' => 'required|array',
+            'academic_years.*.year' => 'required|string|max:50',
+            'academic_years.*.start_date' => 'nullable|string',
+            'academic_years.*.end_date' => 'nullable|string',
+            'academic_years.*.active' => 'nullable|boolean',
+            'academic_years.*.description' => 'nullable|string',
+        ]);
+
+        $synced = \App\Http\Controllers\Api\Master\AcademicYearController::applySmptYearsSync($validated['academic_years']);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Berhasil menyinkronkan {$synced} tahun akademik dari SMPT.",
+            'synced' => $synced,
+        ]);
+    }
+
+    /**
      * Petakan status SMPT ke enum students.status (Title Case) & student_classes.status (lowercase).
      *
      * @return array{0: string, 1: string}

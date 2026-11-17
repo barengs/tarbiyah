@@ -70,6 +70,7 @@ Route::prefix('internal')->middleware('internal.key')->group(function () {
     Route::post('students/current-classes', [InternalStudentController::class, 'getCurrentClasses']);
     Route::get('students/{nis}/education-history', [InternalStudentController::class, 'getEducationHistory']);
     Route::get('academic-quarters', [InternalStudentController::class, 'getAcademicQuarters']);
+    Route::post('academic-years/sync', [InternalStudentController::class, 'syncAcademicYears']);
 });
 
 // Security & Role/Menu/User Management (Admin & Superadmin only)

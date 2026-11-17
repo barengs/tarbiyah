@@ -63,6 +63,7 @@ export const academicApi = apiSlice.injectEndpoints({
                 { type: 'AcademicYear', id: 'LIST' },
                 { type: 'AcademicYear', id: 'ACTIVE' },
                 { type: 'AcademicQuarter', id: 'LIST' },
+                'Dashboard',
             ],
         }),
         deleteAcademicYear: builder.mutation({

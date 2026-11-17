@@ -320,60 +320,7 @@ class AcademicYearController extends Controller implements HasMiddleware
             }
 
             $yearsData = $response->json('data', []);
-            $syncedCount = 0;
-
-            foreach ($yearsData as $item) {
-                if (empty($item['year'])) {
-                    continue;
-                }
-
-                $yearName = trim($item['year']);
-                $startDate = ! empty($item['start_date']) ? substr($item['start_date'], 0, 10) : now()->format('Y-07-01');
-                $endDate = ! empty($item['end_date']) ? substr($item['end_date'], 0, 10) : now()->addYear()->format('Y-06-30');
-                $isActive = (bool) ($item['active'] ?? false);
-
-                $year = AcademicYear::updateOrCreate(
-                    ['year' => $yearName],
-                    [
-                        'type' => 'triwulan',
-                        'periode' => 'ganjil',
-                        'start_date' => $startDate,
-                        'end_date' => $endDate,
-                        'active' => $isActive,
-                        'description' => $item['description'] ?? "Kalender Akademik {$yearName} (Sinkronisasi dari SMPT)",
-                    ]
-                );
-
-                // Pastikan memiliki 3 periode Sub-Akademik Triwulan
-                $existingQuarters = AcademicQuarter::where('academic_year_id', $year->id)->count();
-                if ($existingQuarters === 0) {
-                    $sDate = Carbon::parse($startDate);
-                    $eDate = Carbon::parse($endDate);
-                    $totalDays = max(90, $sDate->diffInDays($eDate));
-                    $quarterDays = (int) round($totalDays / 3);
-
-                    $triwulanDefinitions = [
-                        ['name' => 'Triwulan I (Awal Tahun)', 'idx' => 0],
-                        ['name' => 'Triwulan II (Pertengahan)', 'idx' => 1],
-                        ['name' => 'Triwulan III (Akhir Tahun)', 'idx' => 2],
-                    ];
-
-                    foreach ($triwulanDefinitions as $t) {
-                        $qStart = $sDate->copy()->addDays($t['idx'] * $quarterDays);
-                        $qEnd = $t['idx'] === 2 ? $eDate : $qStart->copy()->addDays($quarterDays - 1);
-
-                        AcademicQuarter::create([
-                            'academic_year_id' => $year->id,
-                            'name' => $t['name'],
-                            'start_date' => $qStart,
-                            'end_date' => $qEnd,
-                            'active' => $isActive && $t['idx'] === 0,
-                        ]);
-                    }
-                }
-
-                $syncedCount++;
-            }
+            $syncedCount = self::applySmptYearsSync($yearsData);
 
             return response()->json([
                 'status' => 'success',
@@ -389,5 +336,99 @@ class AcademicYearController extends Controller implements HasMiddleware
                 'message' => 'Gagal menyinkronkan tahun akademik: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Terapkan sinkronisasi daftar tahun akademik dari SMPT secara konsisten
+     * (menormalisasi format slash/dash dan memastikan hanya 1 tahun akademik yang aktif).
+     */
+    public static function applySmptYearsSync(array $yearsData): int
+    {
+        $syncedCount = 0;
+        $activeYearId = null;
+
+        foreach ($yearsData as $item) {
+            if (empty($item['year'])) {
+                continue;
+            }
+
+            $yearName = trim($item['year']);
+            $altDash = str_replace('/', '-', $yearName);
+            $altSlash = str_replace('-', '/', $yearName);
+
+            $startDate = ! empty($item['start_date']) ? substr($item['start_date'], 0, 10) : now()->format('Y-07-01');
+            $endDate = ! empty($item['end_date']) ? substr($item['end_date'], 0, 10) : now()->addYear()->format('Y-06-30');
+            $isActive = (bool) ($item['active'] ?? false);
+
+            $existing = AcademicYear::whereIn('year', [$yearName, $altDash, $altSlash])->first();
+            if ($existing) {
+                $existing->update([
+                    'year' => $yearName,
+                    'type' => 'triwulan',
+                    'periode' => 'ganjil',
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'active' => $isActive,
+                    'description' => $item['description'] ?? $existing->description ?? "Kalender Akademik {$yearName} (Sinkronisasi dari SMPT)",
+                ]);
+                $year = $existing;
+            } else {
+                $year = AcademicYear::create([
+                    'year' => $yearName,
+                    'type' => 'triwulan',
+                    'periode' => 'ganjil',
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'active' => $isActive,
+                    'description' => $item['description'] ?? "Kalender Akademik {$yearName} (Sinkronisasi dari SMPT)",
+                ]);
+            }
+
+            if ($isActive) {
+                $activeYearId = $year->id;
+            }
+
+            // Pastikan memiliki 3 periode Sub-Akademik Triwulan
+            $existingQuarters = AcademicQuarter::where('academic_year_id', $year->id)->count();
+            if ($existingQuarters === 0) {
+                $sDate = Carbon::parse($startDate);
+                $eDate = Carbon::parse($endDate);
+                $totalDays = max(90, $sDate->diffInDays($eDate));
+                $quarterDays = (int) round($totalDays / 3);
+
+                $triwulanDefinitions = [
+                    ['name' => 'Triwulan I (Awal Tahun)', 'idx' => 0],
+                    ['name' => 'Triwulan II (Pertengahan)', 'idx' => 1],
+                    ['name' => 'Triwulan III (Akhir Tahun)', 'idx' => 2],
+                ];
+
+                foreach ($triwulanDefinitions as $t) {
+                    $qStart = $sDate->copy()->addDays($t['idx'] * $quarterDays);
+                    $qEnd = $t['idx'] === 2 ? $eDate : $qStart->copy()->addDays($quarterDays - 1);
+
+                    AcademicQuarter::create([
+                        'academic_year_id' => $year->id,
+                        'name' => $t['name'],
+                        'start_date' => $qStart,
+                        'end_date' => $qEnd,
+                        'active' => $isActive && $t['idx'] === 0,
+                    ]);
+                }
+            }
+
+            $syncedCount++;
+        }
+
+        if ($activeYearId !== null) {
+            AcademicYear::where('id', '!=', $activeYearId)->update(['active' => false]);
+            AcademicQuarter::where('academic_year_id', '!=', $activeYearId)->update(['active' => false]);
+
+            $hasActiveQuarter = AcademicQuarter::where('academic_year_id', $activeYearId)->where('active', true)->exists();
+            if (! $hasActiveQuarter) {
+                AcademicQuarter::where('academic_year_id', $activeYearId)->orderBy('id')->limit(1)->update(['active' => true]);
+            }
+        }
+
+        return $syncedCount;
     }
 }

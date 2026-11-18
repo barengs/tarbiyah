@@ -293,6 +293,24 @@ export default function AttendancePage() {
     const [ruleSelectedDays, setRuleSelectedDays] = useState([]); // Array tanggal yang dicentang
     const [ruleNotes, setRuleNotes] = useState('');
 
+    // Daftar jam pelajaran unik dalam rentang hari terpilih (untuk modal aturan izin/sakit/alpa)
+    const availableRuleHours = useMemo(() => {
+        const map = new Map();
+        daysList.forEach((d) => {
+            (d.hours || []).forEach((h) => {
+                if (!map.has(h.order)) {
+                    map.set(h.order, h.hour_name || `Jam ${h.order}`);
+                }
+            });
+        });
+        if (map.size === 0) {
+            return [1, 2, 3, 4, 5, 6].map((n) => ({ order: n, name: `Jam ${n}` }));
+        }
+        return Array.from(map.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([order, name]) => ({ order, name }));
+    }, [daysList]);
+
     // Buka modal rule
     const handleOpenRuleModal = () => {
         if (!currentDayRows || currentDayRows.length === 0) {
@@ -609,7 +627,7 @@ export default function AttendancePage() {
                         >
                             {groups.map((g) => (
                                 <option key={g.id} value={g.id}>
-                                    {g.name} &bull; {g.program?.name} ({g.education?.name} - {g.education_class?.name})
+                                    {g.name} &bull; {g.program?.name || g.educational_institution?.program?.name || '-'} ({g.educational_institution?.short_name || g.educational_institution?.name || g.education?.name || '-'} - {g.education_class?.name || '-'})
                                 </option>
                             ))}
                         </select>
@@ -879,11 +897,14 @@ export default function AttendancePage() {
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                             {currentDayObj?.hours?.map(h => (
                                 <div key={h.schedule_id} className="bg-white border border-slate-200 rounded p-2 shadow-2xs space-y-0.5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[#093c30] text-emerald-100">
-                                            {h.hour_name.split(' ')[0]} {h.order}
+                                    <div className="flex items-center justify-between gap-1.5">
+                                        <span
+                                            className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[#093c30] text-emerald-100 truncate"
+                                            title={h.hour_name || `Jam ${h.order}`}
+                                        >
+                                            {h.hour_name || `Jam ${h.order}`}
                                         </span>
-                                        <span className="text-[10px] text-slate-400 font-mono">
+                                        <span className="text-[10px] text-slate-400 font-mono shrink-0">
                                             {h.time}
                                         </span>
                                     </div>
@@ -954,11 +975,14 @@ export default function AttendancePage() {
 
                                         {/* Kolom Tiap Jam Pelajaran di Hari Ini */}
                                         {currentDayObj?.hours?.map(h => (
-                                            <th key={h.schedule_id} className="px-2 py-2.5 text-center min-w-[7.5rem] border-r border-[#064e3b] last:border-0">
-                                                <div className="font-extrabold text-[12px] text-emerald-200">
-                                                    Jam {h.order}
+                                            <th key={h.schedule_id} className="px-2 py-2.5 text-center min-w-[8rem] border-r border-[#064e3b] last:border-0">
+                                                <div
+                                                    className="font-extrabold text-[11px] text-emerald-200 truncate max-w-[8.5rem] mx-auto"
+                                                    title={h.hour_name || `Jam ${h.order}`}
+                                                >
+                                                    {h.hour_name || `Jam ${h.order}`}
                                                 </div>
-                                                <div className="text-[10px] font-medium text-white truncate max-w-[7.5rem]" title={h.study_name}>
+                                                <div className="text-[10px] font-medium text-white truncate max-w-[8.5rem] mx-auto" title={h.study_name}>
                                                     {h.study_name}
                                                 </div>
                                                 <div className="text-[9px] text-emerald-300/80 font-mono">
@@ -1063,7 +1087,7 @@ export default function AttendancePage() {
                                                                             className={`w-6 h-6 rounded text-[10px] transition-all flex items-center justify-center ${
                                                                                 isSelected ? activeClass : 'text-slate-500 hover:text-slate-900'
                                                                             }`}
-                                                                            title={`Jam ${h.order} (${h.study_name}): ${st}`}
+                                                                            title={`${h.hour_name || `Jam ${h.order}`} (${h.study_name}): ${st}`}
                                                                         >
                                                                             {label}
                                                                         </button>
@@ -1494,7 +1518,7 @@ export default function AttendancePage() {
                             {/* Checklist Jam Tertentu */}
                             {ruleScope === 'selected_hours' && (
                                 <div className="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-md">
-                                    {[1, 2, 3, 4, 5, 6].map(hourNum => {
+                                    {availableRuleHours.map(({ order: hourNum, name: hourName }) => {
                                         const isChecked = ruleSelectedHours.includes(hourNum);
                                         return (
                                             <label key={hourNum} className="flex items-center gap-1 px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-bold cursor-pointer">
@@ -1510,7 +1534,7 @@ export default function AttendancePage() {
                                                     }}
                                                     className="rounded border-slate-300 text-emerald-800"
                                                 />
-                                                Jam {hourNum}
+                                                {hourName}
                                             </label>
                                         );
                                     })}

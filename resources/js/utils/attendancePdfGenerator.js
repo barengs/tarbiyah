@@ -231,7 +231,7 @@ export function generateDailyAttendancePdf({
 
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(71, 85, 105);
-        const mapelItems = hours.map(h => `Jam ${h.order}: ${h.study_name || h.hour_name || `Jam ${h.order}`}`).join('   •   ');
+        const mapelItems = hours.map(h => `${h.hour_name || `Jam ${h.order}`}: ${h.study_name || '-'}`).join('   •   ');
         const splitLines = doc.splitTextToSize(mapelItems, pageWidth - 72);
         doc.text(splitLines, 36, legendY + 12);
         legendY += (splitLines.length * 9) + 8;

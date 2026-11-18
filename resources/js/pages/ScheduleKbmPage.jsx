@@ -1384,6 +1384,7 @@ export default function ScheduleKbmPage() {
                                                 const totalStudents = (j.hadir_count || 0) + (j.sakit_count || 0) + (j.izin_count || 0) + (j.alpa_count || 0);
                                                 const hadirPct = totalStudents > 0 ? Math.round(((j.hadir_count || 0) / totalStudents) * 100) : 0;
                                                 const hourOrder = j.lesson_schedule?.lesson_hour?.order;
+                                                const hourName = j.lesson_schedule?.lesson_hour?.name || (hourOrder ? `Jam ${hourOrder}` : '-');
                                                 const hourTime = j.lesson_schedule?.lesson_hour?.start_time ? 
                                                     `${j.lesson_schedule.lesson_hour.start_time.substring(0, 5)} - ${j.lesson_schedule.lesson_hour.end_time?.substring(0, 5)}` : null;
 
@@ -1404,7 +1405,7 @@ export default function ScheduleKbmPage() {
                                                         </td>
                                                         <td className="px-3 py-2.5 text-center border-r border-slate-100 whitespace-nowrap">
                                                             <span className="font-bold text-emerald-800">
-                                                                Jam {hourOrder || '-'}
+                                                                {hourName}
                                                             </span>
                                                             {hourTime && (
                                                                 <div className="text-[10px] text-slate-400 font-mono">
@@ -1533,6 +1534,7 @@ export default function ScheduleKbmPage() {
                                     const totalStudents = (j.hadir_count || 0) + (j.sakit_count || 0) + (j.izin_count || 0) + (j.alpa_count || 0);
                                     const hadirPct = totalStudents > 0 ? Math.round(((j.hadir_count || 0) / totalStudents) * 100) : 0;
                                     const hourOrder = j.lesson_schedule?.lesson_hour?.order;
+                                    const hourName = j.lesson_schedule?.lesson_hour?.name || (hourOrder ? `Jam Ke-${hourOrder}` : null);
                                     const hourTime = j.lesson_schedule?.lesson_hour?.start_time ? 
                                         `${j.lesson_schedule.lesson_hour.start_time.substring(0, 5)} - ${j.lesson_schedule.lesson_hour.end_time?.substring(0, 5)}` : null;
 
@@ -1547,9 +1549,9 @@ export default function ScheduleKbmPage() {
                                                         <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-[#093c30] text-emerald-100">
                                                             Pertemuan Ke-{j.meeting_number}
                                                         </span>
-                                                        {hourOrder && (
+                                                        {hourName && (
                                                             <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                                                Jam Ke-{hourOrder} {hourTime ? `(${hourTime})` : ''}
+                                                                {hourName} {hourTime ? `(${hourTime})` : ''}
                                                             </span>
                                                         )}
                                                         <span className="text-xs text-slate-500 font-mono">

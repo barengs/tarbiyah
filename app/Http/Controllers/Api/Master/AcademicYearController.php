@@ -360,8 +360,11 @@ class AcademicYearController extends Controller implements HasMiddleware
             $endDate = ! empty($item['end_date']) ? substr($item['end_date'], 0, 10) : now()->addYear()->format('Y-06-30');
             $isActive = (bool) ($item['active'] ?? false);
 
-            $existing = AcademicYear::whereIn('year', [$yearName, $altDash, $altSlash])->first();
+            $existing = AcademicYear::withTrashed()->whereIn('year', [$yearName, $altDash, $altSlash])->first();
             if ($existing) {
+                if ($existing->trashed()) {
+                    $existing->restore();
+                }
                 $existing->update([
                     'year' => $yearName,
                     'type' => 'triwulan',

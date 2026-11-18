@@ -54,7 +54,9 @@ export default function CopyScheduleModal({
 
             // Pre-fill education jika ada
             if (currentEducation && currentEducation !== 'all') {
-                const matchedEdu = educations.find(e => e.name?.toLowerCase() === currentEducation?.toLowerCase());
+                const matchedEdu = educations.find(
+                    e => String(e.id) === String(currentEducation) || e.name?.toLowerCase() === String(currentEducation).toLowerCase()
+                );
                 setPeriodEducationId(matchedEdu ? String(matchedEdu.id) : 'all');
                 setYearEducationId(matchedEdu ? String(matchedEdu.id) : 'all');
             } else {
@@ -215,7 +217,7 @@ export default function CopyScheduleModal({
                                 <option value="all">Semua Jenjang Pendidikan (Seluruh Rombel)</option>
                                 {educations.map((edu) => (
                                     <option key={edu.id} value={edu.id}>
-                                        Jenjang {edu.name} ({edu.description || 'Pendidikan'})
+                                        {edu.name}{edu.short_name ? ` (${edu.short_name})` : (edu.description ? ` (${edu.description})` : '')}
                                     </option>
                                 ))}
                             </select>
@@ -428,7 +430,7 @@ export default function CopyScheduleModal({
                                 <option value="all">Semua Jenjang Pendidikan (Seluruh Rombel Pesantren)</option>
                                 {educations.map((edu) => (
                                     <option key={edu.id} value={edu.id}>
-                                        Jenjang {edu.name}
+                                        {edu.name}{edu.short_name ? ` (${edu.short_name})` : ''}
                                     </option>
                                 ))}
                             </select>

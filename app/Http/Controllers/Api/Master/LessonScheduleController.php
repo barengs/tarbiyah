@@ -32,7 +32,10 @@ class LessonScheduleController extends Controller implements HasMiddleware
             $query = LessonSchedule::with([
                 'academicYear',
                 'academicQuarter',
-                'classGroup',
+                'classGroup.program',
+                'classGroup.educationalInstitution',
+                'classGroup.education',
+                'classGroup.educationClass',
                 'study',
                 'teacher',
                 'lessonHour',
@@ -299,7 +302,10 @@ class LessonScheduleController extends Controller implements HasMiddleware
         // Ambil rombel pada tahun dan jenjang asal
         $sourceGroupQuery = ClassGroup::where('academic_year_id', $sourceYearId);
         if ($educationId && $educationId !== 'all') {
-            $sourceGroupQuery->where('education_id', $educationId);
+            $sourceGroupQuery->where(function ($q) use ($educationId) {
+                $q->where('educational_institution_id', $educationId)
+                    ->orWhere('education_id', $educationId);
+            });
         }
         $sourceGroupIds = $sourceGroupQuery->pluck('id');
 
@@ -414,8 +420,11 @@ class LessonScheduleController extends Controller implements HasMiddleware
 
             $eduName = 'Semua Jenjang';
             if ($educationId && $educationId !== 'all') {
+                $inst = \App\Models\EducationalInstitution::find($educationId);
                 $edu = Education::find($educationId);
-                if ($edu) {
+                if ($inst) {
+                    $eduName = "Jenjang {$inst->name}";
+                } elseif ($edu) {
                     $eduName = "Jenjang {$edu->name}";
                 }
             }
@@ -502,7 +511,10 @@ class LessonScheduleController extends Controller implements HasMiddleware
         // Ambil rombel pada tahun asal
         $sourceGroupQuery = ClassGroup::where('academic_year_id', $fromYearId);
         if ($educationId && $educationId !== 'all') {
-            $sourceGroupQuery->where('education_id', $educationId);
+            $sourceGroupQuery->where(function ($q) use ($educationId) {
+                $q->where('educational_institution_id', $educationId)
+                    ->orWhere('education_id', $educationId);
+            });
         }
         $sourceGroups = $sourceGroupQuery->get();
 

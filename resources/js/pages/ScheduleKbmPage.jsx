@@ -18,7 +18,9 @@ import { useGetStudiesQuery } from '../store/slices/studyApi';
 import { useGetTeachersQuery } from '../store/slices/teacherApi';
 import { useGetLessonHoursQuery } from '../store/slices/lessonHourApi';
 import { useGetAcademicYearsQuery, useGetAcademicQuartersQuery } from '../store/slices/academicApi';
-import { useGetEducationsQuery } from '../store/slices/institutionApi';
+import { useGetInstitutionsQuery, useGetProgramsQuery } from '../store/slices/institutionApi';
+import { useGetEducationClassesQuery } from '../store/slices/educationClassApi';
+import { useGetClassroomsQuery } from '../store/slices/classroomApi';
 import Modal from '../components/ui/Modal';
 import FlatTabs from '../components/atoms/FlatTabs';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -71,8 +73,17 @@ export default function ScheduleKbmPage() {
         }
     }, [globalQuarterId, quarters]);
 
-    const { data: educationsData } = useGetEducationsQuery();
-    const educations = educationsData?.data || [];
+    const { data: programsData } = useGetProgramsQuery();
+    const programs = programsData?.data || [];
+
+    const { data: institutionsData } = useGetInstitutionsQuery();
+    const institutions = institutionsData?.data || [];
+
+    const { data: educationClassesData } = useGetEducationClassesQuery();
+    const allEducationClasses = educationClassesData?.data || [];
+
+    const { data: classroomsData } = useGetClassroomsQuery();
+    const classrooms = classroomsData?.data || [];
 
     const currentYear = useMemo(() => academicYears.find(y => String(y.id) === String(selectedYearId)) || activeYearObj, [academicYears, selectedYearId, activeYearObj]);
     const currentQuarter = useMemo(() => quarters.find(q => String(q.id) === String(selectedQuarterId)) || quarters[0], [quarters, selectedQuarterId]);
@@ -83,9 +94,9 @@ export default function ScheduleKbmPage() {
     // ═══════════════════════════════════════════════════════════
     // FILTER DATA MASTER BERTINGKAT: PROGRAM -> JENJANG -> KELAS -> HARI
     // ═══════════════════════════════════════════════════════════
-    const [selectedProgram, setSelectedProgram] = useState('all'); // 'all' | 'Kubar' | 'Tibyan'
-    const [selectedEducation, setSelectedEducation] = useState('all'); // 'all' | 'Ula' | 'Wustha' | 'Ulya' | 'Takhossus'
-    const [selectedEducationClass, setSelectedEducationClass] = useState('all'); // 'all' | '1' | '2' | '3'
+    const [selectedProgram, setSelectedProgram] = useState('all'); // 'all' | program_id
+    const [selectedEducation, setSelectedEducation] = useState('all'); // 'all' | educational_institution_id
+    const [selectedEducationClass, setSelectedEducationClass] = useState('all'); // 'all' | education_class_id
     const [selectedDayFilter, setSelectedDayFilter] = useState(6); // Default: Sabtu (6)
     const [searchQuery, setSearchQuery] = useState('');
     const [showOnlyClashes, setShowOnlyClashes] = useState(false);
@@ -99,6 +110,56 @@ export default function ScheduleKbmPage() {
         selectedYearId ? { academic_year_id: selectedYearId } : undefined
     );
     const allGroups = groupsData?.data || [];
+
+    // Daftar Program Dinamis (dari master programs atau fallback dari institutions/rombels)
+    const availablePrograms = useMemo(() => {
+        if (programs.length > 0) return programs;
+        const map = new Map();
+        institutions.forEach(inst => {
+            if (inst.program?.id) map.set(String(inst.program.id), inst.program);
+        });
+        allGroups.forEach(g => {
+            if (g.program?.id) map.set(String(g.program.id), g.program);
+        });
+        return Array.from(map.values());
+    }, [programs, institutions, allGroups]);
+
+    // Daftar Jenjang Pendidikan Dinamis (dari master institutions, terfilter oleh Program)
+    const filteredInstitutions = useMemo(() => {
+        if (selectedProgram === 'all') return institutions;
+        return institutions.filter(inst =>
+            String(inst.program_id) === String(selectedProgram) ||
+            String(inst.program?.id) === String(selectedProgram) ||
+            inst.program?.name?.toLowerCase() === String(selectedProgram).toLowerCase()
+        );
+    }, [institutions, selectedProgram]);
+
+    // Daftar Tingkat Kelas Dinamis (dari master education-classes, terfilter oleh Jenjang & Program)
+    const filteredEducationClasses = useMemo(() => {
+        let list = allEducationClasses;
+        if (selectedEducation !== 'all') {
+            list = list.filter(cls =>
+                String(cls.educational_institution_id) === String(selectedEducation) ||
+                String(cls.institution?.id) === String(selectedEducation) ||
+                String(cls.education?.educational_institution_id) === String(selectedEducation)
+            );
+        } else if (selectedProgram !== 'all') {
+            const validInstIds = new Set(filteredInstitutions.map(i => String(i.id)));
+            list = list.filter(cls =>
+                validInstIds.has(String(cls.educational_institution_id)) ||
+                validInstIds.has(String(cls.institution?.id)) ||
+                validInstIds.has(String(cls.education?.educational_institution_id)) ||
+                String(cls.education?.program_id) === String(selectedProgram)
+            );
+        }
+        return list;
+    }, [allEducationClasses, selectedEducation, selectedProgram, filteredInstitutions]);
+
+    const selectedEducationLabel = useMemo(() => {
+        if (selectedEducation === 'all') return 'all';
+        const inst = institutions.find(i => String(i.id) === String(selectedEducation));
+        return inst ? (inst.short_name || inst.name) : selectedEducation;
+    }, [selectedEducation, institutions]);
 
     const { data: hoursData } = useGetLessonHoursQuery();
     const lessonHours = useMemo(() => {
@@ -135,26 +196,35 @@ export default function ScheduleKbmPage() {
     const filteredGroups = useMemo(() => {
         let result = allGroups;
 
-        // 1. Filter Program Pesantren (Kubar / Tibyan)
+        // 1. Filter Program Pesantren
         if (selectedProgram !== 'all') {
             result = result.filter(g => 
-                g.program?.name?.toLowerCase() === selectedProgram.toLowerCase() ||
-                g.educational_institution?.short_name?.toLowerCase() === selectedProgram.toLowerCase()
+                String(g.program_id) === String(selectedProgram) ||
+                String(g.program?.id) === String(selectedProgram) ||
+                String(g.educational_institution?.program_id) === String(selectedProgram) ||
+                g.program?.name?.toLowerCase() === String(selectedProgram).toLowerCase() ||
+                g.educational_institution?.short_name?.toLowerCase() === String(selectedProgram).toLowerCase()
             );
         }
 
-        // 2. Filter Jenjang Pendidikan (Ula, Wustha, Ulya, Takhossus)
+        // 2. Filter Jenjang Pendidikan (dari master EducationalInstitution)
         if (selectedEducation !== 'all') {
             result = result.filter(g => 
-                g.education?.name?.toLowerCase() === selectedEducation.toLowerCase()
+                String(g.educational_institution_id) === String(selectedEducation) ||
+                String(g.educational_institution?.id) === String(selectedEducation) ||
+                String(g.education_id) === String(selectedEducation) ||
+                g.educational_institution?.name?.toLowerCase() === String(selectedEducation).toLowerCase() ||
+                g.education?.name?.toLowerCase() === String(selectedEducation).toLowerCase()
             );
         }
 
-        // 3. Filter Tingkat/Kelas (Kelas 1, Kelas 2, Kelas 3)
+        // 3. Filter Tingkat/Kelas (dari master EducationClass)
         if (selectedEducationClass !== 'all') {
             result = result.filter(g => 
-                g.education_class?.name?.includes(selectedEducationClass) ||
-                g.education_class?.code?.includes(selectedEducationClass)
+                String(g.education_class_id) === String(selectedEducationClass) ||
+                String(g.education_class?.id) === String(selectedEducationClass) ||
+                g.education_class?.name?.toLowerCase() === String(selectedEducationClass).toLowerCase() ||
+                g.education_class?.code?.toLowerCase() === String(selectedEducationClass).toLowerCase()
             );
         }
 
@@ -506,9 +576,9 @@ export default function ScheduleKbmPage() {
                 FILTER DATA MASTER RELASIONAL: PROGRAM -> JENJANG -> KELAS
                 ═══════════════════════════════════════════════════════════ */}
             <div className="bg-white border border-slate-200 rounded-md p-4 shadow-xs space-y-4">
-                {/* 1. Filter Program Utama (Kubar / Tibyan) */}
+                {/* 1. Filter Program Utama (Dinamis dari Master Program) */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-md">
+                    <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-md">
                         <button
                             onClick={() => { setSelectedProgram('all'); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
                             className={`px-3 py-1.5 text-xs font-bold rounded transition ${
@@ -519,26 +589,19 @@ export default function ScheduleKbmPage() {
                         >
                             Semua Program
                         </button>
-                        <button
-                            onClick={() => { setSelectedProgram('Kubar'); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
-                            className={`px-3 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
-                                selectedProgram === 'Kubar'
-                                    ? 'bg-[#0b57d0] text-white shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                        >
-                            <School className="w-3.5 h-3.5" /> Program KUBAR (Mu'allimin)
-                        </button>
-                        <button
-                            onClick={() => { setSelectedProgram('Tibyan'); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
-                            className={`px-3 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
-                                selectedProgram === 'Tibyan'
-                                    ? 'bg-[#0b57d0] text-white shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                        >
-                            <BookOpen className="w-3.5 h-3.5" /> Program TIBYAN (Takhossus)
-                        </button>
+                        {availablePrograms.map((prog) => (
+                            <button
+                                key={prog.id}
+                                onClick={() => { setSelectedProgram(String(prog.id)); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
+                                className={`px-3 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
+                                    String(selectedProgram) === String(prog.id)
+                                        ? 'bg-[#0b57d0] text-white shadow-xs'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                <School className="w-3.5 h-3.5" /> Program {prog.name}{prog.code ? ` (${prog.code})` : ''}
+                            </button>
+                        ))}
                     </div>
 
                     {/* Status Bentrok Jadwal */}
@@ -564,7 +627,7 @@ export default function ScheduleKbmPage() {
 
                 {/* 2. Sub-Filter: Jenjang Pendidikan -> Tingkat Kelas -> Pencarian */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                    {/* Jenjang Pendidikan */}
+                    {/* Jenjang Pendidikan (Sinkron dengan Master Jenjang Pendidikan) */}
                     <div>
                         <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
                             Jenjang Pendidikan
@@ -575,20 +638,15 @@ export default function ScheduleKbmPage() {
                             className="w-full px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded bg-white text-slate-800"
                         >
                             <option value="all">Semua Jenjang</option>
-                            {(selectedProgram === 'all' || selectedProgram === 'Kubar') && (
-                                <>
-                                    <option value="Ula">Jenjang Ula (Dasar)</option>
-                                    <option value="Wustha">Jenjang Wustha (Menengah)</option>
-                                    <option value="Ulya">Jenjang Ulya (Atas)</option>
-                                </>
-                            )}
-                            {(selectedProgram === 'all' || selectedProgram === 'Tibyan') && (
-                                <option value="Takhossus">Jenjang Takhossus (Dirasah Kitab)</option>
-                            )}
+                            {filteredInstitutions.map((inst) => (
+                                <option key={inst.id} value={String(inst.id)}>
+                                    {inst.name}{inst.short_name && inst.short_name !== inst.name ? ` (${inst.short_name})` : ''}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
-                    {/* Tingkat / Kelas */}
+                    {/* Tingkat / Kelas (Sinkron dengan Master Tingkat Kelas) */}
                     <div>
                         <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
                             Tingkat / Kelas
@@ -599,9 +657,11 @@ export default function ScheduleKbmPage() {
                             className="w-full px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded bg-white text-slate-800"
                         >
                             <option value="all">Semua Kelas</option>
-                            <option value="1">Tingkat 1 (Kelas 1)</option>
-                            <option value="2">Tingkat 2 (Kelas 2)</option>
-                            <option value="3">Tingkat 3 (Kelas 3)</option>
+                            {filteredEducationClasses.map((cls) => (
+                                <option key={cls.id} value={String(cls.id)}>
+                                    {cls.name}{cls.code ? ` (${cls.code})` : ''}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
@@ -796,12 +856,12 @@ export default function ScheduleKbmPage() {
                                                                     </span>
                                                                 </div>
 
-                                                                <div className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1">
-                                                                    <span>{g.program?.name || 'Kubar'}</span>
+                                                                <div className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1 flex-wrap">
+                                                                    <span>{g.program?.name || g.educational_institution?.program?.name || '-'}</span>
                                                                     <span>&bull;</span>
-                                                                    <span>{g.education?.name || 'Wustha'}</span>
+                                                                    <span>{g.educational_institution?.short_name || g.educational_institution?.name || g.education?.name || '-'}</span>
                                                                     <span>&bull;</span>
-                                                                    <span className="text-slate-500 font-normal">{g.education_class?.name || 'Kelas 1'}</span>
+                                                                    <span className="text-slate-500 font-normal">{g.education_class?.name || '-'}</span>
                                                                 </div>
 
                                                                 <div className="text-[10px] text-slate-500 flex items-center justify-between pt-0.5">
@@ -933,7 +993,7 @@ export default function ScheduleKbmPage() {
                                         >
                                             {filteredGroups.map(g => (
                                                 <option key={g.id} value={g.id}>
-                                                    {g.name} &bull; {g.program?.name} ({g.education?.name} - {g.education_class?.name})
+                                                    {g.name} &bull; {g.program?.name || g.educational_institution?.program?.name || '-'} ({g.educational_institution?.short_name || g.educational_institution?.name || g.education?.name || '-'} - {g.education_class?.name || '-'})
                                                 </option>
                                             ))}
                                         </select>
@@ -1078,10 +1138,10 @@ export default function ScheduleKbmPage() {
                                                 return (
                                                     <tr key={s.id || idx} className={`hover:bg-slate-50/60 transition ${isClashing ? 'bg-rose-50/40' : ''}`}>
                                                         <td className="px-3.5 py-2 font-bold text-slate-900">
-                                                            {s.class_group?.program?.name || 'Kubar'}
+                                                            {s.class_group?.program?.name || s.class_group?.educational_institution?.program?.name || '-'}
                                                         </td>
                                                         <td className="px-3.5 py-2 text-slate-700">
-                                                            {s.class_group?.education?.name || '-'}
+                                                            {s.class_group?.educational_institution?.name || s.class_group?.education?.name || '-'}
                                                         </td>
                                                         <td className="px-3.5 py-2 text-slate-600">
                                                             {s.class_group?.education_class?.name || '-'}
@@ -1144,7 +1204,7 @@ export default function ScheduleKbmPage() {
                                         >
                                             {allGroups.map(g => (
                                                 <option key={g.id} value={g.id}>
-                                                    {g.name} &bull; {g.program?.name} ({g.education?.name} - {g.education_class?.name})
+                                                    {g.name} &bull; {g.program?.name || g.educational_institution?.program?.name || '-'} ({g.educational_institution?.short_name || g.educational_institution?.name || g.education?.name || '-'} - {g.education_class?.name || '-'})
                                                 </option>
                                             ))}
                                         </select>
@@ -1660,7 +1720,7 @@ export default function ScheduleKbmPage() {
                         >
                             {allGroups.map((g) => (
                                 <option key={g.id} value={g.id}>
-                                    {g.name} &bull; {g.program?.name} ({g.education?.name} - {g.education_class?.name})
+                                    {g.name} &bull; {g.program?.name || g.educational_institution?.program?.name || '-'} ({g.educational_institution?.short_name || g.educational_institution?.name || g.education?.name || '-'} - {g.education_class?.name || '-'})
                                 </option>
                             ))}
                         </select>
@@ -1726,11 +1786,11 @@ export default function ScheduleKbmPage() {
                                 className="block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                             >
                                 <option value="">Tanpa Ruangan Khusus</option>
-                                <option value="1">Ruang Ula 1</option>
-                                <option value="2">Ruang Wustha 1</option>
-                                <option value="3">Ruang Ulya 1</option>
-                                <option value="4">Ruang Takhossus 1</option>
-                                <option value="5">Ruang Takhossus 2</option>
+                                {classrooms.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.name}{c.code ? ` (${c.code})` : ''}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>
@@ -1953,7 +2013,7 @@ export default function ScheduleKbmPage() {
                 activeYearId={selectedYearId}
                 quarters={quarters}
                 activeQuarterId={selectedQuarterId}
-                educations={educations}
+                educations={institutions}
                 currentEducation={selectedEducation}
                 onSuccess={(result) => {
                     if (result?.type === 'period' && result?.targetQuarterId) {
@@ -1976,7 +2036,7 @@ export default function ScheduleKbmPage() {
                 lessonHours={lessonHours}
                 academicYear={currentYear?.year ? `${currentYear.year} H` : '1446/1447 H'}
                 quarterName={currentQuarter?.name || 'Triwulan IV (Syawal - Dzulhijjah)'}
-                selectedEducation={selectedEducation}
+                selectedEducation={selectedEducationLabel}
             />
         </div>
     );

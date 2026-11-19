@@ -38,6 +38,23 @@ export default function TeacherDetailPage() {
     const { data: response, isLoading, refetch } = useGetTeacherByIdQuery(id);
     const teacher = response?.data;
 
+    const [photoError, setPhotoError] = useState(false);
+
+    const resolveTeacherPhotoUrl = (t) => {
+        const rawPhoto = t?.photo_url || t?.photo;
+        if (!rawPhoto) return null;
+        const src = String(rawPhoto).trim();
+        if (/^(https?:\/\/|data:)/i.test(src)) return src;
+
+        const cleanPath = src.replace(/^\/+/, '').replace(/^storage\//, '');
+        if (cleanPath.startsWith('uploads/')) {
+            return `https://api.tamjid.or.id/storage/${cleanPath}`;
+        }
+        return `https://api.tamjid.or.id/storage/uploads/logos/large/${cleanPath}`;
+    };
+
+    const teacherPhotoUrl = resolveTeacherPhotoUrl(teacher);
+
     const [activeTab, setActiveTab] = useState('biodata');
     const [assignModalOpen, setAssignModalOpen] = useState(false);
 
@@ -209,16 +226,35 @@ export default function TeacherDetailPage() {
                 <div className="lg:col-span-4 space-y-5">
                     <div className="bg-white rounded-lg border border-slate-200/90 shadow-2xs overflow-hidden">
                         {/* Header Banner Kecil */}
-                        <div className="h-20 bg-gradient-to-r from-[#093c30] to-[#0f5443] relative">
-                            <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
-                                <div className="w-20 h-20 rounded-full border-4 border-white bg-slate-100 shadow-md flex items-center justify-center overflow-hidden text-slate-500">
-                                    <User className="w-10 h-10 text-[#093c30]" />
+                        <div className="h-24 bg-gradient-to-r from-[#093c30] to-[#0f5443] relative">
+                            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
+                                <div 
+                                    className={`w-24 h-24 rounded-2xl border-4 border-white bg-white shadow-md flex items-center justify-center overflow-hidden text-slate-500 group relative ${teacherPhotoUrl && !photoError ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}
+                                    onClick={() => {
+                                        if (teacherPhotoUrl && !photoError) {
+                                            window.open(teacherPhotoUrl, '_blank');
+                                        }
+                                    }}
+                                    title={teacherPhotoUrl && !photoError ? "Klik untuk melihat foto ukuran penuh" : undefined}
+                                >
+                                    {teacherPhotoUrl && !photoError ? (
+                                        <img
+                                            src={teacherPhotoUrl}
+                                            alt={`Foto ${teacher.name}`}
+                                            className="w-full h-full object-cover"
+                                            onError={() => setPhotoError(true)}
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-50 text-[#093c30]">
+                                            <User className="w-12 h-12 stroke-[1.5]" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
                         {/* Profil Info */}
-                        <div className="pt-12 p-5 text-center">
+                        <div className="pt-14 p-5 text-center">
                             <h2 className="text-base font-bold text-slate-900 leading-snug">{teacher.name}</h2>
                             <p className="text-xs text-slate-500 mt-0.5">{teacher.nip ? `NIP: ${teacher.nip}` : 'NIP: Belum Terdaftar'}</p>
 

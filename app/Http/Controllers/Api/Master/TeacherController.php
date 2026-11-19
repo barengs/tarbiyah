@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class TeacherController extends Controller implements HasMiddleware
 {
@@ -72,6 +73,7 @@ class TeacherController extends Controller implements HasMiddleware
             'phone' => 'nullable|string|max:30',
             'email' => 'nullable|email|max:255',
             'specialization' => 'nullable|string|max:255',
+            'photo' => 'nullable|string',
             'status' => 'required|in:tetap,honorer,luar',
             'staff_id' => 'nullable|integer',
             'is_active' => 'nullable|boolean',
@@ -104,6 +106,7 @@ class TeacherController extends Controller implements HasMiddleware
                 'phone' => $validated['phone'] ?? null,
                 'email' => $validated['email'] ?? null,
                 'specialization' => $validated['specialization'] ?? null,
+                'photo' => $validated['photo'] ?? null,
                 'status' => $validated['status'],
                 'is_active' => $validated['is_active'] ?? true,
             ]);
@@ -150,6 +153,51 @@ class TeacherController extends Controller implements HasMiddleware
             ], 404);
         }
 
+        // Auto-fetch & sync foto guru dari Tamjid jika belum tersimpan
+        if (empty($teacher->photo) && ($teacher->staff_id || $teacher->nip)) {
+            try {
+                $photo = null;
+                $smptCoreUrl = config('services.smpt.core_url', 'http://localhost:8000');
+                $internalKey = config('services.smpt.internal_key', 'smpt-tarbiyah-internal-secret-2026');
+
+                $resp = Http::timeout(3)->withHeaders([
+                    'X-Internal-Key' => $internalKey,
+                    'Accept' => 'application/json',
+                ])->get("{$smptCoreUrl}/api/internal/staff-photo", array_filter([
+                    'staff_id' => $teacher->staff_id,
+                    'nip' => $teacher->nip,
+                ]));
+
+                if ($resp->successful() && $resp->json('data.photo')) {
+                    $photo = $resp->json('data.photo');
+                } elseif ($resp->successful() && $resp->json('photo')) {
+                    $photo = $resp->json('photo');
+                } elseif (Schema::hasTable('pesantren.staff')) {
+                    $staff = DB::table('pesantren.staff')
+                        ->where(function ($q) use ($teacher) {
+                            if ($teacher->staff_id) {
+                                $q->where('id', $teacher->staff_id);
+                            }
+                            if ($teacher->nip) {
+                                $q->orWhere('nip', $teacher->nip)->orWhere('code', $teacher->nip);
+                            }
+                        })
+                        ->whereNotNull('photo')
+                        ->first(['photo']);
+                    if ($staff && !empty($staff->photo)) {
+                        $photo = $staff->photo;
+                    }
+                }
+
+                if ($photo) {
+                    $teacher->photo = $photo;
+                    $teacher->saveQuietly();
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Gagal auto-sync foto guru dari Tamjid: '.$e->getMessage());
+            }
+        }
+
         return response()->json([
             'status' => 'success',
             'message' => 'Detail guru berhasil diambil',
@@ -175,6 +223,7 @@ class TeacherController extends Controller implements HasMiddleware
             'phone' => 'nullable|string|max:30',
             'email' => 'nullable|email|max:255',
             'specialization' => 'nullable|string|max:255',
+            'photo' => 'nullable|string',
             'status' => 'sometimes|required|in:tetap,honorer,luar',
             'is_active' => 'nullable|boolean',
             'study_ids' => 'nullable|array',
@@ -318,6 +367,7 @@ class TeacherController extends Controller implements HasMiddleware
                         'gender' => $item['gender'] ?? 'L',
                         'phone' => $item['phone'] ?? '-',
                         'roles' => $item['roles'] ?? [],
+                        'photo' => $item['photo'] ?? null,
                         'is_new' => ! $exists,
                     ];
                 }
@@ -390,6 +440,7 @@ class TeacherController extends Controller implements HasMiddleware
                     'gender' => ($item['gender'] ?? 'L') === 'P' ? 'P' : 'L',
                     'phone' => $item['phone'] ?? null,
                     'email' => $item['email'] ?? null,
+                    'photo' => $item['photo'] ?? null,
                     'status' => $item['status'] ?? 'tetap',
                     'is_active' => (bool) ($item['is_active'] ?? true),
                 ];

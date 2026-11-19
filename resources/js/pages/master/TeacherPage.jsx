@@ -12,8 +12,21 @@ import DataTable from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AssignStudyModal from '../../components/organisms/AssignStudyModal';
-import { Plus, Edit2, Trash2, ShieldAlert, BookOpen, PlusCircle, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, ShieldAlert, BookOpen, PlusCircle, RefreshCw, User } from 'lucide-react';
 import { toast } from 'react-toastify';
+
+const resolveTeacherPhotoUrl = (t) => {
+    const rawPhoto = t?.photo_url || t?.photo;
+    if (!rawPhoto) return null;
+    const src = String(rawPhoto).trim();
+    if (/^(https?:\/\/|data:)/i.test(src)) return src;
+
+    const cleanPath = src.replace(/^\/+/, '').replace(/^storage\//, '');
+    if (cleanPath.startsWith('uploads/')) {
+        return `https://api.tamjid.or.id/storage/${cleanPath}`;
+    }
+    return `https://api.tamjid.or.id/storage/uploads/logos/large/${cleanPath}`;
+};
 
 export default function TeacherPage() {
     const navigate = useNavigate();
@@ -137,19 +150,38 @@ export default function TeacherPage() {
         {
             key: 'name',
             label: 'Nama & NIP',
-            render: (row) => (
-                <div>
-                    <p className="font-semibold text-slate-900">{row.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-slate-400">{row.nip ? `NIP: ${row.nip}` : 'NIP: -'}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                            row.gender === 'L' ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'
-                        }`}>
-                            {row.gender === 'L' ? 'Laki-laki' : 'Perempuan'}
-                        </span>
+            render: (row) => {
+                const photoUrl = resolveTeacherPhotoUrl(row);
+                return (
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 text-slate-400">
+                            {photoUrl ? (
+                                <img
+                                    src={photoUrl}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                    }}
+                                />
+                            ) : (
+                                <User className="w-5 h-5 text-slate-400" />
+                            )}
+                        </div>
+                        <div>
+                            <p className="font-semibold text-slate-900">{row.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-slate-400">{row.nip ? `NIP: ${row.nip}` : 'NIP: -'}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                                    row.gender === 'L' ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'
+                                }`}>
+                                    {row.gender === 'L' ? 'Laki-laki' : 'Perempuan'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            ),
+                );
+            },
         },
         {
             key: 'status',

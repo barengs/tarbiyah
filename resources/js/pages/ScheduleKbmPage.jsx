@@ -26,6 +26,7 @@ import FlatTabs from '../components/atoms/FlatTabs';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import CopyScheduleModal from '../components/organisms/CopyScheduleModal';
 import PrintScheduleModal from '../components/organisms/PrintScheduleModal';
+import PrintRecapModal from '../components/organisms/PrintRecapModal';
 import ActionDropdown from '../components/molecules/ActionDropdown';
 import { 
     Calendar, Plus, Clock, BookOpen, BarChart3, User, MapPin, 
@@ -351,6 +352,33 @@ export default function ScheduleKbmPage() {
         { skip: !currentWeeklyGroup?.id }
     );
     const recap = recapData?.data;
+
+    // Pagination, Search & Print Preview untuk Rekapitulasi Kehadiran
+    const [recapSearchQuery, setRecapSearchQuery] = useState('');
+    const [recapPage, setRecapPage] = useState(1);
+    const [recapPerPage, setRecapPerPage] = useState(10);
+    const [printRecapModalOpen, setPrintRecapModalOpen] = useState(false);
+
+    const filteredRecapStudents = useMemo(() => {
+        const list = recap?.students || [];
+        if (!recapSearchQuery.trim()) return list;
+        const q = recapSearchQuery.toLowerCase();
+        return list.filter(
+            (st) =>
+                st.name?.toLowerCase().includes(q) ||
+                st.nis?.toLowerCase().includes(q)
+        );
+    }, [recap?.students, recapSearchQuery]);
+
+    const totalRecapPages = Math.ceil(filteredRecapStudents.length / recapPerPage) || 1;
+    const paginatedRecapStudents = useMemo(() => {
+        const start = (recapPage - 1) * recapPerPage;
+        return filteredRecapStudents.slice(start, start + recapPerPage);
+    }, [filteredRecapStudents, recapPage, recapPerPage]);
+
+    useEffect(() => {
+        setRecapPage(1);
+    }, [recapSearchQuery, recapPerPage, currentWeeklyGroup?.id]);
 
     const [jMeetingNo, setJMeetingNo] = useState(1);
     const [jDate, setJDate] = useState(new Date().toISOString().substring(0, 10));
@@ -1654,50 +1682,185 @@ export default function ScheduleKbmPage() {
                 )}
 
                 {activeTab === 'recap' && (
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                Rekapitulasi Kehadiran Santri &bull; {currentWeeklyGroup?.name}
-                            </span>
+                    <div className="space-y-3">
+                        {/* Control Bar Rekapitulasi Kehadiran */}
+                        <div className="bg-white border border-slate-200 rounded-md p-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                        Rombel:
+                                    </span>
+                                    <select
+                                        value={currentWeeklyGroup?.id || ''}
+                                        onChange={(e) => setSelectedWeeklyGroupId(e.target.value)}
+                                        className="px-2.5 py-1.5 text-xs font-bold border border-slate-300 rounded bg-white text-slate-900"
+                                    >
+                                        {allGroups.map((g) => (
+                                            <option key={g.id} value={g.id}>
+                                                {g.name} &bull; {g.program?.name || g.educational_institution?.program?.name || '-'} ({g.educational_institution?.short_name || g.educational_institution?.name || g.education?.name || '-'} - {g.education_class?.name || '-'})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <span className="text-xs text-slate-500">
+                                    Total Pertemuan KBM: <b className="text-slate-900">{journals.length}</b> &bull; Santri: <b className="text-slate-900">{recap?.students?.length || 0}</b>
+                                </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="relative">
+                                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                                    <input
+                                        type="text"
+                                        placeholder="Cari nama / NIS santri..."
+                                        value={recapSearchQuery}
+                                        onChange={(e) => setRecapSearchQuery(e.target.value)}
+                                        className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-800 w-48 sm:w-56 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={!recap?.students?.length}
+                                    onClick={() => setPrintRecapModalOpen(true)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#093c30] text-white text-xs font-semibold rounded hover:bg-[#062d24] disabled:opacity-40 transition shadow-2xs cursor-pointer"
+                                >
+                                    <Printer className="w-3.5 h-3.5" />
+                                    Preview &amp; Cetak PDF
+                                </button>
+                            </div>
                         </div>
-                        <div className="bg-white border border-slate-200 rounded-md p-6 shadow-xs overflow-x-auto">
+
+                        {/* Tabel Kompak Rekapitulasi Kehadiran */}
+                        <div className="bg-white border border-slate-200 rounded-md shadow-xs overflow-hidden">
                             {isLoadingRecap ? (
-                                <div className="p-12 text-center text-slate-400">Memuat rekap kehadiran...</div>
-                            ) : recap?.students ? (
-                                <div className="space-y-3">
-                                    <div className="text-sm text-slate-500 mb-2">
-                                        Total Pertemuan KBM: <span className="font-bold text-slate-900">{journals.length}</span>
+                                <div className="p-8 text-center text-xs text-slate-400">Memuat rekap kehadiran...</div>
+                            ) : recap?.students && recap.students.length > 0 ? (
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-xs border-collapse">
+                                            <thead className="bg-[#093c30] text-white text-[11px] uppercase tracking-wider">
+                                                <tr>
+                                                    <th className="py-2 px-3 text-center w-10 border-r border-[#064e3b]">No</th>
+                                                    <th className="py-2 px-3 text-left w-32 border-r border-[#064e3b]">NIS</th>
+                                                    <th className="py-2 px-3 text-left border-r border-[#064e3b]">Nama Santri</th>
+                                                    <th className="py-2 px-2.5 text-center w-16 border-r border-[#064e3b]">Hadir</th>
+                                                    <th className="py-2 px-2.5 text-center w-16 border-r border-[#064e3b]">Izin</th>
+                                                    <th className="py-2 px-2.5 text-center w-16 border-r border-[#064e3b]">Sakit</th>
+                                                    <th className="py-2 px-2.5 text-center w-16 border-r border-[#064e3b]">Alpa</th>
+                                                    <th className="py-2 px-3 text-center w-44">Kehadiran</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {paginatedRecapStudents.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={8} className="py-6 text-center text-slate-400 italic">
+                                                            Tidak ada santri yang sesuai dengan pencarian &ldquo;{recapSearchQuery}&rdquo;.
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    paginatedRecapStudents.map((st, idx) => (
+                                                        <tr
+                                                            key={st.student_id}
+                                                            className={idx % 2 !== 0 ? 'bg-slate-50/50 hover:bg-emerald-50/40 transition-colors' : 'bg-white hover:bg-emerald-50/40 transition-colors'}
+                                                        >
+                                                            <td className="py-1.5 px-3 text-center font-mono text-[11px] text-slate-400 border-r border-slate-100">
+                                                                {(recapPage - 1) * recapPerPage + idx + 1}
+                                                            </td>
+                                                            <td className="py-1.5 px-3 font-mono text-[11px] text-slate-600 border-r border-slate-100 whitespace-nowrap">
+                                                                {st.nis || '-'}
+                                                            </td>
+                                                            <td className="py-1.5 px-3 font-bold text-slate-800 border-r border-slate-100">
+                                                                {st.name}
+                                                            </td>
+                                                            <td className="py-1.5 px-2.5 text-center font-bold text-emerald-700 border-r border-slate-100">
+                                                                {st.hadir ?? 0}
+                                                            </td>
+                                                            <td className="py-1.5 px-2.5 text-center font-bold text-blue-700 border-r border-slate-100">
+                                                                {st.izin ?? 0}
+                                                            </td>
+                                                            <td className="py-1.5 px-2.5 text-center font-bold text-amber-700 border-r border-slate-100">
+                                                                {st.sakit ?? 0}
+                                                            </td>
+                                                            <td className="py-1.5 px-2.5 text-center font-bold text-rose-700 border-r border-slate-100">
+                                                                {st.alpa ?? 0}
+                                                            </td>
+                                                            <td className="py-1.5 px-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                                                        <div
+                                                                            className={`h-full ${st.percentage >= 80 ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                                                                            style={{ width: `${st.percentage ?? 0}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <span className={`text-[11px] font-bold w-9 text-right ${st.percentage >= 80 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                                        {st.percentage ?? 0}%
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                    {recap.students.map((st) => (
-                                        <div key={st.student_id} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-100 last:border-0">
-                                            <div>
-                                                <p className="font-bold text-slate-800 text-sm">{st.name}</p>
-                                                <p className="text-slate-400 font-mono text-xs">NIS: {st.nis}</p>
+
+                                    {/* Pagination (tampil otomatis jika data > 10) */}
+                                    {filteredRecapStudents.length > 10 && (
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 bg-slate-50 border-t border-slate-200 text-xs">
+                                            <div className="flex items-center gap-2 text-slate-500">
+                                                <span>
+                                                    Menampilkan <b>{Math.min(filteredRecapStudents.length, (recapPage - 1) * recapPerPage + 1)}</b> -{' '}
+                                                    <b>{Math.min(filteredRecapStudents.length, recapPage * recapPerPage)}</b> dari{' '}
+                                                    <b>{filteredRecapStudents.length}</b> Santri
+                                                </span>
+                                                <select
+                                                    value={recapPerPage}
+                                                    onChange={(e) => setRecapPerPage(Number(e.target.value))}
+                                                    className="px-2 py-0.5 text-xs border border-slate-300 rounded bg-white text-slate-700"
+                                                >
+                                                    <option value={10}>10 / hal</option>
+                                                    <option value={25}>25 / hal</option>
+                                                    <option value={50}>50 / hal</option>
+                                                </select>
                                             </div>
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex gap-2 text-xs">
-                                                    <span className="text-emerald-700 font-semibold">{st.hadir} Hadir</span>
-                                                    <span className="text-blue-700 font-semibold">{st.izin} Izin</span>
-                                                    <span className="text-amber-700 font-semibold">{st.sakit} Sakit</span>
-                                                    <span className="text-rose-700 font-semibold">{st.alpa} Alpa</span>
-                                                </div>
-                                                <div className="w-32 flex items-center gap-2">
-                                                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-emerald-500"
-                                                            style={{ width: `${st.percentage}%` }}
-                                                        />
-                                                    </div>
-                                                    <span className={`text-xs font-bold w-10 ${st.percentage >= 80 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                        {st.percentage}%
-                                                    </span>
-                                                </div>
+
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    disabled={recapPage <= 1}
+                                                    onClick={() => setRecapPage((p) => Math.max(1, p - 1))}
+                                                    className="p-1 border border-slate-300 rounded bg-white disabled:opacity-40 hover:bg-slate-100 cursor-pointer"
+                                                >
+                                                    <ChevronLeft className="w-3.5 h-3.5" />
+                                                </button>
+                                                {Array.from({ length: totalRecapPages }, (_, i) => i + 1).map((pg) => (
+                                                    <button
+                                                        key={pg}
+                                                        type="button"
+                                                        onClick={() => setRecapPage(pg)}
+                                                        className={`px-2.5 py-0.5 text-xs font-semibold rounded cursor-pointer ${
+                                                            recapPage === pg
+                                                                ? 'bg-[#0b57d0] text-white'
+                                                                : 'text-slate-600 hover:bg-slate-200/70'
+                                                        }`}
+                                                    >
+                                                        {pg}
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    type="button"
+                                                    disabled={recapPage >= totalRecapPages}
+                                                    onClick={() => setRecapPage((p) => Math.min(totalRecapPages, p + 1))}
+                                                    className="p-1 border border-slate-300 rounded bg-white disabled:opacity-40 hover:bg-slate-100 cursor-pointer"
+                                                >
+                                                    <ChevronRight className="w-3.5 h-3.5" />
+                                                </button>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
+                                    )}
+                                </>
                             ) : (
-                                <p className="text-xs text-slate-400 py-6 text-center">Belum ada data rekap presensi untuk rombel ini.</p>
+                                <p className="text-xs text-slate-400 py-8 text-center">Belum ada data rekap presensi untuk rombel ini.</p>
                             )}
                         </div>
                     </div>
@@ -2039,6 +2202,17 @@ export default function ScheduleKbmPage() {
                 academicYear={currentYear?.year ? `${currentYear.year} H` : '1446/1447 H'}
                 quarterName={currentQuarter?.name || 'Triwulan IV (Syawal - Dzulhijjah)'}
                 selectedEducation={selectedEducationLabel}
+            />
+
+            {/* Modal Pratinjau & Cetak PDF Rekapitulasi Kehadiran */}
+            <PrintRecapModal
+                open={printRecapModalOpen}
+                onClose={() => setPrintRecapModalOpen(false)}
+                group={currentWeeklyGroup}
+                students={recap?.students || []}
+                totalMeetings={journals.length}
+                academicYear={currentYear?.year ? `${currentYear.year} H` : '1446/1447 H'}
+                quarterName={currentQuarter?.name || 'Triwulan IV (Syawal - Dzulhijjah)'}
             />
         </div>
     );

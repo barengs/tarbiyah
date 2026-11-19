@@ -33,7 +33,7 @@ class ProgramController extends Controller
     }
 
     /**
-     * Sinkronisasi master program pesantren dari aplikasi kepesantrenan (SMPT).
+     * Sinkronisasi master program pesantren dari aplikasi kepesantrenan (Tamjid).
      * Memanggil internal endpoint GET /api/internal/programs dengan header X-Internal-Key.
      */
     public function syncFromSmpt()
@@ -50,7 +50,7 @@ class ProgramController extends Controller
             if (! $response->successful()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
+                    'message' => 'Gagal menghubungi Tamjid: '.$response->body(),
                 ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
             }
 
@@ -82,15 +82,15 @@ class ProgramController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => "Berhasil menyinkronkan {$syncedCount} program pesantren dari SMPT.",
+                'message' => "Berhasil menyinkronkan {$syncedCount} program pesantren dari Tamjid.",
                 'data' => Program::orderBy('id', 'asc')->get(),
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error syncing programs from SMPT: '.$e->getMessage());
+            Log::error('Error syncing programs from Tamjid: '.$e->getMessage());
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Terjadi kesalahan saat menyinkronkan program dari SMPT: '.$e->getMessage(),
+                'message' => 'Terjadi kesalahan saat menyinkronkan program dari Tamjid: '.$e->getMessage(),
             ], 500);
         }
     }

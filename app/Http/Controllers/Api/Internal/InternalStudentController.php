@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 class InternalStudentController extends Controller
 {
     /**
-     * Endpoint untuk menerima sinkronisasi data santri dari SMPT backend.
+     * Endpoint untuk menerima sinkronisasi data santri dari Tamjid backend.
      * Dipanggil dengan header X-Internal-Key.
      */
     public function sync(Request $request)
@@ -53,7 +53,7 @@ class InternalStudentController extends Controller
                     'nisn' => $validated['nisn'] ?? null,
                     'name' => $validated['name'],
                     'gender' => $validated['gender'],
-                    'is_mukim' => true, // Santri dari SMPT selalu santri mukim
+                    'is_mukim' => true, // Santri dari Tamjid selalu santri mukim
                     'parent_name' => $validated['parent_name'] ?? null,
                     'parent_phone' => $validated['parent_phone'] ?? null,
                     'address' => $validated['address'] ?? null,
@@ -92,7 +92,7 @@ class InternalStudentController extends Controller
     }
 
     /**
-     * Endpoint bulk sync: menerima daftar santri sekaligus dari SMPT
+     * Endpoint bulk sync: menerima daftar santri sekaligus dari Tamjid
      * (dipakai saat migrasi penuh / backfill).
      */
     public function bulkSync(Request $request)
@@ -160,7 +160,7 @@ class InternalStudentController extends Controller
             $existing ? $updated++ : $created++;
         }
 
-        Log::info("Bulk sync dari SMPT: {$created} created, {$updated} updated.");
+        Log::info("Bulk sync dari Tamjid: {$created} created, {$updated} updated.");
 
         return response()->json([
             'status' => 'success',
@@ -173,7 +173,7 @@ class InternalStudentController extends Controller
 
     /**
      * Endpoint untuk mengambil riwayat pendidikan & kelas santri berdasarkan NIS.
-     * Dipanggil oleh SMPT backend melalui Service-to-Service (X-Internal-Key).
+     * Dipanggil oleh Tamjid backend melalui Service-to-Service (X-Internal-Key).
      */
     public function getEducationHistory(string $nis)
     {
@@ -253,7 +253,7 @@ class InternalStudentController extends Controller
     }
 
     /**
-     * Batch ambil kelas aktif santri berdasarkan daftar NIS untuk SMPT.
+     * Batch ambil kelas aktif santri berdasarkan daftar NIS untuk Tamjid.
      * POST /api/internal/students/current-classes
      */
     public function getCurrentClasses(Request $request)
@@ -311,7 +311,7 @@ class InternalStudentController extends Controller
     }
 
     /**
-     * Endpoint internal untuk SMPT menarik master triwulan ujian (academic_quarters).
+     * Endpoint internal untuk Tamjid menarik master triwulan ujian (academic_quarters).
      * GET /api/internal/academic-quarters
      */
     public function getAcademicQuarters()
@@ -337,7 +337,7 @@ class InternalStudentController extends Controller
     }
 
     /**
-     * Endpoint internal untuk menerima push sinkronisasi tahun akademik dari SMPT.
+     * Endpoint internal untuk menerima push sinkronisasi tahun akademik dari Tamjid.
      * POST /api/internal/academic-years/sync
      */
     public function syncAcademicYears(Request $request)
@@ -355,13 +355,13 @@ class InternalStudentController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => "Berhasil menyinkronkan {$synced} tahun akademik dari SMPT.",
+            'message' => "Berhasil menyinkronkan {$synced} tahun akademik dari Tamjid.",
             'synced' => $synced,
         ]);
     }
 
     /**
-     * Petakan status SMPT ke enum students.status (Title Case) & student_classes.status (lowercase).
+     * Petakan status Tamjid ke enum students.status (Title Case) & student_classes.status (lowercase).
      *
      * @return array{0: string, 1: string}
      */

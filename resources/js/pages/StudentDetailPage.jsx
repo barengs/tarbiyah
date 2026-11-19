@@ -318,7 +318,7 @@ export default function StudentDetailPage() {
                         </div>
                     </div>
 
-                    {/* Sinkronisasi SMPT & Emis */}
+                    {/* Sinkronisasi Tamjid & Emis */}
                     <div className="bg-white rounded-lg border border-slate-200/90 shadow-2xs p-4">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -330,7 +330,7 @@ export default function StudentDetailPage() {
                             </span>
                         </div>
                         <div className="text-xs space-y-1.5 text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-100">
-                            <p><span className="text-slate-400">ID Santri SMPT:</span> <strong className="text-slate-800">{student.santri_id || '-'}</strong></p>
+                            <p><span className="text-slate-400">ID Santri Tamjid:</span> <strong className="text-slate-800">{student.santri_id || '-'}</strong></p>
                             <p><span className="text-slate-400">Program:</span> <span className="font-semibold text-slate-800">{student.program?.name || 'Program Reguler'}</span></p>
                             <p><span className="text-slate-400">Kamar Asrama:</span> <span className="font-semibold text-slate-800">{student.hostel_id ? `Asrama #${student.hostel_id}` : 'Non-Asrama'}</span></p>
                         </div>
@@ -532,7 +532,7 @@ export default function StudentDetailPage() {
                                             </dd>
                                         </div>
                                         <div>
-                                            <dt className="text-slate-400 font-medium">ID Referensi Sistem SMPT</dt>
+                                            <dt className="text-slate-400 font-medium">ID Referensi Sistem Tamjid</dt>
                                             <dd className="text-slate-800 font-semibold font-mono mt-0.5">{student.santri_id || '-'}</dd>
                                         </div>
                                     </dl>

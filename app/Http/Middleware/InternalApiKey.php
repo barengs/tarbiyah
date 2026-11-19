@@ -10,7 +10,7 @@ class InternalApiKey
 {
     /**
      * Validasi X-Internal-Key header untuk komunikasi service-to-service.
-     * Memungkinkan SMPT backend & Bank Santri memanggil Tarbiyah tanpa JWT.
+     * Memungkinkan Tamjid backend & Bank Santri memanggil Tarbiyah tanpa JWT.
      */
     public function handle(Request $request, Closure $next): Response
     {

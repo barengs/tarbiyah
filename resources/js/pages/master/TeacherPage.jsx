@@ -46,11 +46,11 @@ export default function TeacherPage() {
     const handleConfirmPull = async () => {
         try {
             const res = await pullTeachersFromSmpt().unwrap();
-            toast.success(res?.message || 'Data guru berhasil ditarik dari SMPT');
+            toast.success(res?.message || 'Data guru berhasil ditarik dari Tamjid');
             setPullModalOpen(false);
             refetch();
         } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menarik data guru dari SMPT');
+            toast.error(err?.data?.message || 'Gagal menarik data guru dari Tamjid');
         }
     };
 
@@ -466,11 +466,11 @@ export default function TeacherPage() {
                 onCancel={() => setDeleteTarget(null)}
             />
 
-            {/* Modal Tarik Data Guru dari SMPT */}
+            {/* Modal Tarik Data Guru dari Tamjid */}
             <Modal
                 open={pullModalOpen}
                 onClose={() => setPullModalOpen(false)}
-                title="Tarik Data Guru dari SMPT"
+                title="Tarik Data Guru dari Tamjid"
                 size="lg"
                 footer={
                     <>
@@ -495,13 +495,13 @@ export default function TeacherPage() {
             >
                 {isPreviewLoading ? (
                     <div className="py-8 text-center text-xs text-slate-500">
-                        Memuat pratinjau data guru dari SMPT...
+                        Memuat pratinjau data guru dari Tamjid...
                     </div>
                 ) : (
                     <div className="space-y-4">
                         <div className="grid grid-cols-3 gap-3">
                             <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                                <p className="text-[11px] text-slate-500 font-semibold">Total Guru di SMPT</p>
+                                <p className="text-[11px] text-slate-500 font-semibold">Total Guru di Tamjid</p>
                                 <p className="text-lg font-bold text-slate-800">{pullPreviewData?.data?.total_smpt ?? 0}</p>
                             </div>
                             <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200">
@@ -521,7 +521,7 @@ export default function TeacherPage() {
                                         <tr>
                                             <th className="px-3 py-2">NIP / Kode</th>
                                             <th className="px-3 py-2">Nama Guru</th>
-                                            <th className="px-3 py-2">Role SMPT</th>
+                                            <th className="px-3 py-2">Role Tamjid</th>
                                             <th className="px-3 py-2">Status</th>
                                         </tr>
                                     </thead>
@@ -545,7 +545,7 @@ export default function TeacherPage() {
                             </div>
                         ) : (
                             <p className="text-xs text-slate-500 text-center py-4">
-                                Tidak ada data staf dengan role guru/asatidz/walikelas yang ditemukan di SMPT.
+                                Tidak ada data staf dengan role guru/asatidz/walikelas yang ditemukan di Tamjid.
                             </p>
                         )}
                     </div>

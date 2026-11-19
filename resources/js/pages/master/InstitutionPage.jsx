@@ -112,13 +112,13 @@ export default function InstitutionPage() {
     const [createEducation] = useCreateEducationMutation();
     const [deleteEducation] = useDeleteEducationMutation();
 
-    // ================== PROGRAM PESANTREN (SMPT) HANDLER ==================
+    // ================== PROGRAM PESANTREN (Tamjid) HANDLER ==================
     const handleSyncPrograms = async () => {
         try {
             const res = await syncProgramsFromSmpt().unwrap();
-            toast.success(res?.message || 'Program pesantren berhasil disinkronkan dari SMPT');
+            toast.success(res?.message || 'Program pesantren berhasil disinkronkan dari Tamjid');
         } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menyinkronkan program pesantren dari SMPT');
+            toast.error(err?.data?.message || 'Gagal menyinkronkan program pesantren dari Tamjid');
         }
     };
 
@@ -452,7 +452,7 @@ export default function InstitutionPage() {
     const programColumns = [
         {
             key: 'name',
-            label: 'Program Pesantren (SMPT)',
+            label: 'Program Pesantren (Tamjid)',
             render: (row) => (
                 <div className="flex items-center gap-2.5">
                     <span className="w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200 font-bold text-xs">
@@ -494,7 +494,7 @@ export default function InstitutionPage() {
                         Institusi &amp; Program Pesantren
                     </h2>
                     <p className="text-sm text-slate-500 mt-1">
-                        Kelola lembaga pendidikan formal &amp; kepesantrenan, tingkat/jenjang, relasi program pesantren (SMPT), dan mekanisme kenaikan kelas.
+                        Kelola lembaga pendidikan formal &amp; kepesantrenan, tingkat/jenjang, relasi program pesantren (Tamjid), dan mekanisme kenaikan kelas.
                     </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -531,7 +531,7 @@ export default function InstitutionPage() {
                             className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-md text-xs font-semibold hover:bg-emerald-800 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                         >
                             <RefreshCw className={`w-4 h-4 ${isSyncingPrograms ? 'animate-spin' : ''}`} />
-                            {isSyncingPrograms ? 'Menyinkronkan...' : 'Sinkronkan Program SMPT'}
+                            {isSyncingPrograms ? 'Menyinkronkan...' : 'Sinkronkan Program Tamjid'}
                         </button>
                     )}
                 </div>
@@ -647,13 +647,13 @@ export default function InstitutionPage() {
                 </>
             )}
 
-            {/* TAB CONTENT 2: PROGRAM PESANTREN (SMPT) */}
+            {/* TAB CONTENT 2: PROGRAM PESANTREN (Tamjid) */}
             {activeTab === 'programs' && (
                 <div className="space-y-4">
                     <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-md text-xs text-emerald-900">
-                        <p className="font-semibold">Program Pesantren (Sumber Data: SMPT)</p>
+                        <p className="font-semibold">Program Pesantren (Sumber Data: Tamjid)</p>
                         <p className="mt-0.5 text-emerald-800">
-                            Pendidikan mengikuti program pesantren yang dikelola dari SMPT (seperti Kubar dan Tibyan). Gunakan tombol <strong>Sinkronkan Program SMPT</strong> jika ada perubahan data program di SMPT.
+                            Pendidikan mengikuti program pesantren yang dikelola dari Tamjid (seperti Kubar dan Tibyan). Gunakan tombol <strong>Sinkronkan Program Tamjid</strong> jika ada perubahan data program di Tamjid.
                         </p>
                     </div>
 
@@ -705,7 +705,7 @@ export default function InstitutionPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                                Program Pesantren (SMPT)
+                                Program Pesantren (Tamjid)
                             </label>
                             <select
                                 value={programId}

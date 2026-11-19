@@ -32,11 +32,11 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
     const handleExecutePull = async () => {
         try {
             const res = await pullStudents().unwrap();
-            toast.success(res?.message || 'Data santri berhasil disinkronkan dari SMPT');
+            toast.success(res?.message || 'Data santri berhasil disinkronkan dari Tamjid');
             if (onFinish) onFinish();
             onClose();
         } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menarik data dari SMPT');
+            toast.error(err?.data?.message || 'Gagal menarik data dari Tamjid');
         }
     };
 
@@ -44,7 +44,7 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
         <Modal
             open={open}
             onClose={onClose}
-            title="Penarikan Data Santri Baru dari SMPT"
+            title="Penarikan Data Santri Baru dari Tamjid"
             maxWidth="max-w-3xl"
             footer={
                 <div className="flex items-center justify-between w-full">
@@ -104,7 +104,7 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
                     <div className="py-12 flex flex-col items-center justify-center gap-3 text-center">
                         <RefreshCw className="w-7 h-7 text-[#093c30] animate-spin" />
                         <div>
-                            <p className="text-sm font-bold text-slate-800">Menghubungkan ke SMPT Core...</p>
+                            <p className="text-sm font-bold text-slate-800">Menghubungkan ke Tamjid Core...</p>
                             <p className="text-xs text-slate-500 mt-0.5">Mengkalkulasi jumlah santri baru dan memvalidasi integritas data.</p>
                         </div>
                     </div>
@@ -116,7 +116,7 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
                         <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                         <div>
                             <p className="font-bold text-sm">Gagal Mengambil Pratinjau Data</p>
-                            <p className="mt-1">{error?.data?.message || 'Pastikan server SMPT aktif dan internal key sesuai.'}</p>
+                            <p className="mt-1">{error?.data?.message || 'Pastikan server Tamjid aktif dan internal key sesuai.'}</p>
                             <button
                                 type="button"
                                 onClick={() => fetchPreview()}
@@ -133,10 +133,10 @@ export default function PullStudentsModal({ open, onClose, onFinish }) {
                     <>
                         {/* 3 Kartu Ringkasan Statistik */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {/* 1. Total di SMPT */}
+                            {/* 1. Total di Tamjid */}
                             <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/60">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total di SMPT</span>
+                                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total di Tamjid</span>
                                     <Database className="w-4 h-4 text-slate-400" />
                                 </div>
                                 <div className="mt-2 flex items-baseline gap-1.5">

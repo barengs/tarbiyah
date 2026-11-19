@@ -99,9 +99,9 @@ export default function StudentPage() {
     const handlePullFromSmpt = async () => {
         try {
             const res = await pullStudents().unwrap();
-            toast.success(res?.message || 'Data santri berhasil ditarik dari SMPT');
+            toast.success(res?.message || 'Data santri berhasil ditarik dari Tamjid');
         } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menarik data dari SMPT');
+            toast.error(err?.data?.message || 'Gagal menarik data dari Tamjid');
         }
     };
 
@@ -408,7 +408,7 @@ export default function StudentPage() {
                                 <RefreshCw className="w-4 h-4 text-emerald-700 shrink-0" />
                                 <div>
                                     <p className="font-bold">Tarik Data Santri</p>
-                                    <p className="text-[11px] text-slate-400">Sinkronisasi data santri SMPT</p>
+                                    <p className="text-[11px] text-slate-400">Sinkronisasi data santri Tamjid</p>
                                 </div>
                             </button>
 
@@ -526,7 +526,7 @@ export default function StudentPage() {
                 programsFromParent={programs}
             />
 
-            {/* Modal Penarikan Data Santri Baru (SMPT) */}
+            {/* Modal Penarikan Data Santri Baru (Tamjid) */}
             <PullStudentsModal
                 open={pullModalOpen}
                 onClose={() => setPullModalOpen(false)}

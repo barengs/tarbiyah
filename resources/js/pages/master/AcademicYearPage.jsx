@@ -112,9 +112,9 @@ export default function AcademicYearPage() {
     const handleSyncFromSmpt = async () => {
         try {
             const res = await syncAcademicYears().unwrap();
-            toast.success(res?.message || 'Tahun akademik berhasil disinkronkan dari SMPT');
+            toast.success(res?.message || 'Tahun akademik berhasil disinkronkan dari Tamjid');
         } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menyinkronkan tahun akademik dari SMPT');
+            toast.error(err?.data?.message || 'Gagal menyinkronkan tahun akademik dari Tamjid');
         }
     };
 
@@ -283,7 +283,7 @@ export default function AcademicYearPage() {
                         disabled={isSyncingYears}
                         className="shadow-2xs text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300"
                     >
-                        {isSyncingYears ? 'Menyinkronkan...' : 'Tarik dari SMPT'}
+                        {isSyncingYears ? 'Menyinkronkan...' : 'Tarik dari Tamjid'}
                     </Button>
                     <Button
                         variant="primary"

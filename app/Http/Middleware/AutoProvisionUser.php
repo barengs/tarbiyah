@@ -36,7 +36,7 @@ class AutoProvisionUser
                 $email = $payload->get('email');
                 $name  = $payload->get('name');
                 
-                // Extract role (supporting roles array or single role claim from SMPT/Tarbiyah JWTs)
+                // Extract role (supporting roles array or single role claim from Tamjid/Tarbiyah JWTs)
                 $rolesClaim = $payload->get('roles') ?? $payload->get('role');
                 $rawRole = is_array($rolesClaim) ? reset($rolesClaim) : $rolesClaim;
                 

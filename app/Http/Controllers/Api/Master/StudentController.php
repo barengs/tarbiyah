@@ -454,8 +454,8 @@ class StudentController extends Controller implements HasMiddleware
     }
 
     /**
-     * Pratinjau penarikan data santri dari SMPT sebelum dieksekusi.
-     * Menghitung total santri di SMPT, santri baru, santri existing,
+     * Pratinjau penarikan data santri dari Tamjid sebelum dieksekusi.
+     * Menghitung total santri di Tamjid, santri baru, santri existing,
      * serta mengaudit data gender (santri saat ini 100% Banin / L).
      */
     public function previewPullFromSmpt(Request $request)
@@ -472,7 +472,7 @@ class StudentController extends Controller implements HasMiddleware
             if (! $response->successful()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
+                    'message' => 'Gagal menghubungi Tamjid: '.$response->body(),
                 ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
             }
 
@@ -545,17 +545,17 @@ class StudentController extends Controller implements HasMiddleware
                 ],
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error previewing students from SMPT: '.$e->getMessage());
+            Log::error('Error previewing students from Tamjid: '.$e->getMessage());
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Terjadi kesalahan saat memuat pratinjau data dari SMPT: '.$e->getMessage(),
+                'message' => 'Terjadi kesalahan saat memuat pratinjau data dari Tamjid: '.$e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Tarik data santri aktif dari SMPT secara on-demand (Pull Mechanism).
+     * Tarik data santri aktif dari Tamjid secara on-demand (Pull Mechanism).
      * Menggunakan header X-Internal-Key.
      */
     public function pullFromSmpt(Request $request)
@@ -572,7 +572,7 @@ class StudentController extends Controller implements HasMiddleware
             if (! $response->successful()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
+                    'message' => 'Gagal menghubungi Tamjid: '.$response->body(),
                 ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
             }
 
@@ -660,7 +660,7 @@ class StudentController extends Controller implements HasMiddleware
                 $existing ? $updated++ : $created++;
             }
 
-            // Sinkronkan penempatan kelas lama dari SMPT jika tabelnya masih tersedia di SMPT
+            // Sinkronkan penempatan kelas lama dari Tamjid jika tabelnya masih tersedia di Tamjid
             $classesAssigned = 0;
             try {
                 $classRes = Http::timeout(10)->withHeaders([
@@ -728,18 +728,18 @@ class StudentController extends Controller implements HasMiddleware
                 ],
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error pulling students from SMPT: '.$e->getMessage());
+            Log::error('Error pulling students from Tamjid: '.$e->getMessage());
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Terjadi kesalahan saat menarik data dari SMPT: '.$e->getMessage(),
+                'message' => 'Terjadi kesalahan saat menarik data dari Tamjid: '.$e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Membentuk NIS unik otomatis berbasis tahun Hijriah dan kode ma'had (0197)
-     * Sama persis dengan metode pembentukan NIS di SMPT.
+     * Sama persis dengan metode pembentukan NIS di Tamjid.
      */
     private function makeNis($period = null): string
     {

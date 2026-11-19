@@ -299,7 +299,7 @@ class AcademicYearController extends Controller implements HasMiddleware
     }
 
     /**
-     * Tarik data Tahun Akademik dari SMPT dan otomatis hubungkan dengan 3 periode Sub-Akademik Triwulan.
+     * Tarik data Tahun Akademik dari Tamjid dan otomatis hubungkan dengan 3 periode Sub-Akademik Triwulan.
      */
     public function syncFromSmpt()
     {
@@ -315,7 +315,7 @@ class AcademicYearController extends Controller implements HasMiddleware
             if (! $response->successful()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
+                    'message' => 'Gagal menghubungi Tamjid: '.$response->body(),
                 ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
             }
 
@@ -324,12 +324,12 @@ class AcademicYearController extends Controller implements HasMiddleware
 
             return response()->json([
                 'status' => 'success',
-                'message' => "Berhasil menyinkronkan {$syncedCount} tahun akademik dari SMPT",
+                'message' => "Berhasil menyinkronkan {$syncedCount} tahun akademik dari Tamjid",
                 'data' => AcademicYear::with('quarters')->orderBy('year', 'desc')->get(),
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Error syncing academic years from SMPT: '.$e->getMessage());
+            Log::error('Error syncing academic years from Tamjid: '.$e->getMessage());
 
             return response()->json([
                 'status' => 'error',
@@ -339,7 +339,7 @@ class AcademicYearController extends Controller implements HasMiddleware
     }
 
     /**
-     * Terapkan sinkronisasi daftar tahun akademik dari SMPT secara konsisten
+     * Terapkan sinkronisasi daftar tahun akademik dari Tamjid secara konsisten
      * (menormalisasi format slash/dash dan memastikan hanya 1 tahun akademik yang aktif).
      */
     public static function applySmptYearsSync(array $yearsData): int
@@ -372,7 +372,7 @@ class AcademicYearController extends Controller implements HasMiddleware
                     'start_date' => $startDate,
                     'end_date' => $endDate,
                     'active' => $isActive,
-                    'description' => $item['description'] ?? $existing->description ?? "Kalender Akademik {$yearName} (Sinkronisasi dari SMPT)",
+                    'description' => $item['description'] ?? $existing->description ?? "Kalender Akademik {$yearName} (Sinkronisasi dari Tamjid)",
                 ]);
                 $year = $existing;
             } else {
@@ -383,7 +383,7 @@ class AcademicYearController extends Controller implements HasMiddleware
                     'start_date' => $startDate,
                     'end_date' => $endDate,
                     'active' => $isActive,
-                    'description' => $item['description'] ?? "Kalender Akademik {$yearName} (Sinkronisasi dari SMPT)",
+                    'description' => $item['description'] ?? "Kalender Akademik {$yearName} (Sinkronisasi dari Tamjid)",
                 ]);
             }
 

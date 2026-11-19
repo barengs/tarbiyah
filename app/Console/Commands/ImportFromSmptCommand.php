@@ -38,7 +38,7 @@ class ImportFromSmptCommand extends Command
      */
     public function handle(): int
     {
-        $this->info('=== MEMULAI IMPORT DATA DARI SMPT KE TARBIYAH ===');
+        $this->info('=== MEMULAI IMPORT DATA DARI Tamjid KE TARBIYAH ===');
 
         try {
             DB::connection('smpt')->getPdo();
@@ -51,10 +51,10 @@ class ImportFromSmptCommand extends Command
         // 1. Import Tipe Pendidikan, Institusi, Jenjang & Ruang Kelas
         $this->importInstitutions();
 
-        // 2. Import Data Guru dari Staf SMPT
+        // 2. Import Data Guru dari Staf Tamjid
         $this->importTeachers();
 
-        // 3. Import Data Santri Mukim dari Siswa SMPT
+        // 3. Import Data Santri Mukim dari Siswa Tamjid
         $this->importStudents();
 
         // 4. Import Data Kurikulum (Mapel & Jam KBM)
@@ -132,7 +132,7 @@ class ImportFromSmptCommand extends Command
 
     protected function importTeachers(): void
     {
-        $this->info('-> Mengimpor Dewan Guru dari Staf SMPT...');
+        $this->info('-> Mengimpor Dewan Guru dari Staf Tamjid...');
 
         $staffs = DB::connection('smpt')->table('staff')->orderBy('id')->get();
         $count = 0;
@@ -161,7 +161,7 @@ class ImportFromSmptCommand extends Command
 
     protected function importStudents(): void
     {
-        $this->info('-> Mengimpor Santri Mukim dari Siswa SMPT...');
+        $this->info('-> Mengimpor Santri Mukim dari Siswa Tamjid...');
 
         $students = DB::connection('smpt')->table('students')->orderBy('id')->get();
         $count = 0;
@@ -183,7 +183,7 @@ class ImportFromSmptCommand extends Command
                     'last_name'      => $s->last_name ?? null,
                     'name'           => $fullName,
                     'gender'         => in_array($s->gender ?? 'L', ['L', 'P']) ? $s->gender : 'L',
-                    'is_mukim'       => true, // Dari SMPT selalu Santri Mukim Pesantren
+                    'is_mukim'       => true, // Dari Tamjid selalu Santri Mukim Pesantren
                     'born_in'        => $s->born_in ?? null,
                     'born_at'        => $s->born_at ?? null,
                     'last_education' => $s->last_education ?? null,

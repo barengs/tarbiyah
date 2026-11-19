@@ -270,7 +270,7 @@ class TeacherController extends Controller implements HasMiddleware
     }
 
     /**
-     * Pratinjau data guru/staf ber-role guru dari SMPT sebelum ditarik.
+     * Pratinjau data guru/staf ber-role guru dari Tamjid sebelum ditarik.
      * GET /api/master/teachers/pull-preview
      */
     public function previewPullFromSmpt()
@@ -287,7 +287,7 @@ class TeacherController extends Controller implements HasMiddleware
             if (! $response->successful()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
+                    'message' => 'Gagal menghubungi Tamjid: '.$response->body(),
                 ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
             }
 
@@ -333,17 +333,17 @@ class TeacherController extends Controller implements HasMiddleware
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('Error previewing teachers from SMPT: '.$e->getMessage());
+            Log::error('Error previewing teachers from Tamjid: '.$e->getMessage());
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Terjadi kesalahan saat memuat pratinjau guru dari SMPT: '.$e->getMessage(),
+                'message' => 'Terjadi kesalahan saat memuat pratinjau guru dari Tamjid: '.$e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Tarik & sinkronisasi data guru/staf ber-role guru dari SMPT.
+     * Tarik & sinkronisasi data guru/staf ber-role guru dari Tamjid.
      * POST /api/master/teachers/pull-from-smpt
      */
     public function pullFromSmpt()
@@ -360,7 +360,7 @@ class TeacherController extends Controller implements HasMiddleware
             if (! $response->successful()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Gagal menghubungi SMPT: '.$response->body(),
+                    'message' => 'Gagal menghubungi Tamjid: '.$response->body(),
                 ], $response->status() >= 400 && $response->status() < 600 ? $response->status() : 500);
             }
 
@@ -413,11 +413,11 @@ class TeacherController extends Controller implements HasMiddleware
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('Error pulling teachers from SMPT: '.$e->getMessage());
+            Log::error('Error pulling teachers from Tamjid: '.$e->getMessage());
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Terjadi kesalahan saat menarik data guru dari SMPT: '.$e->getMessage(),
+                'message' => 'Terjadi kesalahan saat menarik data guru dari Tamjid: '.$e->getMessage(),
             ], 500);
         }
     }

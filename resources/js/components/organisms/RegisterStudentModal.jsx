@@ -420,7 +420,7 @@ export default function RegisterStudentModal({
                                         </span>
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white shadow-2xs">
                                             <Sparkles className="w-3 h-3" />
-                                            Otomatis Sistem (SMPT Format)
+                                            Otomatis Sistem (Tamjid Format)
                                         </span>
                                     </div>
                                     <p className="text-[11px] text-slate-500 mt-0.5">

@@ -14,6 +14,7 @@ import AcademicYearPage from './pages/master/AcademicYearPage';
 import EducationClassPage from './pages/master/EducationClassPage';
 import ClassroomPage from './pages/master/ClassroomPage';
 import ClassGroupPage from './pages/ClassGroupPage';
+import ClassGroupDetailPage from './pages/ClassGroupDetailPage';
 import ClassPromotionPage from './pages/ClassPromotionPage';
 import StudyPage from './pages/master/StudyPage';
 import LessonHourPage from './pages/master/LessonHourPage';
@@ -54,6 +55,7 @@ const App = () => {
                             <Route path="kurikulum/kelas" element={<EducationClassPage />} />
                             <Route path="kurikulum/ruang-kelas" element={<ClassroomPage />} />
                             <Route path="kurikulum/rombel" element={<ClassGroupPage />} />
+                            <Route path="kurikulum/rombel/:id" element={<ClassGroupDetailPage />} />
                             <Route path="kurikulum/kenaikan-kelas" element={<ClassPromotionPage />} />
                             <Route path="kurikulum/mapel" element={<StudyPage />} />
                             <Route path="kurikulum/jam-pelajaran" element={<LessonHourPage />} />
@@ -67,7 +69,9 @@ const App = () => {
                             <Route path="master/ruang-kelas" element={<ClassroomPage />} />
                             <Route path="master/classrooms" element={<ClassroomPage />} />
                             <Route path="rombel" element={<ClassGroupPage />} />
+                            <Route path="rombel/:id" element={<ClassGroupDetailPage />} />
                             <Route path="master/rombel" element={<ClassGroupPage />} />
+                            <Route path="master/rombel/:id" element={<ClassGroupDetailPage />} />
                             <Route path="kenaikan-kelas" element={<ClassPromotionPage />} />
                             <Route path="master/kenaikan-kelas" element={<ClassPromotionPage />} />
                             <Route path="master/mapel" element={<StudyPage />} />

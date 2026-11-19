@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
     useGetStudentByIdQuery, 
@@ -38,6 +38,23 @@ export default function StudentDetailPage() {
     const student = response?.data;
 
     const [activeTab, setActiveTab] = useState('biodata');
+    const [photoError, setPhotoError] = useState(false);
+
+    useEffect(() => {
+        setPhotoError(false);
+    }, [student?.id, student?.photo, student?.photo_url]);
+
+    const resolvePhotoUrl = (st) => {
+        if (!st) return null;
+        if (st.photo_url) return st.photo_url;
+        if (!st.photo) return null;
+        const src = String(st.photo).trim();
+        if (/^(https?:\/\/|data:)/i.test(src)) return src;
+        const cleanPath = src.replace(/^\/+/, '').replace(/^storage\//, '');
+        return `https://api.tamjid.or.id/storage/${cleanPath}`;
+    };
+
+    const studentPhotoUrl = resolvePhotoUrl(student);
 
     // Modal state
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -224,16 +241,25 @@ export default function StudentDetailPage() {
                 <div className="lg:col-span-4 space-y-5">
                     <div className="bg-white rounded-lg border border-slate-200/90 shadow-2xs overflow-hidden">
                         {/* Header Banner */}
-                        <div className="h-20 bg-gradient-to-r from-[#093c30] to-[#0f5443] relative">
-                            <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
-                                <div className="w-20 h-20 rounded-full border-4 border-white bg-slate-100 shadow-md flex items-center justify-center overflow-hidden text-slate-500">
-                                    <User className="w-10 h-10 text-[#093c30]" />
+                        <div className="h-24 bg-gradient-to-r from-[#093c30] to-[#0f5443] relative">
+                            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
+                                <div className="w-24 h-24 rounded-full border-4 border-white bg-slate-100 shadow-md flex items-center justify-center overflow-hidden text-slate-500">
+                                    {studentPhotoUrl && !photoError ? (
+                                        <img
+                                            src={studentPhotoUrl}
+                                            alt={`Foto ${student.name}`}
+                                            className="w-full h-full object-cover"
+                                            onError={() => setPhotoError(true)}
+                                        />
+                                    ) : (
+                                        <User className="w-10 h-10 text-[#093c30]" />
+                                    )}
                                 </div>
                             </div>
                         </div>
 
                         {/* Profil Info */}
-                        <div className="pt-12 p-5 text-center">
+                        <div className="pt-14 p-5 text-center">
                             <h2 className="text-base font-bold text-slate-900 leading-snug">{student.name}</h2>
                             <p className="text-xs text-slate-500 font-mono mt-0.5">NIS: {student.nis}</p>
 
@@ -263,7 +289,7 @@ export default function StudentDetailPage() {
                                     <div className="mt-1">
                                         <p className="text-sm font-bold text-slate-900">{currentClassGroup.name}</p>
                                         <p className="text-xs text-slate-600 mt-0.5">
-                                            Jenjang: {currentClassGroup.education?.name || '-'}
+                                            Jenjang: {currentClassGroup.educational_institution?.name || currentClassGroup.education?.name || '-'}
                                         </p>
                                         <p className="text-xs text-slate-500">
                                             Wali Kelas: {currentClassGroup.homeroom_teacher?.name || '-'}

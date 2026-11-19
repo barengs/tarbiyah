@@ -26,6 +26,7 @@ return [
     'smpt' => [
         'core_url'     => env('SMPT_CORE_URL', 'http://localhost:8000'),
         'api_url'      => env('SMPT_API_URL', 'http://localhost:8000/api'),
+        'public_url'   => env('SMPT_PUBLIC_URL', 'https://api.tamjid.or.id'),
         'internal_key' => env('INTERNAL_API_KEY', 'smpt-tarbiyah-internal-secret-2026'),
     ],
 

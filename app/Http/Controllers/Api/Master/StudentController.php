@@ -886,10 +886,14 @@ class StudentController extends Controller implements HasMiddleware
     {
         $student = Student::with([
             'program',
+            'activeClass.classGroup.educationalInstitution',
             'activeClass.classGroup.education.institution',
+            'activeClass.classGroup.educationClass',
             'activeClass.classGroup.academicYear',
             'activeClass.classGroup.homeroomTeacher',
+            'studentClasses.classGroup.educationalInstitution',
             'studentClasses.classGroup.education.institution',
+            'studentClasses.classGroup.educationClass',
             'studentClasses.classGroup.academicYear',
             'studentClasses.classGroup.homeroomTeacher',
         ])->find($id);

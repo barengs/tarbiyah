@@ -5,12 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Student extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $guarded = ['id'];
+
+    protected $appends = ['photo_url'];
 
     protected $casts = [
         'born_at'    => 'date',
@@ -19,6 +22,34 @@ class Student extends Model
         'program_id' => 'integer',
         'hostel_id'  => 'integer',
     ];
+
+    /**
+     * URL publik foto santri (diambil dari storage lokal jika ada, atau dari api.tamjid.or.id).
+     */
+    public function getPhotoUrlAttribute(): ?string
+    {
+        $photo = $this->attributes['photo'] ?? null;
+        if (empty($photo)) {
+            return null;
+        }
+
+        if (preg_match('/^(https?:\/\/|data:)/i', $photo)) {
+            return $photo;
+        }
+
+        $cleanPath = ltrim($photo, '/');
+        if (str_starts_with($cleanPath, 'storage/')) {
+            $cleanPath = substr($cleanPath, strlen('storage/'));
+        }
+
+        if (Storage::disk('public')->exists($cleanPath)) {
+            return asset('storage/'.$cleanPath);
+        }
+
+        $smptPublicUrl = rtrim(config('services.smpt.public_url', 'https://api.tamjid.or.id'), '/');
+
+        return "{$smptPublicUrl}/storage/{$cleanPath}";
+    }
 
     /**
      * Accessor untuk nama lengkap santri.

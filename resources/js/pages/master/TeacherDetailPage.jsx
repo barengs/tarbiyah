@@ -220,46 +220,52 @@ export default function TeacherDetailPage() {
                 </div>
             </div>
 
-            {/* KONTEN UTAMA: 2 KOLOM (PROFIL KIRI + DETAIL TAB KANAN) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* 1. KARTU PROFIL KIRI (COL 4) */}
-                <div className="lg:col-span-4 space-y-5">
-                    <div className="bg-white rounded-lg border border-slate-200/90 shadow-2xs overflow-hidden">
-                        {/* Header Banner Kecil */}
-                        <div className="h-24 bg-gradient-to-r from-[#093c30] to-[#0f5443] relative">
-                            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
-                                <div 
-                                    className={`w-24 h-24 rounded-2xl border-4 border-white bg-white shadow-md flex items-center justify-center overflow-hidden text-slate-500 group relative ${teacherPhotoUrl && !photoError ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}
-                                    onClick={() => {
-                                        if (teacherPhotoUrl && !photoError) {
-                                            window.open(teacherPhotoUrl, '_blank');
-                                        }
-                                    }}
-                                    title={teacherPhotoUrl && !photoError ? "Klik untuk melihat foto ukuran penuh" : undefined}
-                                >
-                                    {teacherPhotoUrl && !photoError ? (
-                                        <img
-                                            src={teacherPhotoUrl}
-                                            alt={`Foto ${teacher.name}`}
-                                            className="w-full h-full object-cover"
-                                            onError={() => setPhotoError(true)}
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-slate-50 text-[#093c30]">
-                                            <User className="w-12 h-12 stroke-[1.5]" />
-                                        </div>
-                                    )}
-                                </div>
+            {/* KARTU PROFIL UTAMA (FOTO DI SAMPING KIRI, NAMA & INFORMASI DI KANAN) */}
+            <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 overflow-hidden">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                    {/* Foto di samping kiri dengan ukuran lebih besar */}
+                    <div 
+                        className={`w-40 sm:w-48 md:w-52 aspect-[3/4] rounded-xl border border-slate-200/90 bg-slate-50 shadow-sm flex items-center justify-center overflow-hidden shrink-0 group relative ${teacherPhotoUrl && !photoError ? 'cursor-pointer hover:shadow-md transition-all' : ''}`}
+                        onClick={() => {
+                            if (teacherPhotoUrl && !photoError) {
+                                window.open(teacherPhotoUrl, '_blank');
+                            }
+                        }}
+                        title={teacherPhotoUrl && !photoError ? "Klik untuk melihat foto ukuran penuh" : undefined}
+                    >
+                        {teacherPhotoUrl && !photoError ? (
+                            <img
+                                src={teacherPhotoUrl}
+                                alt={`Foto ${teacher.name}`}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                onError={() => setPhotoError(true)}
+                            />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-[#093c30]">
+                                <User className="w-16 h-16 stroke-[1.5] text-slate-400" />
+                                <span className="text-[11px] text-slate-400 font-medium mt-1">Belum Ada Foto</span>
                             </div>
-                        </div>
+                        )}
+                        {teacherPhotoUrl && !photoError && (
+                            <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold backdrop-blur-[1px]">
+                                Lihat Foto
+                            </div>
+                        )}
+                    </div>
 
-                        {/* Profil Info */}
-                        <div className="pt-14 p-5 text-center">
-                            <h2 className="text-base font-bold text-slate-900 leading-snug">{teacher.name}</h2>
-                            <p className="text-xs text-slate-500 mt-0.5">{teacher.nip ? `NIP: ${teacher.nip}` : 'NIP: Belum Terdaftar'}</p>
-
-                            <div className="flex flex-wrap items-center justify-center gap-1.5 mt-3">
-                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                    {/* Di samping kanan foto berupa nama dan informasi lainnya */}
+                    <div className="flex-1 min-w-0 w-full space-y-4">
+                        {/* Header: Status Badges, Nama Lengkap & NIP */}
+                        <div>
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <span className={`text-xs px-2.5 py-0.5 rounded font-semibold border ${
+                                    teacher.is_active 
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                                }`}>
+                                    {teacher.is_active ? 'Aktif Mengajar' : 'Non-Aktif'}
+                                </span>
+                                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded border ${
                                     teacher.status === 'tetap'
                                         ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                         : teacher.status === 'honorer'
@@ -268,73 +274,74 @@ export default function TeacherDetailPage() {
                                 }`}>
                                     {teacher.status === 'tetap' ? 'Guru Tetap Ma\'had' : teacher.status === 'honorer' ? 'Guru Honorer' : 'Guru Luar Mandiri'}
                                 </span>
-                                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
                                     {teacher.gender === 'L' ? 'Laki-laki (Ustadz)' : 'Perempuan (Ustadzah)'}
                                 </span>
                             </div>
 
-                            {/* Quick Stats Grid */}
-                            <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-slate-100 text-center">
-                                <div className="p-2 bg-slate-50 rounded border border-slate-100">
-                                    <p className="text-[10px] text-slate-500 font-medium">Mapel</p>
-                                    <p className="text-base font-bold text-slate-800 mt-0.5">{studies.length}</p>
-                                </div>
-                                <div className="p-2 bg-slate-50 rounded border border-slate-100">
-                                    <p className="text-[10px] text-slate-500 font-medium">Sesi KBM</p>
-                                    <p className="text-base font-bold text-slate-800 mt-0.5">{schedules.length}</p>
-                                </div>
-                                <div className="p-2 bg-slate-50 rounded border border-slate-100">
-                                    <p className="text-[10px] text-slate-500 font-medium">Wali Kelas</p>
-                                    <p className="text-base font-bold text-slate-800 mt-0.5">{homeroomClasses.length}</p>
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{teacher.name}</h2>
+                            <p className="text-xs sm:text-sm text-slate-500 font-mono mt-0.5">
+                                {teacher.nip ? `NIP / Kode Identitas: ${teacher.nip}` : 'NIP: Belum Terdaftar'}
+                            </p>
+                        </div>
+
+                        {/* Detail Informasi Kontak & Kepegawaian */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3 border-t border-slate-100 text-xs">
+                            <div className="flex items-center gap-2.5 text-slate-600">
+                                <Phone className="w-4 h-4 text-emerald-700 shrink-0" />
+                                <div>
+                                    <span className="text-slate-400 block text-[10px]">WhatsApp / HP</span>
+                                    <span className="font-medium text-slate-800">{teacher.phone || '-'}</span>
                                 </div>
                             </div>
-
-                            {/* Kontak Langsung */}
-                            <div className="mt-5 pt-4 border-t border-slate-100 space-y-2.5 text-left text-xs">
-                                <div className="flex items-center gap-2.5 text-slate-600">
-                                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                    <span className="font-medium truncate">{teacher.phone || 'Tidak ada no. telepon'}</span>
+                            <div className="flex items-center gap-2.5 text-slate-600">
+                                <Mail className="w-4 h-4 text-emerald-700 shrink-0" />
+                                <div>
+                                    <span className="text-slate-400 block text-[10px]">Alamat Email</span>
+                                    <span className="font-medium text-slate-800 truncate block max-w-[200px]">{teacher.email || '-'}</span>
                                 </div>
-                                <div className="flex items-center gap-2.5 text-slate-600">
-                                    <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                    <span className="font-medium truncate">{teacher.email || 'Tidak ada email'}</span>
-                                </div>
-                                <div className="flex items-center gap-2.5 text-slate-600">
-                                    <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                    <span className="font-medium truncate">{teacher.specialization || 'Umum'}</span>
+                            </div>
+                            <div className="flex items-center gap-2.5 text-slate-600">
+                                <Briefcase className="w-4 h-4 text-emerald-700 shrink-0" />
+                                <div>
+                                    <span className="text-slate-400 block text-[10px]">Bidang Spesialisasi</span>
+                                    <span className="font-medium text-slate-800">{teacher.specialization || 'Umum'}</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Akun Pengguna Terkait */}
-                    <div className="bg-white rounded-lg border border-slate-200/90 shadow-2xs p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                <Shield className="w-3.5 h-3.5 text-[#093c30]" />
-                                Akun Login Portal
-                            </span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                                teacher.user ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                            }`}>
-                                {teacher.user ? 'Terhubung' : 'Belum Ada Akun'}
-                            </span>
-                        </div>
-                        {teacher.user ? (
-                            <div className="text-xs space-y-1.5 text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-100">
-                                <p><span className="text-slate-400">Username:</span> <strong className="text-slate-800">{teacher.user.name}</strong></p>
-                                <p><span className="text-slate-400">Email Akun:</span> <span className="font-mono">{teacher.user.email}</span></p>
-                                <p><span className="text-slate-400">Role Sistem:</span> <span className="font-semibold text-emerald-800 capitalize">{teacher.user.role || 'Asatidz'}</span></p>
+                        {/* Quick Counters & Akun Portal */}
+                        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                                <BookOpen className="w-4 h-4 text-[#093c30]" />
+                                <span className="text-slate-500">Mata Pelajaran:</span>
+                                <strong className="text-slate-800">{studies.length} Mapel</strong>
                             </div>
-                        ) : (
-                            <p className="text-xs text-slate-400">Guru ini belum dihubungkan dengan akun login portal SIM Akademik.</p>
-                        )}
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                                <Calendar className="w-4 h-4 text-[#093c30]" />
+                                <span className="text-slate-500">Jadwal Mengajar:</span>
+                                <strong className="text-slate-800">{schedules.length} Sesi</strong>
+                            </div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                                <GraduationCap className="w-4 h-4 text-[#093c30]" />
+                                <span className="text-slate-500">Wali Kelas:</span>
+                                <strong className="text-slate-800">{homeroomClasses.length} Rombel</strong>
+                            </div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs sm:ml-auto">
+                                <Shield className="w-4 h-4 text-[#093c30]" />
+                                <span className="text-slate-500">Akun Portal:</span>
+                                <span className={`font-semibold ${teacher.user ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                    {teacher.user ? `Terhubung (${teacher.user.name})` : 'Belum Ada Akun'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                {/* 2. TAB INFORMASI DETAIL KANAN (COL 8) */}
-                <div className="lg:col-span-8 bg-white rounded-lg border border-slate-200/90 shadow-2xs overflow-hidden">
-                    <FlatTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+            {/* TAB-TAB DETAIL */}
+            <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                <FlatTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
                     <div className="p-6">
                         {/* TAB 1: BIODATA & KEPEGAWAIAN */}
@@ -404,6 +411,41 @@ export default function TeacherDetailPage() {
                                             </dd>
                                         </div>
                                     </dl>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-800 mb-3 pb-2 border-b border-slate-100 flex items-center gap-2">
+                                        <Shield className="w-4 h-4 text-[#093c30]" />
+                                        Akun Login Portal SIM Akademik
+                                    </h3>
+                                    {teacher.user ? (
+                                        <div className="text-xs space-y-2 text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200/80 max-w-xl">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div>
+                                                    <span className="text-slate-400 block text-[11px]">Username</span>
+                                                    <strong className="text-slate-800 font-semibold">{teacher.user.name}</strong>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-400 block text-[11px]">Email Akun</span>
+                                                    <span className="font-mono text-slate-700">{teacher.user.email}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-400 block text-[11px]">Role Sistem</span>
+                                                    <span className="font-semibold text-emerald-800 capitalize">{teacher.user.role || 'Asatidz'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-400 block text-[11px]">Status Akun</span>
+                                                    <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
+                                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Terhubung Aktif
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-slate-50 border border-dashed border-slate-200 rounded-lg p-4 text-xs text-slate-500 max-w-xl">
+                                            Guru ini belum dihubungkan dengan akun login portal SIM Akademik.
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -564,7 +606,6 @@ export default function TeacherDetailPage() {
                         )}
                     </div>
                 </div>
-            </div>
 
             {/* MODAL EDIT GURU */}
             <Modal

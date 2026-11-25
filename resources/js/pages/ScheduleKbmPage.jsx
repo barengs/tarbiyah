@@ -33,7 +33,7 @@ import {
     Calendar, Plus, Clock, BookOpen, BarChart3, User, MapPin, 
     Trash2, Pencil, Sun, Moon, Coffee, GraduationCap, Users, LayoutGrid, 
     Table as TableIcon, Columns, Search, Filter, AlertTriangle, CheckCircle2,
-    School, ShieldAlert, ChevronLeft, ChevronRight, Printer, Layers, Copy
+    School, ShieldAlert, ChevronLeft, ChevronRight, Printer, Layers, Copy, RotateCcw
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -364,9 +364,55 @@ export default function ScheduleKbmPage() {
     const [createJournal, { isLoading: isCreatingJournal }] = useCreateJournalMutation();
     const [updatePresences, { isLoading: isSavingPresences }] = useUpdatePresencesMutation();
 
+    const [recapStartDate, setRecapStartDate] = useState('');
+    const [recapEndDate, setRecapEndDate] = useState('');
+
+    const formatLocalYmd = (dateObj) => {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    const applyRecapPreset = (preset) => {
+        const now = new Date();
+        if (preset === 'today') {
+            const today = formatLocalYmd(now);
+            setRecapStartDate(today);
+            setRecapEndDate(today);
+        } else if (preset === 'week') {
+            // Pekan pesantren: Sabtu s.d. Kamis
+            const day = now.getDay(); // 0=Sun .. 6=Sat
+            const diffToSat = day === 6 ? 0 : -(day + 1);
+            const sat = new Date(now);
+            sat.setDate(now.getDate() + diffToSat);
+            const thu = new Date(sat);
+            thu.setDate(sat.getDate() + 5);
+            setRecapStartDate(formatLocalYmd(sat));
+            setRecapEndDate(formatLocalYmd(thu));
+        } else if (preset === 'month') {
+            const first = new Date(now.getFullYear(), now.getMonth(), 1);
+            const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            setRecapStartDate(formatLocalYmd(first));
+            setRecapEndDate(formatLocalYmd(last));
+        } else {
+            setRecapStartDate('');
+            setRecapEndDate('');
+        }
+    };
+
+    const recapParams = useMemo(() => {
+        if (!currentWeeklyGroup?.id) return undefined;
+        return {
+            class_group_id: currentWeeklyGroup.id,
+            ...(recapStartDate ? { start_date: recapStartDate } : {}),
+            ...(recapEndDate ? { end_date: recapEndDate } : {}),
+        };
+    }, [currentWeeklyGroup?.id, recapStartDate, recapEndDate]);
+
     const { data: recapData, isLoading: isLoadingRecap } = useGetJournalRecapQuery(
-        currentWeeklyGroup?.id ? { class_group_id: currentWeeklyGroup.id } : undefined,
-        { skip: !currentWeeklyGroup?.id }
+        recapParams,
+        { skip: !recapParams }
     );
     const recap = recapData?.data;
 
@@ -395,7 +441,7 @@ export default function ScheduleKbmPage() {
 
     useEffect(() => {
         setRecapPage(1);
-    }, [recapSearchQuery, recapPerPage, currentWeeklyGroup?.id]);
+    }, [recapSearchQuery, recapPerPage, currentWeeklyGroup?.id, recapStartDate, recapEndDate]);
 
     const [jMeetingNo, setJMeetingNo] = useState(1);
     const [jDate, setJDate] = useState(new Date().toISOString().substring(0, 10));
@@ -1775,49 +1821,126 @@ export default function ScheduleKbmPage() {
                 {activeTab === 'recap' && (
                     <div className="space-y-3">
                         {/* Control Bar Rekapitulasi Kehadiran */}
-                        <div className="bg-white border border-slate-200 rounded-md p-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-                            <div className="flex flex-wrap items-center gap-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                        Rombel:
+                        <div className="bg-white border border-slate-200 rounded-md p-3 shadow-xs space-y-3">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                            Rombel:
+                                        </span>
+                                        <select
+                                            value={currentWeeklyGroup?.id || ''}
+                                            onChange={(e) => setSelectedWeeklyGroupId(e.target.value)}
+                                            className="px-2.5 py-1.5 text-xs font-bold border border-slate-300 rounded bg-white text-slate-900"
+                                        >
+                                            {allGroups.map((g) => (
+                                                <option key={g.id} value={g.id}>
+                                                    {g.name} &bull; {g.program?.name || g.educational_institution?.program?.name || '-'} ({g.educational_institution?.short_name || g.educational_institution?.name || g.education?.name || '-'} - {g.education_class?.name || '-'})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <span className="text-xs text-slate-500">
+                                        Total Pertemuan KBM: <b className="text-slate-900">{recap?.total_meetings ?? 0}</b> &bull; Santri: <b className="text-slate-900">{recap?.students?.length || 0}</b>
                                     </span>
-                                    <select
-                                        value={currentWeeklyGroup?.id || ''}
-                                        onChange={(e) => setSelectedWeeklyGroupId(e.target.value)}
-                                        className="px-2.5 py-1.5 text-xs font-bold border border-slate-300 rounded bg-white text-slate-900"
-                                    >
-                                        {allGroups.map((g) => (
-                                            <option key={g.id} value={g.id}>
-                                                {g.name} &bull; {g.program?.name || g.educational_institution?.program?.name || '-'} ({g.educational_institution?.short_name || g.educational_institution?.name || g.education?.name || '-'} - {g.education_class?.name || '-'})
-                                            </option>
-                                        ))}
-                                    </select>
                                 </div>
-                                <span className="text-xs text-slate-500">
-                                    Total Pertemuan KBM: <b className="text-slate-900">{journals.length}</b> &bull; Santri: <b className="text-slate-900">{recap?.students?.length || 0}</b>
-                                </span>
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <div className="relative">
+                                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                                        <input
+                                            type="text"
+                                            placeholder="Cari nama / NIS santri..."
+                                            value={recapSearchQuery}
+                                            onChange={(e) => setRecapSearchQuery(e.target.value)}
+                                            className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-800 w-48 sm:w-56 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        disabled={!recap?.students?.length}
+                                        onClick={() => setPrintRecapModalOpen(true)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#093c30] text-white text-xs font-semibold rounded hover:bg-[#062d24] disabled:opacity-40 transition shadow-2xs cursor-pointer"
+                                    >
+                                        <Printer className="w-3.5 h-3.5" />
+                                        Preview &amp; Cetak PDF
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2">
-                                <div className="relative">
-                                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                                    <input
-                                        type="text"
-                                        placeholder="Cari nama / NIS santri..."
-                                        value={recapSearchQuery}
-                                        onChange={(e) => setRecapSearchQuery(e.target.value)}
-                                        className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-800 w-48 sm:w-56 focus:outline-none focus:ring-1 focus:ring-emerald-600"
-                                    />
+                            {/* Filter Rentang Tanggal */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                        <Calendar className="w-3.5 h-3.5 text-emerald-700" />
+                                        Rentang Tanggal:
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                        <input
+                                            type="date"
+                                            aria-label="Dari Tanggal"
+                                            value={recapStartDate}
+                                            max={recapEndDate || undefined}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setRecapStartDate(val);
+                                                if (recapEndDate && val && val > recapEndDate) {
+                                                    setRecapEndDate(val);
+                                                }
+                                            }}
+                                            className="px-2.5 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                                        />
+                                        <span className="text-xs text-slate-400 font-medium">s/d</span>
+                                        <input
+                                            type="date"
+                                            aria-label="Sampai Tanggal"
+                                            value={recapEndDate}
+                                            min={recapStartDate || undefined}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setRecapEndDate(val);
+                                                if (recapStartDate && val && val < recapStartDate) {
+                                                    setRecapStartDate(val);
+                                                }
+                                            }}
+                                            className="px-2.5 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                                        />
+                                    </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    disabled={!recap?.students?.length}
-                                    onClick={() => setPrintRecapModalOpen(true)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#093c30] text-white text-xs font-semibold rounded hover:bg-[#062d24] disabled:opacity-40 transition shadow-2xs cursor-pointer"
-                                >
-                                    <Printer className="w-3.5 h-3.5" />
-                                    Preview &amp; Cetak PDF
-                                </button>
+
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => applyRecapPreset('today')}
+                                        className="px-2.5 py-1 text-[11px] font-semibold border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 hover:text-[#093c30] text-slate-700 rounded transition cursor-pointer"
+                                    >
+                                        Hari Ini
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => applyRecapPreset('week')}
+                                        className="px-2.5 py-1 text-[11px] font-semibold border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 hover:text-[#093c30] text-slate-700 rounded transition cursor-pointer"
+                                    >
+                                        Pekan Ini
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => applyRecapPreset('month')}
+                                        className="px-2.5 py-1 text-[11px] font-semibold border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 hover:text-[#093c30] text-slate-700 rounded transition cursor-pointer"
+                                    >
+                                        Bulan Ini
+                                    </button>
+                                    {(recapStartDate || recapEndDate) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => applyRecapPreset('reset')}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded transition cursor-pointer"
+                                        >
+                                            <RotateCcw className="w-3 h-3" />
+                                            Reset
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -2341,9 +2464,11 @@ export default function ScheduleKbmPage() {
                 onClose={() => setPrintRecapModalOpen(false)}
                 group={currentWeeklyGroup}
                 students={recap?.students || []}
-                totalMeetings={journals.length}
+                totalMeetings={recap?.total_meetings ?? 0}
                 academicYear={currentYear?.year ? `${currentYear.year} H` : '1446/1447 H'}
                 quarterName={currentQuarter?.name || 'Triwulan IV (Syawal - Dzulhijjah)'}
+                startDate={recapStartDate}
+                endDate={recapEndDate}
             />
         </div>
     );

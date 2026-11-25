@@ -70,6 +70,15 @@ export function generateAttendanceRecapPdf({
     doc.text(subtitle, pageWidth / 2, cursorY, { align: 'center' });
     cursorY += 10;
 
+    if (meta.dateRangeLabel) {
+        cursorY += 2;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(9, 60, 48);
+        doc.text(`Rentang Tanggal: ${meta.dateRangeLabel}`, pageWidth / 2, cursorY, { align: 'center' });
+        cursorY += 10;
+    }
+
     // Kotak Info Rombel
     const boxY = cursorY + 4;
     const boxHeight = 46;

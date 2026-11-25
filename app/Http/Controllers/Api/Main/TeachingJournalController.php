@@ -300,40 +300,74 @@ class TeachingJournalController extends Controller implements HasMiddleware
     }
 
     /**
-     * Rekapitulasi absensi per rombel dan mata pelajaran.
+     * Rekapitulasi absensi per rombel, mata pelajaran, dan rentang tanggal.
      */
     public function recap(Request $request)
     {
         $validated = $request->validate([
             'class_group_id' => 'required|exists:class_groups,id',
             'study_id' => 'nullable|exists:studies,id',
+            'start_date' => 'nullable|date',
+            'end_date' => array_filter([
+                'nullable',
+                'date',
+                $request->filled('start_date') ? 'after_or_equal:start_date' : null,
+            ]),
         ]);
 
         try {
             $classGroup = ClassGroup::findOrFail($validated['class_group_id']);
+
+            $userProgramId = auth('api')->user()?->getActiveProgramId();
+            if ($userProgramId && $classGroup->program_id && (int) $classGroup->program_id !== $userProgramId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Anda tidak memiliki hak akses ke rekapitulasi rombel dari program lain.',
+                ], 403);
+            }
+
             $students = StudentClass::where('class_group_id', $classGroup->id)
                 ->where('status', 'aktif')
                 ->with('student')
-                ->get();
+                ->get()
+                ->filter(fn ($sc) => $sc->student !== null)
+                ->sortBy(fn ($sc) => $sc->student->name ?? '')
+                ->values();
 
             $journalsQuery = TeachingJournal::where('class_group_id', $classGroup->id);
             if (! empty($validated['study_id'])) {
                 $journalsQuery->where('study_id', $validated['study_id']);
             }
-            $totalMeetings = $journalsQuery->count();
+            if (! empty($validated['start_date'])) {
+                $journalsQuery->whereDate('date', '>=', $validated['start_date']);
+            }
+            if (! empty($validated['end_date'])) {
+                $journalsQuery->whereDate('date', '<=', $validated['end_date']);
+            }
+
             $journalIds = $journalsQuery->pluck('id');
+            $totalMeetings = $journalIds->count();
+
+            $presenceCounts = [];
+            if ($journalIds->isNotEmpty()) {
+                $rows = StudentPresence::whereIn('teaching_journal_id', $journalIds)
+                    ->selectRaw('student_id, LOWER(status) as status, COUNT(*) as total')
+                    ->groupBy('student_id', 'status')
+                    ->get();
+
+                foreach ($rows as $row) {
+                    $presenceCounts[$row->student_id][$row->status] = (int) $row->total;
+                }
+            }
 
             $recapData = [];
             foreach ($students as $sc) {
                 $sId = $sc->student_id;
-                $hadir = StudentPresence::whereIn('teaching_journal_id', $journalIds)
-                    ->where('student_id', $sId)->where('status', 'hadir')->count();
-                $sakit = StudentPresence::whereIn('teaching_journal_id', $journalIds)
-                    ->where('student_id', $sId)->where('status', 'sakit')->count();
-                $izin = StudentPresence::whereIn('teaching_journal_id', $journalIds)
-                    ->where('student_id', $sId)->where('status', 'izin')->count();
-                $alpa = StudentPresence::whereIn('teaching_journal_id', $journalIds)
-                    ->where('student_id', $sId)->where('status', 'alpa')->count();
+                $counts = $presenceCounts[$sId] ?? [];
+                $hadir = $counts['hadir'] ?? 0;
+                $sakit = $counts['sakit'] ?? 0;
+                $izin = $counts['izin'] ?? 0;
+                $alpa = $counts['alpa'] ?? 0;
 
                 $pct = $totalMeetings > 0 ? round(($hadir / $totalMeetings) * 100, 1) : 100;
 
@@ -354,6 +388,8 @@ class TeachingJournalController extends Controller implements HasMiddleware
                 'message' => 'Rekapitulasi presensi berhasil dihitung',
                 'data' => [
                     'class_group' => $classGroup->name,
+                    'start_date' => $validated['start_date'] ?? null,
+                    'end_date' => $validated['end_date'] ?? null,
                     'total_meetings' => $totalMeetings,
                     'students' => $recapData,
                 ],

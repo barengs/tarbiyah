@@ -4,6 +4,24 @@ import { generateAttendanceRecapPdf } from '../../utils/attendanceRecapPdfGenera
 import { Printer, Download, ExternalLink, Loader2, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 
+function formatIndoDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const parts = String(dateStr).split('-');
+        if (parts.length === 3) {
+            const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return new Intl.DateTimeFormat('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+            }).format(d);
+        }
+    } catch {
+        // fallback ke string mentah
+    }
+    return dateStr;
+}
+
 export default function PrintRecapModal({
     open,
     onClose,
@@ -12,11 +30,22 @@ export default function PrintRecapModal({
     totalMeetings = 0,
     academicYear = '',
     quarterName = '',
+    startDate = '',
+    endDate = '',
 }) {
     const iframeRef = useRef(null);
     const [pdfUrl, setPdfUrl] = useState(null);
     const [pdfDoc, setPdfDoc] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
+
+    const dateRangeLabel =
+        startDate && endDate
+            ? `${formatIndoDate(startDate)} - ${formatIndoDate(endDate)}`
+            : startDate
+            ? `Mulai ${formatIndoDate(startDate)}`
+            : endDate
+            ? `Sampai ${formatIndoDate(endDate)}`
+            : 'Semua Tanggal';
 
     useEffect(() => {
         if (!open) {
@@ -43,6 +72,7 @@ export default function PrintRecapModal({
                     meta: {
                         academicYear: academicYear || '-',
                         quarterName: quarterName || '-',
+                        dateRangeLabel,
                     },
                 });
                 const blob = doc.output('blob');
@@ -63,7 +93,7 @@ export default function PrintRecapModal({
                 URL.revokeObjectURL(objectUrl);
             }
         };
-    }, [open, group, students, totalMeetings, academicYear, quarterName]);
+    }, [open, group, students, totalMeetings, academicYear, quarterName, startDate, endDate, dateRangeLabel]);
 
     const handleDownload = () => {
         if (!pdfDoc) return;
@@ -110,7 +140,7 @@ export default function PrintRecapModal({
                             Pratinjau &amp; Cetak PDF — Rekapitulasi Kehadiran
                         </span>
                         <span className="text-[11px] text-slate-500 font-normal block">
-                            Rombel {group?.name || '-'} &bull; {students.length} Santri &bull; {totalMeetings} Pertemuan KBM
+                            Rombel {group?.name || '-'} &bull; {students.length} Santri &bull; {totalMeetings} Pertemuan KBM &bull; {dateRangeLabel}
                         </span>
                     </div>
                 </div>

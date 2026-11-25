@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
 import { generateAttendanceRecapPdf } from '../../utils/attendanceRecapPdfGenerator';
-import { Printer, Download, ExternalLink, Loader2, FileText } from 'lucide-react';
+import { Printer, Download, ExternalLink, Loader2, FileText, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 function formatIndoDate(dateStr) {
@@ -32,6 +32,8 @@ export default function PrintRecapModal({
     quarterName = '',
     startDate = '',
     endDate = '',
+    onExportExcel = null,
+    isExportingExcel = false,
 }) {
     const iframeRef = useRef(null);
     const [pdfUrl, setPdfUrl] = useState(null);
@@ -165,6 +167,21 @@ export default function PrintRecapModal({
                         >
                             Tutup
                         </button>
+                        {onExportExcel && (
+                            <button
+                                type="button"
+                                onClick={onExportExcel}
+                                disabled={!students?.length || isExportingExcel}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 rounded-md disabled:opacity-50 cursor-pointer transition shadow-2xs"
+                            >
+                                {isExportingExcel ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                                )}
+                                {isExportingExcel ? 'Mengekspor...' : 'Unduh Excel'}
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={handleDownload}

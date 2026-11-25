@@ -33,7 +33,8 @@ import {
     Calendar, Plus, Clock, BookOpen, BarChart3, User, MapPin, 
     Trash2, Pencil, Sun, Moon, Coffee, GraduationCap, Users, LayoutGrid, 
     Table as TableIcon, Columns, Search, Filter, AlertTriangle, CheckCircle2,
-    School, ShieldAlert, ChevronLeft, ChevronRight, Printer, Layers, Copy, RotateCcw
+    School, ShieldAlert, ChevronLeft, ChevronRight, Printer, Layers, Copy, RotateCcw,
+    FileSpreadsheet, Loader2
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -416,11 +417,85 @@ export default function ScheduleKbmPage() {
     );
     const recap = recapData?.data;
 
-    // Pagination, Search & Print Preview untuk Rekapitulasi Kehadiran
+    // Pagination, Search, Export Excel & Print Preview untuk Rekapitulasi Kehadiran
     const [recapSearchQuery, setRecapSearchQuery] = useState('');
     const [recapPage, setRecapPage] = useState(1);
     const [recapPerPage, setRecapPerPage] = useState(10);
     const [printRecapModalOpen, setPrintRecapModalOpen] = useState(false);
+    const [isExportingRecap, setIsExportingRecap] = useState(false);
+
+    const handleExportRecapExcel = async () => {
+        if (!currentWeeklyGroup?.id) {
+            toast.error('Pilih rombel terlebih dahulu');
+            return;
+        }
+
+        setIsExportingRecap(true);
+        try {
+            const token = localStorage.getItem('token');
+            const params = new URLSearchParams({
+                class_group_id: String(currentWeeklyGroup.id),
+            });
+            if (recapStartDate) params.set('start_date', recapStartDate);
+            if (recapEndDate) params.set('end_date', recapEndDate);
+            if (selectedYearId) params.set('academic_year_id', String(selectedYearId));
+            if (selectedQuarterId) params.set('academic_quarter_id', String(selectedQuarterId));
+
+            const headers = {
+                Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json',
+            };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            if (selectedYearId) headers['X-Academic-Year-Id'] = String(selectedYearId);
+            if (selectedQuarterId) headers['X-Academic-Quarter-Id'] = String(selectedQuarterId);
+
+            const res = await fetch(`/api/main/journals/recap/export?${params.toString()}`, {
+                headers,
+            });
+
+            if (!res.ok) {
+                let errMsg = 'Gagal mengekspor file Excel rekapitulasi kehadiran';
+                try {
+                    const errJson = await res.json();
+                    if (errJson?.message) errMsg = errJson.message;
+                } catch {
+                    // abaikan bila response error bukan JSON
+                }
+                throw new Error(errMsg);
+            }
+
+            const blob = await res.blob();
+            const contentDisposition = res.headers.get('Content-Disposition') || '';
+            const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+
+            const safeGroup = (currentWeeklyGroup.name || 'Rombel').replace(/[^a-zA-Z0-9_-]+/g, '_');
+            const rangeSlug = recapStartDate && recapEndDate
+                ? (recapStartDate === recapEndDate
+                    ? recapStartDate.replace(/-/g, '')
+                    : `${recapStartDate.replace(/-/g, '')}_sd_${recapEndDate.replace(/-/g, '')}`)
+                : recapStartDate
+                ? `mulai_${recapStartDate.replace(/-/g, '')}`
+                : recapEndDate
+                ? `sampai_${recapEndDate.replace(/-/g, '')}`
+                : 'Semua_Waktu';
+
+            const fileName = filenameMatch?.[1] || `Rekap_Kehadiran_${safeGroup}_${rangeSlug}.xlsx`;
+
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+
+            toast.success('File Excel rekapitulasi kehadiran berhasil diunduh');
+        } catch (err) {
+            toast.error(err?.message || 'Gagal mengekspor Excel');
+        } finally {
+            setIsExportingRecap(false);
+        }
+    };
 
     const filteredRecapStudents = useMemo(() => {
         const list = recap?.students || [];
@@ -1858,6 +1933,24 @@ export default function ScheduleKbmPage() {
                                     </div>
                                     <button
                                         type="button"
+                                        disabled={!currentWeeklyGroup?.id || !recap?.students?.length || isExportingRecap}
+                                        onClick={handleExportRecapExcel}
+                                        title={
+                                            recapStartDate || recapEndDate
+                                                ? 'Export Excel (Rentang Tanggal Terpilih)'
+                                                : 'Export Excel (Semua Waktu)'
+                                        }
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded hover:bg-emerald-700 disabled:opacity-40 transition shadow-2xs cursor-pointer"
+                                    >
+                                        {isExportingRecap ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                            <FileSpreadsheet className="w-3.5 h-3.5" />
+                                        )}
+                                        {isExportingRecap ? 'Mengekspor...' : 'Export Excel'}
+                                    </button>
+                                    <button
+                                        type="button"
                                         disabled={!recap?.students?.length}
                                         onClick={() => setPrintRecapModalOpen(true)}
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#093c30] text-white text-xs font-semibold rounded hover:bg-[#062d24] disabled:opacity-40 transition shadow-2xs cursor-pointer"
@@ -1909,6 +2002,17 @@ export default function ScheduleKbmPage() {
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => applyRecapPreset('reset')}
+                                        className={`px-2.5 py-1 text-[11px] font-semibold border rounded transition cursor-pointer ${
+                                            !recapStartDate && !recapEndDate
+                                                ? 'bg-[#093c30] text-white border-[#093c30]'
+                                                : 'border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 hover:text-[#093c30] text-slate-700'
+                                        }`}
+                                    >
+                                        Semua Waktu
+                                    </button>
                                     <button
                                         type="button"
                                         onClick={() => applyRecapPreset('today')}
@@ -2469,6 +2573,8 @@ export default function ScheduleKbmPage() {
                 quarterName={currentQuarter?.name || 'Triwulan IV (Syawal - Dzulhijjah)'}
                 startDate={recapStartDate}
                 endDate={recapEndDate}
+                onExportExcel={handleExportRecapExcel}
+                isExportingExcel={isExportingRecap}
             />
         </div>
     );

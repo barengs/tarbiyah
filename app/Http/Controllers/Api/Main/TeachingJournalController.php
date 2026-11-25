@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Main;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicQuarter;
+use App\Models\AcademicYear;
 use App\Models\ClassGroup;
 use App\Models\LessonSchedule;
 use App\Models\StudentClass;
@@ -15,6 +17,13 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class TeachingJournalController extends Controller implements HasMiddleware
 {
@@ -316,72 +325,26 @@ class TeachingJournalController extends Controller implements HasMiddleware
         ]);
 
         try {
-            $classGroup = ClassGroup::findOrFail($validated['class_group_id']);
+            $classGroup = ClassGroup::with([
+                'program',
+                'educationalInstitution.program',
+                'education',
+                'educationClass',
+                'classroom',
+                'homeroomTeacher',
+                'academicYear',
+            ])->findOrFail($validated['class_group_id']);
 
             $userProgramId = auth('api')->user()?->getActiveProgramId();
-            if ($userProgramId && $classGroup->program_id && (int) $classGroup->program_id !== $userProgramId) {
+            $effectiveProgramId = $classGroup->program_id ?? $classGroup->educationalInstitution?->program_id;
+            if ($userProgramId && $effectiveProgramId && (int) $effectiveProgramId !== $userProgramId) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Anda tidak memiliki hak akses ke rekapitulasi rombel dari program lain.',
                 ], 403);
             }
 
-            $students = StudentClass::where('class_group_id', $classGroup->id)
-                ->where('status', 'aktif')
-                ->with('student')
-                ->get()
-                ->filter(fn ($sc) => $sc->student !== null)
-                ->sortBy(fn ($sc) => $sc->student->name ?? '')
-                ->values();
-
-            $journalsQuery = TeachingJournal::where('class_group_id', $classGroup->id);
-            if (! empty($validated['study_id'])) {
-                $journalsQuery->where('study_id', $validated['study_id']);
-            }
-            if (! empty($validated['start_date'])) {
-                $journalsQuery->whereDate('date', '>=', $validated['start_date']);
-            }
-            if (! empty($validated['end_date'])) {
-                $journalsQuery->whereDate('date', '<=', $validated['end_date']);
-            }
-
-            $journalIds = $journalsQuery->pluck('id');
-            $totalMeetings = $journalIds->count();
-
-            $presenceCounts = [];
-            if ($journalIds->isNotEmpty()) {
-                $rows = StudentPresence::whereIn('teaching_journal_id', $journalIds)
-                    ->selectRaw('student_id, LOWER(status) as status, COUNT(*) as total')
-                    ->groupBy('student_id', 'status')
-                    ->get();
-
-                foreach ($rows as $row) {
-                    $presenceCounts[$row->student_id][$row->status] = (int) $row->total;
-                }
-            }
-
-            $recapData = [];
-            foreach ($students as $sc) {
-                $sId = $sc->student_id;
-                $counts = $presenceCounts[$sId] ?? [];
-                $hadir = $counts['hadir'] ?? 0;
-                $sakit = $counts['sakit'] ?? 0;
-                $izin = $counts['izin'] ?? 0;
-                $alpa = $counts['alpa'] ?? 0;
-
-                $pct = $totalMeetings > 0 ? round(($hadir / $totalMeetings) * 100, 1) : 100;
-
-                $recapData[] = [
-                    'student_id' => $sId,
-                    'name' => $sc->student->name,
-                    'nis' => $sc->student->nis,
-                    'hadir' => $hadir,
-                    'sakit' => $sakit,
-                    'izin' => $izin,
-                    'alpa' => $alpa,
-                    'percentage' => $pct,
-                ];
-            }
+            $result = $this->computeRecapData($classGroup, $validated);
 
             return response()->json([
                 'status' => 'success',
@@ -390,8 +353,8 @@ class TeachingJournalController extends Controller implements HasMiddleware
                     'class_group' => $classGroup->name,
                     'start_date' => $validated['start_date'] ?? null,
                     'end_date' => $validated['end_date'] ?? null,
-                    'total_meetings' => $totalMeetings,
-                    'students' => $recapData,
+                    'total_meetings' => $result['total_meetings'],
+                    'students' => $result['students'],
                 ],
             ], 200);
         } catch (\Exception $e) {
@@ -402,6 +365,770 @@ class TeachingJournalController extends Controller implements HasMiddleware
                 'message' => 'Gagal menghitung rekap presensi',
             ], 500);
         }
+    }
+
+    /**
+     * Ekspor Rekapitulasi Kehadiran Santri ke file Excel (.xlsx) untuk semua waktu atau rentang tanggal tertentu.
+     */
+    public function exportRecap(Request $request)
+    {
+        $validated = $request->validate([
+            'class_group_id' => 'required|exists:class_groups,id',
+            'study_id' => 'nullable|exists:studies,id',
+            'academic_year_id' => 'nullable|exists:academic_years,id',
+            'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
+            'start_date' => 'nullable|date',
+            'end_date' => array_filter([
+                'nullable',
+                'date',
+                $request->filled('start_date') ? 'after_or_equal:start_date' : null,
+            ]),
+        ]);
+
+        try {
+            $classGroup = ClassGroup::with([
+                'program',
+                'educationalInstitution.program',
+                'education',
+                'educationClass',
+                'classroom',
+                'homeroomTeacher',
+                'academicYear',
+            ])->findOrFail($validated['class_group_id']);
+
+            $userProgramId = auth('api')->user()?->getActiveProgramId();
+            $effectiveProgramId = $classGroup->program_id ?? $classGroup->educationalInstitution?->program_id;
+            if ($userProgramId && $effectiveProgramId && (int) $effectiveProgramId !== $userProgramId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Anda tidak memiliki hak akses untuk mengekspor rekapitulasi rombel dari program lain.',
+                ], 403);
+            }
+
+            $recapResult = $this->computeRecapData($classGroup, $validated, true);
+            $students = $recapResult['students'];
+            $totalMeetings = $recapResult['total_meetings'];
+            $journals = $recapResult['journals'];
+
+            // Resolusi Tahun Akademik & Periode Triwulan
+            $targetYearId = $validated['academic_year_id']
+                ?? $request->header('X-Academic-Year-Id')
+                ?? $classGroup->academic_year_id;
+            $yearObj = $targetYearId
+                ? AcademicYear::find($targetYearId)
+                : ($classGroup->academicYear ?? AcademicYear::where('active', true)->first());
+            $rawYear = trim((string) ($yearObj?->year ?? $yearObj?->name ?? ''));
+            $yearLabel = $rawYear !== ''
+                ? (preg_match('/\bH$/i', $rawYear) ? $rawYear : "{$rawYear} H")
+                : '-';
+
+            $targetQuarterId = $validated['academic_quarter_id']
+                ?? $request->header('X-Academic-Quarter-Id');
+            $quarterObj = $targetQuarterId
+                ? AcademicQuarter::find($targetQuarterId)
+                : ($targetYearId
+                    ? (AcademicQuarter::where('academic_year_id', $targetYearId)->where('active', true)->first()
+                        ?? AcademicQuarter::where('academic_year_id', $targetYearId)->latest('id')->first())
+                    : AcademicQuarter::where('active', true)->first());
+            $quarterLabel = $quarterObj?->name ?? '-';
+
+            // Resolusi label cakupan waktu
+            $startDate = ! empty($validated['start_date']) ? $validated['start_date'] : null;
+            $endDate = ! empty($validated['end_date']) ? $validated['end_date'] : null;
+
+            if ($startDate && $endDate) {
+                if ($startDate === $endDate) {
+                    $periodLabel = 'Tanggal '.Carbon::parse($startDate)->locale('id')->translatedFormat('d F Y');
+                    $filePeriodSlug = Carbon::parse($startDate)->format('Ymd');
+                } else {
+                    $periodLabel = Carbon::parse($startDate)->locale('id')->translatedFormat('d F Y')
+                        .' s/d '.Carbon::parse($endDate)->locale('id')->translatedFormat('d F Y');
+                    $filePeriodSlug = Carbon::parse($startDate)->format('Ymd').'_sd_'.Carbon::parse($endDate)->format('Ymd');
+                }
+            } elseif ($startDate) {
+                $periodLabel = 'Mulai '.Carbon::parse($startDate)->locale('id')->translatedFormat('d F Y');
+                $filePeriodSlug = 'mulai_'.Carbon::parse($startDate)->format('Ymd');
+            } elseif ($endDate) {
+                $periodLabel = 'Sampai '.Carbon::parse($endDate)->locale('id')->translatedFormat('d F Y');
+                $filePeriodSlug = 'sampai_'.Carbon::parse($endDate)->format('Ymd');
+            } else {
+                $periodLabel = 'Semua Waktu (Seluruh Pertemuan KBM)';
+                $filePeriodSlug = 'Semua_Waktu';
+            }
+
+            $studyObj = ! empty($validated['study_id']) ? Study::find($validated['study_id']) : null;
+            $studySuffix = $studyObj ? "  •  Mapel: {$studyObj->name}" : '';
+
+            $rombelLabel = $classGroup->name.($classGroup->code ? " ({$classGroup->code})" : '');
+            $programName = $classGroup->program?->name ?? $classGroup->educationalInstitution?->program?->name ?? '-';
+            $instName = $classGroup->educationalInstitution?->name ?? $classGroup->education?->name ?? '-';
+            $instProgramLabel = ($programName !== '-' && $instName !== '-')
+                ? "{$instName} ({$programName})"
+                : ($instName !== '-' ? $instName : $programName);
+            $levelName = $classGroup->educationClass?->name ?? '-';
+            $roomName = $classGroup->classroom?->name ?? '-';
+            $levelRoomLabel = ($levelName !== '-' && $roomName !== '-')
+                ? "{$levelName}  •  Ruang {$roomName}"
+                : ($levelName !== '-' ? $levelName : ($roomName !== '-' ? "Ruang {$roomName}" : '-'));
+            $waliLabel = $classGroup->homeroomTeacher?->name ?? '-';
+            $studentCount = count($students);
+
+            // Inisialisasi Workbook
+            $spreadsheet = new Spreadsheet;
+            $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(10);
+            $spreadsheet->getProperties()
+                ->setCreator('e-Panyeppen Pro — SIM Akademik')
+                ->setTitle("Rekapitulasi Kehadiran {$classGroup->name}")
+                ->setSubject("Rekapitulasi Kehadiran Santri ({$periodLabel})");
+
+            // ═══════════════════════════════════════════════════════════════
+            // SHEET 1: REKAP KEHADIRAN SANTRI
+            // ═══════════════════════════════════════════════════════════════
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Rekap Kehadiran');
+            $sheet->getPageSetup()
+                ->setPaperSize(PageSetup::PAPERSIZE_A4)
+                ->setOrientation(PageSetup::ORIENTATION_PORTRAIT)
+                ->setFitToWidth(1)
+                ->setFitToHeight(0)
+                ->setHorizontalCentered(true);
+            $sheet->getPageMargins()
+                ->setTop(0.5)
+                ->setBottom(0.5)
+                ->setLeft(0.4)
+                ->setRight(0.4);
+            $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(12, 12);
+            $sheet->getHeaderFooter()->setOddFooter('&L&8Dicetak dari SIM Akademik e-Panyeppen Pro&R&8Halaman &P dari &N');
+
+            $colWidths = [
+                'A' => 6,
+                'B' => 16,
+                'C' => 36,
+                'D' => 11,
+                'E' => 11,
+                'F' => 11,
+                'G' => 11,
+                'H' => 15,
+                'I' => 20,
+            ];
+            foreach ($colWidths as $col => $width) {
+                $sheet->getColumnDimension($col)->setWidth($width);
+            }
+
+            // Kop Surat Resmi Pesantren (Baris 1-3)
+            $sheet->mergeCells('A1:I1');
+            $sheet->setCellValue('A1', 'PONDOK PESANTREN MIFTAHUL ULUM PANYEPPEN');
+            $sheet->getStyle('A1')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '093C30']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ]);
+            $sheet->getRowDimension(1)->setRowHeight(22);
+
+            $sheet->mergeCells('A2:I2');
+            $sheet->setCellValue('A2', "BAGIAN PENDIDIKAN DAN PENGAJARAN (TARBIYAH WA TA'LIM)");
+            $sheet->getStyle('A2')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 10.5, 'color' => ['rgb' => '1E293B']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ]);
+            $sheet->getRowDimension(2)->setRowHeight(18);
+
+            $sheet->mergeCells('A3:I3');
+            $sheet->setCellValue('A3', 'Jl. Raya Panyeppen, Potoan Daya, Palengaan, Pamekasan, Jawa Timur 69362 | Website: panyeppen.id');
+            $sheet->getStyle('A3:I3')->applyFromArray([
+                'font' => ['size' => 8.5, 'color' => ['rgb' => '64748B']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                'borders' => [
+                    'bottom' => ['borderStyle' => Border::BORDER_DOUBLE, 'color' => ['rgb' => '093C30']],
+                ],
+            ]);
+            $sheet->getRowDimension(3)->setRowHeight(17);
+            $sheet->getRowDimension(4)->setRowHeight(8);
+
+            // Judul & Subjudul Cakupan Waktu (Baris 5-6)
+            $sheet->mergeCells('A5:I5');
+            $sheet->setCellValue('A5', 'REKAPITULASI KEHADIRAN SANTRI');
+            $sheet->getStyle('A5')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 12, 'color' => ['rgb' => '0F172A']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ]);
+            $sheet->getRowDimension(5)->setRowHeight(22);
+
+            $sheet->mergeCells('A6:I6');
+            $sheet->setCellValue('A6', "Tahun Akademik: {$yearLabel}  •  Periode: {$quarterLabel}  •  Cakupan Waktu: {$periodLabel}");
+            $sheet->getStyle('A6:I6')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 9.5, 'color' => ['rgb' => '093C30']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'ECFDF5']],
+                'borders' => [
+                    'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'A7F3D0']],
+                ],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+            ]);
+            $sheet->getRowDimension(6)->setRowHeight(20);
+            $sheet->getRowDimension(7)->setRowHeight(8);
+
+            // Kotak Informasi Rombel 2 Kolom (Baris 8-10)
+            $metaRows = [
+                8 => ['Rombel / Kelas', ": {$rombelLabel}", 'Wali Kelas', ": {$waliLabel}", false],
+                9 => ['Lembaga / Program', ": {$instProgramLabel}", 'Rentang Waktu', ": {$periodLabel}", true],
+                10 => ['Tingkat / Ruang', ": {$levelRoomLabel}", 'Total Pertemuan', ": {$totalMeetings} Sesi KBM  •  {$studentCount} Santri{$studySuffix}", false],
+            ];
+            foreach ($metaRows as $rNum => [$leftLabel, $leftVal, $rightLabel, $rightVal, $highlightRightVal]) {
+                $sheet->mergeCells("A{$rNum}:B{$rNum}");
+                $sheet->mergeCells("D{$rNum}:E{$rNum}");
+                $sheet->mergeCells("F{$rNum}:I{$rNum}");
+
+                $sheet->setCellValue("A{$rNum}", $leftLabel);
+                $sheet->setCellValue("C{$rNum}", $leftVal);
+                $sheet->setCellValue("D{$rNum}", $rightLabel);
+                $sheet->setCellValue("F{$rNum}", $rightVal);
+
+                $sheet->getRowDimension($rNum)->setRowHeight(20);
+                $sheet->getStyle("A{$rNum}:B{$rNum}")->getFont()->setBold(true)->setSize(9.5)->getColor()->setRGB('475569');
+                $sheet->getStyle("D{$rNum}:E{$rNum}")->getFont()->setBold(true)->setSize(9.5)->getColor()->setRGB('475569');
+                $sheet->getStyle("C{$rNum}")->getFont()->setBold(true)->setSize(9.5)->getColor()->setRGB('0F172A');
+                $sheet->getStyle("F{$rNum}:I{$rNum}")->getFont()->setBold(true)->setSize(9.5)->getColor()->setRGB($highlightRightVal ? '093C30' : '0F172A');
+            }
+            $sheet->getStyle('A8:I10')->applyFromArray([
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8FAFC']],
+                'borders' => [
+                    'outline' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']],
+                    'horizontal' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']],
+                ],
+                'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+            ]);
+            $sheet->getRowDimension(11)->setRowHeight(8);
+
+            // Header Tabel (Baris 12)
+            $headers = [
+                'A' => 'NO',
+                'B' => 'NIS',
+                'C' => 'NAMA LENGKAP SANTRI',
+                'D' => 'HADIR',
+                'E' => 'IZIN',
+                'F' => 'SAKIT',
+                'G' => 'ALPA',
+                'H' => 'KEHADIRAN (%)',
+                'I' => 'KETERANGAN',
+            ];
+            foreach ($headers as $col => $text) {
+                $sheet->setCellValue("{$col}12", $text);
+            }
+            $sheet->getStyle('A12:I12')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 9.5, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '093C30']],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
+                ],
+                'borders' => [
+                    'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '064E3B']],
+                ],
+            ]);
+            $sheet->getStyle('C12')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $sheet->getRowDimension(12)->setRowHeight(28);
+            $sheet->freezePane('A13');
+
+            // Isi Baris Santri
+            $dataStartRow = 13;
+            $afterTableRow = $dataStartRow;
+
+            if ($studentCount === 0) {
+                $sheet->mergeCells("A{$dataStartRow}:I{$dataStartRow}");
+                $sheet->setCellValue("A{$dataStartRow}", 'Belum ada data santri aktif pada rombel ini.');
+                $sheet->getStyle("A{$dataStartRow}:I{$dataStartRow}")->applyFromArray([
+                    'font' => ['italic' => true, 'size' => 9.5, 'color' => ['rgb' => '64748B']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']],
+                    ],
+                ]);
+                $sheet->getRowDimension($dataStartRow)->setRowHeight(28);
+                $afterTableRow = $dataStartRow;
+            } else {
+                foreach ($students as $idx => $st) {
+                    $rowNum = $dataStartRow + $idx;
+                    $hadir = (int) ($st['hadir'] ?? 0);
+                    $izin = (int) ($st['izin'] ?? 0);
+                    $sakit = (int) ($st['sakit'] ?? 0);
+                    $alpa = (int) ($st['alpa'] ?? 0);
+                    $pct = (float) ($st['percentage'] ?? 0);
+
+                    $sheet->setCellValue("A{$rowNum}", $idx + 1);
+                    $sheet->setCellValueExplicit("B{$rowNum}", (string) ($st['nis'] ?: '-'), DataType::TYPE_STRING);
+                    $sheet->setCellValue("C{$rowNum}", (string) ($st['name'] ?: '-'));
+                    $sheet->setCellValueExplicit("D{$rowNum}", $hadir, DataType::TYPE_NUMERIC);
+                    $sheet->setCellValueExplicit("E{$rowNum}", $izin, DataType::TYPE_NUMERIC);
+                    $sheet->setCellValueExplicit("F{$rowNum}", $sakit, DataType::TYPE_NUMERIC);
+                    $sheet->setCellValueExplicit("G{$rowNum}", $alpa, DataType::TYPE_NUMERIC);
+                    $sheet->setCellValueExplicit("H{$rowNum}", round($pct / 100, 4), DataType::TYPE_NUMERIC);
+
+                    if ($totalMeetings === 0) {
+                        $predicate = 'Belum Ada Sesi KBM';
+                        $predColor = '64748B';
+                        $predItalic = true;
+                        $needsAttention = false;
+                    } elseif ($pct >= 95) {
+                        $predicate = 'Sangat Baik';
+                        $predColor = '047857';
+                        $predItalic = false;
+                        $needsAttention = false;
+                    } elseif ($pct >= 85) {
+                        $predicate = 'Baik';
+                        $predColor = '0F766E';
+                        $predItalic = false;
+                        $needsAttention = false;
+                    } elseif ($pct >= 75) {
+                        $predicate = 'Cukup';
+                        $predColor = 'B45309';
+                        $predItalic = false;
+                        $needsAttention = false;
+                    } else {
+                        $predicate = 'Perlu Pembinaan';
+                        $predColor = 'BE123C';
+                        $predItalic = false;
+                        $needsAttention = true;
+                    }
+                    $sheet->setCellValue("I{$rowNum}", $predicate);
+
+                    if ($idx % 2 === 1) {
+                        $sheet->getStyle("A{$rowNum}:I{$rowNum}")->getFill()
+                            ->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('F8FAFC');
+                    }
+
+                    if ($alpa > 0) {
+                        $sheet->getStyle("G{$rowNum}")->getFill()
+                            ->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('FFF1F2');
+                    }
+
+                    if ($needsAttention) {
+                        $sheet->getStyle("H{$rowNum}:I{$rowNum}")->getFill()
+                            ->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('FFF1F2');
+                    }
+
+                    $sheet->getStyle("A{$rowNum}")->getFont()->getColor()->setRGB('64748B');
+                    $sheet->getStyle("B{$rowNum}")->getFont()->getColor()->setRGB('334155');
+                    $sheet->getStyle("C{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('0F172A');
+                    $sheet->getStyle("D{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('047857');
+                    $sheet->getStyle("E{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('1D4ED8');
+                    $sheet->getStyle("F{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('B45309');
+                    $sheet->getStyle("G{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('BE123C');
+                    $sheet->getStyle("H{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB($pct >= 80 ? '047857' : 'BE123C');
+                    $sheet->getStyle("I{$rowNum}")->getFont()->setBold(! $predItalic)->setItalic($predItalic)->getColor()->setRGB($predColor);
+
+                    $sheet->getStyle("D{$rowNum}:G{$rowNum}")->getNumberFormat()->setFormatCode('#,##0');
+                    $sheet->getStyle("H{$rowNum}")->getNumberFormat()->setFormatCode('0.0%');
+
+                    $sheet->getRowDimension($rowNum)->setRowHeight(20);
+                }
+
+                $endDataRow = $dataStartRow + $studentCount - 1;
+                $sheet->getStyle("A{$dataStartRow}:I{$endDataRow}")->applyFromArray([
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']],
+                    ],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getStyle("A{$dataStartRow}:B{$endDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("C{$dataStartRow}:C{$endDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle("D{$dataStartRow}:I{$endDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+                // Baris Ringkasan Total / Rata-Rata
+                $summaryRow = $endDataRow + 1;
+                $sheet->mergeCells("A{$summaryRow}:C{$summaryRow}");
+                $sheet->setCellValue("A{$summaryRow}", 'TOTAL / RATA-RATA KEHADIRAN ROMBEL');
+                $sheet->setCellValue("D{$summaryRow}", "=SUM(D{$dataStartRow}:D{$endDataRow})");
+                $sheet->setCellValue("E{$summaryRow}", "=SUM(E{$dataStartRow}:E{$endDataRow})");
+                $sheet->setCellValue("F{$summaryRow}", "=SUM(F{$dataStartRow}:F{$endDataRow})");
+                $sheet->setCellValue("G{$summaryRow}", "=SUM(G{$dataStartRow}:G{$endDataRow})");
+                $sheet->setCellValue("H{$summaryRow}", "=AVERAGE(H{$dataStartRow}:H{$endDataRow})");
+                $sheet->setCellValue("I{$summaryRow}", "{$totalMeetings} Pertemuan KBM");
+
+                $sheet->getStyle("A{$summaryRow}:I{$summaryRow}")->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => '093C30']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'ECFDF5']],
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'A7F3D0']],
+                        'top' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '093C30']],
+                        'bottom' => ['borderStyle' => Border::BORDER_DOUBLE, 'color' => ['rgb' => '093C30']],
+                    ],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getStyle("A{$summaryRow}:C{$summaryRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle("D{$summaryRow}:I{$summaryRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("D{$summaryRow}:G{$summaryRow}")->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle("H{$summaryRow}")->getNumberFormat()->setFormatCode('0.0%');
+                $sheet->getRowDimension($summaryRow)->setRowHeight(24);
+
+                $afterTableRow = $summaryRow;
+            }
+
+            // Blok Catatan & Tanda Tangan Wali Kelas
+            $sigStartRow = $afterTableRow + 2;
+            $todayIndoLabel = now()->locale('id')->translatedFormat('d F Y');
+            $exportedAtLabel = now()->locale('id')->translatedFormat('d F Y H:i');
+
+            $sheet->mergeCells("A{$sigStartRow}:E{$sigStartRow}");
+            $sheet->setCellValue("A{$sigStartRow}", 'Catatan:');
+            $sheet->getStyle("A{$sigStartRow}")->getFont()->setBold(true)->setSize(8.5)->getColor()->setRGB('475569');
+
+            $noteRow1 = $sigStartRow + 1;
+            $sheet->mergeCells("A{$noteRow1}:E{$noteRow1}");
+            $sheet->setCellValue("A{$noteRow1}", '• Persentase Kehadiran = (Jumlah Hadir / Total Pertemuan KBM pada cakupan waktu) × 100%.');
+            $sheet->getStyle("A{$noteRow1}")->applyFromArray([
+                'font' => ['size' => 8.5, 'color' => ['rgb' => '64748B']],
+                'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+            ]);
+
+            $noteRow2 = $sigStartRow + 2;
+            $sheet->mergeCells("A{$noteRow2}:E{$noteRow2}");
+            $sheet->setCellValue("A{$noteRow2}", "• Diekspor dari SIM Akademik e-Panyeppen Pro pada {$exportedAtLabel}.");
+            $sheet->getStyle("A{$noteRow2}")->applyFromArray([
+                'font' => ['size' => 8.5, 'color' => ['rgb' => '64748B']],
+                'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+            ]);
+
+            $sheet->mergeCells("G{$sigStartRow}:I{$sigStartRow}");
+            $sheet->setCellValue("G{$sigStartRow}", "Pamekasan, {$todayIndoLabel}");
+            $sheet->getStyle("G{$sigStartRow}")->applyFromArray([
+                'font' => ['size' => 9.5, 'color' => ['rgb' => '334155']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ]);
+
+            $sheet->mergeCells("G{$noteRow1}:I{$noteRow1}");
+            $sheet->setCellValue("G{$noteRow1}", 'Wali Kelas,');
+            $sheet->getStyle("G{$noteRow1}")->applyFromArray([
+                'font' => ['size' => 9.5, 'color' => ['rgb' => '334155']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ]);
+
+            $sheet->getRowDimension($sigStartRow)->setRowHeight(17);
+            $sheet->getRowDimension($noteRow1)->setRowHeight(17);
+            $sheet->getRowDimension($noteRow2)->setRowHeight(17);
+            $sheet->getRowDimension($sigStartRow + 3)->setRowHeight(18);
+
+            $sigNameRow = $sigStartRow + 4;
+            $sheet->mergeCells("G{$sigNameRow}:I{$sigNameRow}");
+            $sheet->setCellValue("G{$sigNameRow}", $waliLabel !== '-' ? $waliLabel : '( .................................... )');
+            $sheet->getStyle("G{$sigNameRow}")->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'size' => 9.5,
+                    'underline' => $waliLabel !== '-',
+                    'color' => ['rgb' => '0F172A'],
+                ],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            ]);
+            $sheet->getRowDimension($sigNameRow)->setRowHeight(19);
+
+            // ═══════════════════════════════════════════════════════════════
+            // SHEET 2: DAFTAR SESI PERTEMUAN KBM
+            // ═══════════════════════════════════════════════════════════════
+            $journalSheet = $spreadsheet->createSheet();
+            $journalSheet->setTitle('Daftar Sesi KBM');
+            $journalSheet->getPageSetup()
+                ->setPaperSize(PageSetup::PAPERSIZE_A4)
+                ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)
+                ->setFitToWidth(1)
+                ->setFitToHeight(0)
+                ->setHorizontalCentered(true);
+            $journalSheet->getPageMargins()
+                ->setTop(0.5)
+                ->setBottom(0.5)
+                ->setLeft(0.4)
+                ->setRight(0.4);
+            $journalSheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(4, 4);
+            $journalSheet->getHeaderFooter()->setOddFooter('&L&8Dicetak dari SIM Akademik e-Panyeppen Pro&R&8Halaman &P dari &N');
+
+            $journalColWidths = [
+                'A' => 6,
+                'B' => 14,
+                'C' => 11,
+                'D' => 13,
+                'E' => 18,
+                'F' => 24,
+                'G' => 24,
+                'H' => 34,
+                'I' => 10,
+                'J' => 10,
+                'K' => 10,
+                'L' => 10,
+            ];
+            foreach ($journalColWidths as $col => $width) {
+                $journalSheet->getColumnDimension($col)->setWidth($width);
+            }
+
+            $journalSheet->mergeCells('A1:L1');
+            $journalSheet->setCellValue('A1', "DAFTAR SESI PERTEMUAN KBM — {$rombelLabel}");
+            $journalSheet->getStyle('A1')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 12, 'color' => ['rgb' => '093C30']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
+            ]);
+            $journalSheet->getRowDimension(1)->setRowHeight(24);
+
+            $journalSheet->mergeCells('A2:L2');
+            $journalSheet->setCellValue(
+                'A2',
+                "Tahun Akademik: {$yearLabel}  •  Periode: {$quarterLabel}  •  Cakupan Waktu: {$periodLabel}  •  Total: {$totalMeetings} Sesi"
+            );
+            $journalSheet->getStyle('A2')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 9.5, 'color' => ['rgb' => '475569']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
+            ]);
+            $journalSheet->getRowDimension(2)->setRowHeight(18);
+            $journalSheet->getRowDimension(3)->setRowHeight(8);
+
+            $journalHeaders = [
+                'A' => 'NO',
+                'B' => 'TANGGAL',
+                'C' => 'HARI',
+                'D' => 'PERTEMUAN',
+                'E' => 'JAM KBM',
+                'F' => 'MATA PELAJARAN',
+                'G' => 'PENGAJAR',
+                'H' => 'MATERI / POKOK BAHASAN',
+                'I' => 'HADIR',
+                'J' => 'IZIN',
+                'K' => 'SAKIT',
+                'L' => 'ALPA',
+            ];
+            foreach ($journalHeaders as $col => $text) {
+                $journalSheet->setCellValue("{$col}4", $text);
+            }
+            $journalSheet->getStyle('A4:L4')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 9.5, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '093C30']],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
+                ],
+                'borders' => [
+                    'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '064E3B']],
+                ],
+            ]);
+            $journalSheet->getStyle('F4:H4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $journalSheet->getRowDimension(4)->setRowHeight(26);
+            $journalSheet->freezePane('A5');
+
+            $dayMap = [
+                1 => 'Senin',
+                2 => 'Selasa',
+                3 => 'Rabu',
+                4 => 'Kamis',
+                5 => 'Jumat',
+                6 => 'Sabtu',
+                7 => 'Ahad',
+            ];
+
+            $jStartRow = 5;
+            if ($journals->isEmpty()) {
+                $journalSheet->mergeCells("A{$jStartRow}:L{$jStartRow}");
+                $journalSheet->setCellValue("A{$jStartRow}", 'Belum ada sesi pertemuan KBM yang tercatat pada cakupan waktu ini.');
+                $journalSheet->getStyle("A{$jStartRow}:L{$jStartRow}")->applyFromArray([
+                    'font' => ['italic' => true, 'size' => 9.5, 'color' => ['rgb' => '64748B']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']],
+                    ],
+                ]);
+                $journalSheet->getRowDimension($jStartRow)->setRowHeight(26);
+            } else {
+                foreach ($journals as $jIdx => $j) {
+                    $rowNum = $jStartRow + $jIdx;
+                    $dateCarbon = $j->date ? Carbon::parse($j->date)->locale('id') : null;
+                    $dateText = $dateCarbon ? $dateCarbon->translatedFormat('d M Y') : '-';
+                    $dayText = $dateCarbon ? ($dayMap[$dateCarbon->dayOfWeekIso] ?? $dateCarbon->translatedFormat('l')) : '-';
+                    $meetingText = 'Ke-'.($j->meeting_number ?? ($jIdx + 1));
+
+                    $lessonHour = $j->lessonSchedule?->lessonHour;
+                    $hourLabel = $lessonHour?->name ?: ($lessonHour?->order ? "Jam {$lessonHour->order}" : '');
+                    if ($lessonHour?->start_time) {
+                        $timeRange = substr((string) $lessonHour->start_time, 0, 5)
+                            .($lessonHour->end_time ? ' - '.substr((string) $lessonHour->end_time, 0, 5) : '');
+                        $hourLabel = $hourLabel !== '' ? "{$hourLabel} ({$timeRange})" : $timeRange;
+                    } elseif ($hourLabel === '') {
+                        $hourLabel = '-';
+                    }
+
+                    $teacherText = $j->teacher?->name ?? '-';
+                    if ($j->substituteTeacher) {
+                        $teacherText .= " (Pengganti: {$j->substituteTeacher->name})";
+                    }
+
+                    $journalSheet->setCellValue("A{$rowNum}", $jIdx + 1);
+                    $journalSheet->setCellValue("B{$rowNum}", $dateText);
+                    $journalSheet->setCellValue("C{$rowNum}", $dayText);
+                    $journalSheet->setCellValue("D{$rowNum}", $meetingText);
+                    $journalSheet->setCellValue("E{$rowNum}", $hourLabel);
+                    $journalSheet->setCellValue("F{$rowNum}", $j->study?->name ?? '-');
+                    $journalSheet->setCellValue("G{$rowNum}", $teacherText);
+                    $journalSheet->setCellValue("H{$rowNum}", $j->topic ?: 'KBM Reguler');
+                    $journalSheet->setCellValueExplicit("I{$rowNum}", (int) ($j->hadir_count ?? 0), DataType::TYPE_NUMERIC);
+                    $journalSheet->setCellValueExplicit("J{$rowNum}", (int) ($j->izin_count ?? 0), DataType::TYPE_NUMERIC);
+                    $journalSheet->setCellValueExplicit("K{$rowNum}", (int) ($j->sakit_count ?? 0), DataType::TYPE_NUMERIC);
+                    $journalSheet->setCellValueExplicit("L{$rowNum}", (int) ($j->alpa_count ?? 0), DataType::TYPE_NUMERIC);
+
+                    if ($jIdx % 2 === 1) {
+                        $journalSheet->getStyle("A{$rowNum}:L{$rowNum}")->getFill()
+                            ->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('F8FAFC');
+                    }
+
+                    $journalSheet->getStyle("A{$rowNum}")->getFont()->getColor()->setRGB('64748B');
+                    $journalSheet->getStyle("F{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('0F172A');
+                    $journalSheet->getStyle("I{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('047857');
+                    $journalSheet->getStyle("J{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('1D4ED8');
+                    $journalSheet->getStyle("K{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('B45309');
+                    $journalSheet->getStyle("L{$rowNum}")->getFont()->setBold(true)->getColor()->setRGB('BE123C');
+                    $journalSheet->getStyle("I{$rowNum}:L{$rowNum}")->getNumberFormat()->setFormatCode('#,##0');
+
+                    $journalSheet->getRowDimension($rowNum)->setRowHeight(20);
+                }
+
+                $jEndRow = $jStartRow + $journals->count() - 1;
+                $journalSheet->getStyle("A{$jStartRow}:L{$jEndRow}")->applyFromArray([
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']],
+                    ],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+                ]);
+                $journalSheet->getStyle("A{$jStartRow}:E{$jEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $journalSheet->getStyle("F{$jStartRow}:H{$jEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $journalSheet->getStyle("I{$jStartRow}:L{$jEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+                $jSummaryRow = $jEndRow + 1;
+                $journalSheet->mergeCells("A{$jSummaryRow}:H{$jSummaryRow}");
+                $journalSheet->setCellValue("A{$jSummaryRow}", "TOTAL KESELURUHAN ({$totalMeetings} SESI PERTEMUAN KBM)");
+                $journalSheet->setCellValue("I{$jSummaryRow}", "=SUM(I{$jStartRow}:I{$jEndRow})");
+                $journalSheet->setCellValue("J{$jSummaryRow}", "=SUM(J{$jStartRow}:J{$jEndRow})");
+                $journalSheet->setCellValue("K{$jSummaryRow}", "=SUM(K{$jStartRow}:K{$jEndRow})");
+                $journalSheet->setCellValue("L{$jSummaryRow}", "=SUM(L{$jStartRow}:L{$jEndRow})");
+
+                $journalSheet->getStyle("A{$jSummaryRow}:L{$jSummaryRow}")->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => '093C30']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'ECFDF5']],
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'A7F3D0']],
+                        'top' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '093C30']],
+                        'bottom' => ['borderStyle' => Border::BORDER_DOUBLE, 'color' => ['rgb' => '093C30']],
+                    ],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $journalSheet->getStyle("A{$jSummaryRow}:H{$jSummaryRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $journalSheet->getStyle("I{$jSummaryRow}:L{$jSummaryRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $journalSheet->getStyle("I{$jSummaryRow}:L{$jSummaryRow}")->getNumberFormat()->setFormatCode('#,##0');
+                $journalSheet->getRowDimension($jSummaryRow)->setRowHeight(24);
+            }
+
+            $spreadsheet->setActiveSheetIndex(0);
+
+            $safeGroupName = preg_replace('/[^A-Za-z0-9_-]+/', '_', trim((string) $classGroup->name)) ?: 'Rombel';
+            $filename = "Rekap_Kehadiran_{$safeGroupName}_{$filePeriodSlug}.xlsx";
+
+            return response()->streamDownload(function () use ($spreadsheet) {
+                $writer = new Xlsx($spreadsheet);
+                $writer->save('php://output');
+            }, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                'Cache-Control' => 'max-age=0',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error exporting attendance recap to Excel: '.$e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal mengekspor rekapitulasi kehadiran ke Excel: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Hitung dataset rekapitulasi kehadiran rombel (dipakai bersama oleh recap JSON & export Excel).
+     */
+    private function computeRecapData(ClassGroup $classGroup, array $validated, bool $withJournalDetails = false): array
+    {
+        $students = StudentClass::where('class_group_id', $classGroup->id)
+            ->where('status', 'aktif')
+            ->with('student')
+            ->get()
+            ->filter(fn ($sc) => $sc->student !== null)
+            ->sortBy(fn ($sc) => $sc->student->name ?? '')
+            ->values();
+
+        $journalsQuery = TeachingJournal::where('class_group_id', $classGroup->id);
+        if (! empty($validated['study_id'])) {
+            $journalsQuery->where('study_id', $validated['study_id']);
+        }
+        if (! empty($validated['start_date'])) {
+            $journalsQuery->whereDate('date', '>=', $validated['start_date']);
+        }
+        if (! empty($validated['end_date'])) {
+            $journalsQuery->whereDate('date', '<=', $validated['end_date']);
+        }
+
+        $journalIds = (clone $journalsQuery)->pluck('id');
+        $totalMeetings = $journalIds->count();
+
+        $presenceCounts = [];
+        if ($journalIds->isNotEmpty()) {
+            $rows = StudentPresence::whereIn('teaching_journal_id', $journalIds)
+                ->selectRaw('student_id, LOWER(status) as status, COUNT(*) as total')
+                ->groupBy('student_id', 'status')
+                ->get();
+
+            foreach ($rows as $row) {
+                $presenceCounts[$row->student_id][$row->status] = (int) $row->total;
+            }
+        }
+
+        $recapData = [];
+        foreach ($students as $sc) {
+            $sId = $sc->student_id;
+            $counts = $presenceCounts[$sId] ?? [];
+            $hadir = $counts['hadir'] ?? 0;
+            $sakit = $counts['sakit'] ?? 0;
+            $izin = $counts['izin'] ?? 0;
+            $alpa = $counts['alpa'] ?? 0;
+
+            $pct = $totalMeetings > 0 ? round(($hadir / $totalMeetings) * 100, 1) : 100;
+
+            $recapData[] = [
+                'student_id' => $sId,
+                'name' => $sc->student->name,
+                'nis' => $sc->student->nis,
+                'hadir' => $hadir,
+                'sakit' => $sakit,
+                'izin' => $izin,
+                'alpa' => $alpa,
+                'percentage' => $pct,
+            ];
+        }
+
+        $journals = collect();
+        if ($withJournalDetails) {
+            $journals = (clone $journalsQuery)
+                ->with(['study', 'teacher', 'substituteTeacher', 'lessonSchedule.lessonHour'])
+                ->withCount([
+                    'presences as hadir_count' => fn ($q) => $q->whereRaw('LOWER(status) = ?', ['hadir']),
+                    'presences as izin_count' => fn ($q) => $q->whereRaw('LOWER(status) = ?', ['izin']),
+                    'presences as sakit_count' => fn ($q) => $q->whereRaw('LOWER(status) = ?', ['sakit']),
+                    'presences as alpa_count' => fn ($q) => $q->whereRaw('LOWER(status) = ?', ['alpa']),
+                ])
+                ->orderBy('date', 'asc')
+                ->orderBy('meeting_number', 'asc')
+                ->get();
+        }
+
+        return [
+            'total_meetings' => $totalMeetings,
+            'students' => $recapData,
+            'journals' => $journals,
+        ];
     }
 
     /**

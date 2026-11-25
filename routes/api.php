@@ -188,6 +188,7 @@ Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function
     Route::post('journals/batch-presence', [TeachingJournalController::class, 'batchPresence']);
     Route::post('journals/{id}/presences', [TeachingJournalController::class, 'updatePresences']);
     Route::get('journals/recap', [TeachingJournalController::class, 'recap']);
+    Route::get('journals/recap/export', [TeachingJournalController::class, 'exportRecap']);
     Route::apiResource('journals', TeachingJournalController::class);
 
     // Penilaian Akhir Triwulan, Remidi Mapel Khusus & Evaluasi Kenaikan Kelas

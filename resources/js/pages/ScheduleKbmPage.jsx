@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { 
     useGetSchedulesQuery, 
     useCreateScheduleMutation, 
+    useUpdateScheduleMutation,
     useDeleteScheduleMutation 
 } from '../store/slices/scheduleApi';
 import { 
@@ -30,7 +31,7 @@ import PrintRecapModal from '../components/organisms/PrintRecapModal';
 import ActionDropdown from '../components/molecules/ActionDropdown';
 import { 
     Calendar, Plus, Clock, BookOpen, BarChart3, User, MapPin, 
-    Trash2, Sun, Moon, Coffee, GraduationCap, Users, LayoutGrid, 
+    Trash2, Pencil, Sun, Moon, Coffee, GraduationCap, Users, LayoutGrid, 
     Table as TableIcon, Columns, Search, Filter, AlertTriangle, CheckCircle2,
     School, ShieldAlert, ChevronLeft, ChevronRight, Printer, Layers, Copy
 } from 'lucide-react';
@@ -189,6 +190,7 @@ export default function ScheduleKbmPage() {
     const allSchedules = schedulesData?.data || [];
 
     const [createSchedule, { isLoading: isCreatingSchedule }] = useCreateScheduleMutation();
+    const [updateSchedule, { isLoading: isUpdatingSchedule }] = useUpdateScheduleMutation();
     const [deleteSchedule] = useDeleteScheduleMutation();
 
     // ═══════════════════════════════════════════════════════════
@@ -286,6 +288,7 @@ export default function ScheduleKbmPage() {
 
     // Modal States
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+    const [editingSchedule, setEditingSchedule] = useState(null);
     const [journalModalOpen, setJournalModalOpen] = useState(false);
     const [presenceModalJournal, setPresenceModalJournal] = useState(null);
     const [deleteScheduleTarget, setDeleteScheduleTarget] = useState(null);
@@ -417,15 +420,16 @@ export default function ScheduleKbmPage() {
     };
 
     // Helper cari jadwal
-    const getScheduleCell = (dayId, hourOrder, groupId) => {
+    const getScheduleCell = (dayId, hourOrder, groupId, hourId = null) => {
         return allSchedules.find(s => 
             Number(s.day) === Number(dayId) && 
-            Number(s.lesson_hour?.order) === Number(hourOrder) && 
+            ((hourId && Number(s.lesson_hour_id) === Number(hourId)) || Number(s.lesson_hour?.order) === Number(hourOrder)) && 
             Number(s.class_group_id) === Number(groupId)
         ) || null;
     };
 
     const handleCellClick = (dayId, hourOrder, targetGroupId) => {
+        setEditingSchedule(null);
         setSchedDay(dayId);
         setSchedHourId(lessonHours.find(h => h.order === hourOrder)?.id || '');
         setSchedTargetGroupId(targetGroupId || paginatedGroups[0]?.id || '');
@@ -435,23 +439,46 @@ export default function ScheduleKbmPage() {
         setScheduleModalOpen(true);
     };
 
-    const handleCreateSchedule = async (e) => {
+    const handleEditScheduleClick = (sched) => {
+        if (!sched) return;
+        setEditingSchedule(sched);
+        setSchedDay(Number(sched.day) || 6);
+        setSchedHourId(sched.lesson_hour_id || sched.lesson_hour?.id || '');
+        setSchedTargetGroupId(sched.class_group_id || sched.class_group?.id || '');
+        setSchedStudyId(sched.study_id || sched.study?.id || '');
+        setSchedTeacherId(sched.teacher_id || sched.teacher?.id || '');
+        setSchedClassroomId(sched.classroom_id || sched.classroom?.id || '');
+        setScheduleModalOpen(true);
+    };
+
+    const handleSaveSchedule = async (e) => {
         e.preventDefault();
+        const payload = {
+            academic_year_id: Number(selectedYearId || editingSchedule?.academic_year_id || 1),
+            academic_quarter_id: Number(selectedQuarterId || editingSchedule?.academic_quarter_id || 4),
+            class_group_id: Number(schedTargetGroupId || paginatedGroups[0]?.id),
+            study_id: Number(schedStudyId),
+            teacher_id: Number(schedTeacherId),
+            lesson_hour_id: Number(schedHourId),
+            classroom_id: schedClassroomId ? Number(schedClassroomId) : null,
+            day: Number(schedDay),
+        };
+
         try {
-            await createSchedule({
-                academic_year_id: Number(selectedYearId || 1),
-                academic_quarter_id: Number(selectedQuarterId || 4),
-                class_group_id: schedTargetGroupId || paginatedGroups[0]?.id,
-                study_id: schedStudyId,
-                teacher_id: schedTeacherId,
-                lesson_hour_id: schedHourId,
-                classroom_id: schedClassroomId || null,
-                day: Number(schedDay),
-            }).unwrap();
-            toast.success('Jadwal pelajaran berhasil disimpan');
+            if (editingSchedule?.id) {
+                await updateSchedule({
+                    id: editingSchedule.id,
+                    ...payload,
+                }).unwrap();
+                toast.success('Jadwal pelajaran berhasil diperbarui');
+            } else {
+                await createSchedule(payload).unwrap();
+                toast.success('Jadwal pelajaran berhasil disimpan');
+            }
             setScheduleModalOpen(false);
+            setEditingSchedule(null);
         } catch (err) {
-            toast.error(err?.data?.message || 'Gagal menambahkan jadwal');
+            toast.error(err?.data?.message || (editingSchedule ? 'Gagal memperbarui jadwal' : 'Gagal menambahkan jadwal'));
         }
     };
 
@@ -569,7 +596,8 @@ export default function ScheduleKbmPage() {
                                 icon: Plus,
                                 iconColor: 'text-emerald-700',
                                 onClick: () => {
-                                    setSchedDay(6);
+                                    setEditingSchedule(null);
+                                    setSchedDay(selectedDayFilter || 6);
                                     setSchedHourId(lessonHours[0]?.id || '');
                                     setSchedTargetGroupId(paginatedGroups[0]?.id || '');
                                     setSchedStudyId(studies[0]?.id || '');
@@ -907,18 +935,22 @@ export default function ScheduleKbmPage() {
 
                                                         {/* 6 Kolom Jam KBM */}
                                                         {lessonHours.map((h) => {
-                                                            const sched = getScheduleCell(selectedDayFilter, h.order, g.id);
+                                                            const sched = getScheduleCell(selectedDayFilter, h.order, g.id, h.id);
                                                             const isClashing = sched && clashesMap.clashScheduleIds.has(sched.id);
 
                                                             return (
                                                                 <td key={h.id} className="border-r border-slate-200 last:border-0 p-1.5 min-w-[11rem] align-top">
                                                                     {sched ? (
-                                                                        <div className={`relative group p-2 rounded-md border transition h-full flex flex-col justify-between ${
-                                                                            isClashing
-                                                                                ? 'bg-rose-50 border-rose-300 hover:border-rose-400'
-                                                                                : 'bg-emerald-50/40 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50'
-                                                                        }`}>
-                                                                            <div>
+                                                                        <div
+                                                                            onClick={() => handleEditScheduleClick(sched)}
+                                                                            title="Klik untuk mengedit jadwal"
+                                                                            className={`relative group p-2 rounded-md border transition h-full flex flex-col justify-between cursor-pointer ${
+                                                                                isClashing
+                                                                                    ? 'bg-rose-50 border-rose-300 hover:border-rose-400'
+                                                                                    : 'bg-emerald-50/40 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50'
+                                                                            }`}
+                                                                        >
+                                                                            <div className="pr-10">
                                                                                 {isClashing && (
                                                                                     <div className="mb-1 inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-600 text-white">
                                                                                         <AlertTriangle className="w-2.5 h-2.5" /> BENTROK USTADZ
@@ -941,13 +973,27 @@ export default function ScheduleKbmPage() {
                                                                                 </div>
                                                                             )}
 
-                                                                            <button
-                                                                                onClick={() => setDeleteScheduleTarget(sched)}
-                                                                                className="absolute top-1 right-1 text-slate-300 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition p-1"
-                                                                                title="Hapus Jadwal"
+                                                                            <div
+                                                                                className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition bg-white/90 backdrop-blur-xs rounded border border-slate-200/80 shadow-2xs px-0.5 py-0.5"
+                                                                                onClick={(e) => e.stopPropagation()}
                                                                             >
-                                                                                <Trash2 className="w-3 h-3" />
-                                                                            </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleEditScheduleClick(sched)}
+                                                                                    className="text-slate-500 hover:text-[#0b57d0] transition p-1 rounded hover:bg-blue-50"
+                                                                                    title="Edit Jadwal"
+                                                                                >
+                                                                                    <Pencil className="w-3 h-3" />
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setDeleteScheduleTarget(sched)}
+                                                                                    className="text-slate-400 hover:text-rose-600 transition p-1 rounded hover:bg-rose-50"
+                                                                                    title="Hapus Jadwal"
+                                                                                >
+                                                                                    <Trash2 className="w-3 h-3" />
+                                                                                </button>
+                                                                            </div>
                                                                         </div>
                                                                     ) : (
                                                                         <button
@@ -1070,23 +1116,27 @@ export default function ScheduleKbmPage() {
                                                         </td>
 
                                                         {days.map((d) => {
-                                                            const sched = getScheduleCell(d.id, h.order, currentWeeklyGroup?.id);
+                                                            const sched = getScheduleCell(d.id, h.order, currentWeeklyGroup?.id, h.id);
                                                             const isClashing = sched && clashesMap.clashScheduleIds.has(sched.id);
 
                                                             return (
                                                                 <td key={d.id} className="border-b border-r border-slate-200 p-1.5 min-w-[11rem]">
                                                                     {sched ? (
-                                                                        <div className={`relative group block p-2.5 rounded-md border transition h-full ${
-                                                                            isClashing
-                                                                                ? 'bg-rose-50 border-rose-300'
-                                                                                : 'bg-emerald-50/40 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50'
-                                                                        }`}>
+                                                                        <div
+                                                                            onClick={() => handleEditScheduleClick(sched)}
+                                                                            title="Klik untuk mengedit jadwal"
+                                                                            className={`relative group block p-2.5 rounded-md border transition h-full cursor-pointer ${
+                                                                                isClashing
+                                                                                    ? 'bg-rose-50 border-rose-300'
+                                                                                    : 'bg-emerald-50/40 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50'
+                                                                            }`}
+                                                                        >
                                                                             {isClashing && (
                                                                                 <div className="mb-1 text-[9px] font-bold text-rose-600 flex items-center gap-1">
                                                                                     <AlertTriangle className="w-2.5 h-2.5" /> BENTROK JAM
                                                                                 </div>
                                                                             )}
-                                                                            <p className="font-bold text-slate-900 text-xs leading-tight">
+                                                                            <p className="font-bold text-slate-900 text-xs leading-tight pr-10">
                                                                                 {sched.study?.name}
                                                                             </p>
                                                                             <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
@@ -1099,12 +1149,27 @@ export default function ScheduleKbmPage() {
                                                                                     {sched.classroom?.name}
                                                                                 </div>
                                                                             )}
-                                                                            <button
-                                                                                onClick={() => setDeleteScheduleTarget(sched)}
-                                                                                className="absolute top-1.5 right-1.5 text-slate-300 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition p-1"
+                                                                            <div
+                                                                                className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition bg-white/90 backdrop-blur-xs rounded border border-slate-200/80 shadow-2xs px-0.5 py-0.5"
+                                                                                onClick={(e) => e.stopPropagation()}
                                                                             >
-                                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                                            </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleEditScheduleClick(sched)}
+                                                                                    className="text-slate-500 hover:text-[#0b57d0] transition p-1 rounded hover:bg-blue-50"
+                                                                                    title="Edit Jadwal"
+                                                                                >
+                                                                                    <Pencil className="w-3.5 h-3.5" />
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setDeleteScheduleTarget(sched)}
+                                                                                    className="text-slate-400 hover:text-rose-600 transition p-1 rounded hover:bg-rose-50"
+                                                                                    title="Hapus Jadwal"
+                                                                                >
+                                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                                </button>
+                                                                            </div>
                                                                         </div>
                                                                     ) : (
                                                                         <button
@@ -1194,12 +1259,24 @@ export default function ScheduleKbmPage() {
                                                             {s.classroom?.name || '-'}
                                                         </td>
                                                         <td className="px-3.5 py-2 text-right">
-                                                            <button
-                                                                onClick={() => setDeleteScheduleTarget(s)}
-                                                                className="text-slate-300 hover:text-rose-600 p-1 transition"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
+                                                            <div className="inline-flex items-center justify-end gap-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleEditScheduleClick(s)}
+                                                                    className="text-slate-400 hover:text-[#0b57d0] p-1 transition rounded hover:bg-blue-50"
+                                                                    title="Edit Jadwal"
+                                                                >
+                                                                    <Pencil className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setDeleteScheduleTarget(s)}
+                                                                    className="text-slate-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50"
+                                                                    title="Hapus Jadwal"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 );
@@ -1870,10 +1947,13 @@ export default function ScheduleKbmPage() {
             {/* Modal Tambah / Edit Jadwal */}
             <Modal
                 open={scheduleModalOpen}
-                title="Jadwalkan Mata Pelajaran Baru"
-                onClose={() => setScheduleModalOpen(false)}
+                title={editingSchedule ? 'Edit Jadwal Pelajaran' : 'Jadwalkan Mata Pelajaran Baru'}
+                onClose={() => {
+                    setScheduleModalOpen(false);
+                    setEditingSchedule(null);
+                }}
             >
-                <form onSubmit={handleCreateSchedule} className="space-y-4">
+                <form onSubmit={handleSaveSchedule} className="space-y-4">
                     <div>
                         <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                             Rombel / Kelas Target
@@ -1975,21 +2055,42 @@ export default function ScheduleKbmPage() {
                         </select>
                     </div>
 
-                    <div className="flex justify-end gap-2 pt-4 border-t">
-                        <button
-                            type="button"
-                            onClick={() => setScheduleModalOpen(false)}
-                            className="px-3.5 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-md"
-                        >
-                            Batal
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isCreatingSchedule || !schedStudyId || !schedTeacherId || !schedHourId}
-                            className="px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md disabled:opacity-50 hover:bg-[#0842a0]"
-                        >
-                            Simpan Jadwal
-                        </button>
+                    <div className="flex items-center justify-between gap-2 pt-4 border-t">
+                        <div>
+                            {editingSchedule && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const target = editingSchedule;
+                                        setScheduleModalOpen(false);
+                                        setEditingSchedule(null);
+                                        setDeleteScheduleTarget(target);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-md transition"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" /> Hapus Jadwal
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setScheduleModalOpen(false);
+                                    setEditingSchedule(null);
+                                }}
+                                className="px-3.5 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-md"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isCreatingSchedule || isUpdatingSchedule || !schedStudyId || !schedTeacherId || !schedHourId}
+                                className="px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md disabled:opacity-50 hover:bg-[#0842a0]"
+                            >
+                                {editingSchedule ? 'Simpan Perubahan' : 'Simpan Jadwal'}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </Modal>

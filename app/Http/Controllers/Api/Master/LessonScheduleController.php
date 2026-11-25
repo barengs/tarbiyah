@@ -51,12 +51,15 @@ class LessonScheduleController extends Controller implements HasMiddleware
 
             $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
             if ($targetYearId) {
-                $query->where('academic_year_id', $targetYearId);
+                $query->where('lesson_schedules.academic_year_id', $targetYearId);
             }
 
             $targetQuarterId = $request->query('academic_quarter_id') ?: $request->header('X-Academic-Quarter-Id');
             if ($targetQuarterId) {
-                $query->where('academic_quarter_id', $targetQuarterId);
+                $query->where(function ($q) use ($targetQuarterId) {
+                    $q->where('lesson_schedules.academic_quarter_id', $targetQuarterId)
+                        ->orWhereNull('lesson_schedules.academic_quarter_id');
+                });
             }
 
             if ($request->has('class_group_id') && $request->query('class_group_id')) {
@@ -212,7 +215,9 @@ class LessonScheduleController extends Controller implements HasMiddleware
         }
 
         $validated = $request->validate([
+            'academic_year_id' => 'sometimes|required|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
+            'class_group_id' => 'sometimes|required|exists:class_groups,id',
             'study_id' => 'sometimes|required|exists:studies,id',
             'teacher_id' => 'sometimes|required|exists:teachers,id',
             'lesson_hour_id' => 'sometimes|required|exists:lesson_hours,id',
@@ -221,13 +226,79 @@ class LessonScheduleController extends Controller implements HasMiddleware
             'is_active' => 'nullable|boolean',
         ]);
 
+        $targetYearId = $validated['academic_year_id'] ?? $schedule->academic_year_id;
+        $targetQuarterId = array_key_exists('academic_quarter_id', $validated)
+            ? $validated['academic_quarter_id']
+            : $schedule->academic_quarter_id;
+        $targetGroupId = $validated['class_group_id'] ?? $schedule->class_group_id;
+        $targetStudyId = $validated['study_id'] ?? $schedule->study_id;
+        $targetTeacherId = $validated['teacher_id'] ?? $schedule->teacher_id;
+        $targetHourId = $validated['lesson_hour_id'] ?? $schedule->lesson_hour_id;
+        $targetDay = $validated['day'] ?? $schedule->day;
+
+        // Cek 0: Mata Pelajaran Muatan Lokal (Non-Kelas) tidak boleh masuk ke jadwal pelajaran KBM
+        $studyObj = Study::find($targetStudyId);
+        if ($studyObj && $studyObj->study_type === 'muatan_lokal') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Mata pelajaran Muatan Lokal (Non-Kelas) tidak dimasukkan ke dalam jadwal pelajaran KBM, melainkan hanya dinilai pada akhir triwulan.',
+            ], 422);
+        }
+
+        // Cek 1: Apakah rombel sudah memiliki jadwal lain di hari & jam tersebut pada periode ini?
+        $clashGroup = LessonSchedule::where('id', '!=', $schedule->id)
+            ->where('academic_year_id', $targetYearId)
+            ->when($targetQuarterId, function ($q, $qId) {
+                $q->where('academic_quarter_id', $qId);
+            })
+            ->where('class_group_id', $targetGroupId)
+            ->where('day', $targetDay)
+            ->where('lesson_hour_id', $targetHourId)
+            ->exists();
+
+        if ($clashGroup) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Rombel ini sudah memiliki mata pelajaran lain pada hari dan jam tersebut di periode ini',
+            ], 422);
+        }
+
+        // Cek 2: Apakah guru sedang mengajar di rombel lain pada hari & jam tersebut pada periode ini?
+        $clashTeacher = LessonSchedule::where('id', '!=', $schedule->id)
+            ->where('academic_year_id', $targetYearId)
+            ->when($targetQuarterId, function ($q, $qId) {
+                $q->where('academic_quarter_id', $qId);
+            })
+            ->where('teacher_id', $targetTeacherId)
+            ->where('day', $targetDay)
+            ->where('lesson_hour_id', $targetHourId)
+            ->exists();
+
+        if ($clashTeacher) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Guru tersebut sudah terjadwal mengajar di rombel lain pada hari dan jam yang sama di periode ini',
+            ], 422);
+        }
+
         try {
             $schedule->update($validated);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Jadwal berhasil diperbarui',
-                'data' => $schedule->fresh(['academicQuarter', 'classGroup', 'study', 'teacher', 'lessonHour']),
+                'message' => 'Jadwal pelajaran berhasil diperbarui',
+                'data' => $schedule->fresh([
+                    'academicYear',
+                    'academicQuarter',
+                    'classGroup.program',
+                    'classGroup.educationalInstitution',
+                    'classGroup.education',
+                    'classGroup.educationClass',
+                    'study',
+                    'teacher',
+                    'lessonHour',
+                    'classroom',
+                ]),
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error updating schedule: '.$e->getMessage());

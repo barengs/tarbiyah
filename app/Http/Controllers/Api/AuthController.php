@@ -40,7 +40,16 @@ class AuthController extends Controller
             }
         }
 
-        if (! $user || ! Hash::check($password, $user->password)) {
+        $passwordValid = false;
+        if ($user && ! empty($user->password)) {
+            try {
+                $passwordValid = Hash::check($password, $user->password);
+            } catch (\RuntimeException) {
+                $passwordValid = false;
+            }
+        }
+
+        if (! $user || ! $passwordValid) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Email atau Password salah.',
@@ -102,7 +111,7 @@ class AuthController extends Controller
             $token = auth('api')->refresh();
             $user = auth('api')->user();
             if ($user) {
-                $user->load('roles');
+                $user->load(['roles.permissions', 'roles.program', 'permissions']);
             }
 
             return $this->respondWithToken($token, $user);

@@ -15,6 +15,7 @@ import MetricCard from '../components/molecules/MetricCard';
 import PresenceChartCard from '../components/organisms/PresenceChartCard';
 import PresencePieChartCard from '../components/organisms/PresencePieChartCard';
 import StudentPeriodPieChartCard from '../components/organisms/StudentPeriodPieChartCard';
+import InstitutionClassPieChartCard from '../components/organisms/InstitutionClassPieChartCard';
 import EducationDistributionCard from '../components/organisms/EducationDistributionCard';
 import ActiveScheduleWidget from '../components/organisms/ActiveScheduleWidget';
 import NoticeDisciplineWidget from '../components/organisms/NoticeDisciplineWidget';
@@ -172,6 +173,9 @@ export default function Dashboard() {
                     }
                 />
             </div>
+
+            {/* 2b. PIE CHART SEBARAN SISWA PADA SETIAP KELAS DI DALAM JENJANG PENDIDIKAN */}
+            <InstitutionClassPieChartCard institutions={institutionDistribution} />
 
             {/* 3. CHARTS ROW (GRID 2 KOLOM): STATISTIK PRESENSI 7 HARI & DISTRIBUSI JENJANG */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicQuarter;
 use App\Models\AcademicYear;
 use App\Models\ClassGroup;
+use App\Models\EducationClass;
 use App\Models\EducationalInstitution;
 use App\Models\LessonSchedule;
 use App\Models\Program;
@@ -266,26 +267,120 @@ class DashboardController extends Controller
             ];
         }
 
-        // 7. STATISTIK SANTRI PER JENJANG PENDIDIKAN / LEMBAGA (MDU, MDW, MDUly, Takhossus)
-        $institutions = EducationalInstitution::when($userProgramId, fn ($q) => $q->where('program_id', $userProgramId))
+        // 7. STATISTIK SANTRI PER JENJANG PENDIDIKAN / LEMBAGA & SEBARAN PER KELAS DI DALAMNYA
+        $institutions = EducationalInstitution::with('program')
+            ->when($userProgramId, fn ($q) => $q->where('program_id', $userProgramId))
             ->orderBy('id', 'asc')
             ->get();
 
+        $classColors = ['#093c30', '#059669', '#0284c7', '#d97706', '#7c3aed', '#e11d48', '#0d9488', '#4f46e5', '#64748b'];
         $institutionDistribution = [];
+
         foreach ($institutions as $inst) {
-            $groupQuery = ClassGroup::where('educational_institution_id', $inst->id);
+            $groupQuery = ClassGroup::with('educationClass')
+                ->where('educational_institution_id', $inst->id);
             if ($selectedYear) {
                 $groupQuery->where('academic_year_id', $selectedYear->id);
             }
-            $classGroupIds = $groupQuery->pluck('id');
-            $studentCount = StudentClass::whereIn('class_group_id', $classGroupIds)->count();
+            $instGroups = $groupQuery->orderBy('education_class_id', 'asc')->orderBy('name', 'asc')->get();
+            $classGroupIds = $instGroups->pluck('id');
+
+            // Hitung jumlah santri per class_group_id dalam 1 query agregasi
+            $countsByGroup = $classGroupIds->isNotEmpty()
+                ? StudentClass::whereIn('class_group_id', $classGroupIds)
+                    ->selectRaw('class_group_id, COUNT(*) as total')
+                    ->groupBy('class_group_id')
+                    ->pluck('total', 'class_group_id')
+                : collect();
+
+            $studentCount = (int) $countsByGroup->sum();
+
+            // 7a. Sebaran per Tingkat Kelas (EducationClass) di dalam Jenjang Pendidikan ini
+            $eduClasses = EducationClass::where('educational_institution_id', $inst->id)
+                ->orderBy('id', 'asc')
+                ->get();
+
+            $classLevelMap = [];
+            foreach ($eduClasses as $ec) {
+                $classLevelMap['ec_'.$ec->id] = [
+                    'id' => $ec->id,
+                    'name' => $ec->name,
+                    'code' => $ec->code,
+                    'value' => 0,
+                    'rombels_count' => 0,
+                ];
+            }
+
+            // 7b. Sebaran per Rombel (ClassGroup) & akumulasi ke Tingkat Kelas
+            $rombelsBreakdown = [];
+            foreach ($instGroups as $gIdx => $cg) {
+                $cgCount = (int) ($countsByGroup[$cg->id] ?? 0);
+
+                if ($cg->education_class_id && isset($classLevelMap['ec_'.$cg->education_class_id])) {
+                    $classLevelMap['ec_'.$cg->education_class_id]['value'] += $cgCount;
+                    $classLevelMap['ec_'.$cg->education_class_id]['rombels_count'] += 1;
+                } elseif ($cg->educationClass) {
+                    $key = 'ec_'.$cg->educationClass->id;
+                    if (! isset($classLevelMap[$key])) {
+                        $classLevelMap[$key] = [
+                            'id' => $cg->educationClass->id,
+                            'name' => $cg->educationClass->name,
+                            'code' => $cg->educationClass->code,
+                            'value' => 0,
+                            'rombels_count' => 0,
+                        ];
+                    }
+                    $classLevelMap[$key]['value'] += $cgCount;
+                    $classLevelMap[$key]['rombels_count'] += 1;
+                } else {
+                    $key = 'cg_'.$cg->id;
+                    $classLevelMap[$key] = [
+                        'id' => $cg->id,
+                        'name' => $cg->name,
+                        'code' => $cg->code,
+                        'value' => $cgCount,
+                        'rombels_count' => 1,
+                    ];
+                }
+
+                $rombelsBreakdown[] = [
+                    'id' => $cg->id,
+                    'name' => $cg->name,
+                    'code' => $cg->code,
+                    'class_level' => $cg->educationClass?->name,
+                    'value' => $cgCount,
+                    'percentage' => $studentCount > 0 ? round(($cgCount / $studentCount) * 100, 1) : 0,
+                    'color' => $classColors[$gIdx % count($classColors)],
+                ];
+            }
+
+            $classesBreakdown = [];
+            $cIdx = 0;
+            foreach ($classLevelMap as $item) {
+                $val = (int) $item['value'];
+                $classesBreakdown[] = [
+                    'id' => $item['id'],
+                    'name' => $item['name'],
+                    'code' => $item['code'],
+                    'value' => $val,
+                    'rombels_count' => $item['rombels_count'],
+                    'percentage' => $studentCount > 0 ? round(($val / $studentCount) * 100, 1) : 0,
+                    'color' => $classColors[$cIdx % count($classColors)],
+                ];
+                $cIdx++;
+            }
 
             $institutionDistribution[] = [
                 'id' => $inst->id,
                 'name' => $inst->name,
                 'short' => $inst->short_name ?: $inst->name,
+                'program_id' => $inst->program_id,
+                'program_name' => $inst->program?->name,
+                'program_code' => $inst->program?->code,
                 'count' => $studentCount,
                 'unit' => 'Santri',
+                'classes' => $classesBreakdown,
+                'rombels' => $rombelsBreakdown,
             ];
         }
 

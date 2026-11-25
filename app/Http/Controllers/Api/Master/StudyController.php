@@ -520,14 +520,18 @@ class StudyController extends Controller implements HasMiddleware
             }
 
             // Deteksi indeks kolom dari baris header terpilih
+            // Urutan pengecekan sangat penting: cek kata kunci spesifik ('institusi', 'tipe', 'kode')
+            // lebih dulu agar kolom "Nama Institusi" atau "Tipe Mapel" tidak salah terdeteksi sebagai kolom Nama Mapel.
             if (isset($rows[$headerRowIdx])) {
                 foreach ($rows[$headerRowIdx] as $cIdx => $cell) {
                     $norm = strtolower(trim((string) $cell));
+                    if ($norm === '') {
+                        continue;
+                    }
+
                     if (str_contains($norm, 'kode')) {
                         $codeCol = $cIdx;
-                    } elseif (str_contains($norm, 'nama') || str_contains($norm, 'mapel')) {
-                        $nameCol = $cIdx;
-                    } elseif (str_contains($norm, 'institusi') || str_contains($norm, 'lembaga')) {
+                    } elseif (str_contains($norm, 'institusi') || str_contains($norm, 'lembaga') || str_contains($norm, 'jenjang')) {
                         $instCol = $cIdx;
                     } elseif (str_contains($norm, 'tipe') || str_contains($norm, 'kategori')) {
                         $typeCol = $cIdx;
@@ -537,23 +541,55 @@ class StudyController extends Controller implements HasMiddleware
                         $orderCol = $cIdx;
                     } elseif (str_contains($norm, 'status') || str_contains($norm, 'aktif')) {
                         $statusCol = $cIdx;
+                    } elseif (
+                        str_contains($norm, 'nama mata')
+                        || str_contains($norm, 'nama mapel')
+                        || str_contains($norm, 'mata pelajaran')
+                        || str_contains($norm, 'fan kitab')
+                        || str_contains($norm, 'nama')
+                    ) {
+                        $nameCol = $cIdx;
                     }
                 }
             }
 
-            $institutions = EducationalInstitution::all()->keyBy(fn ($i) => strtolower(trim($i->name)));
+            $allInstitutions = EducationalInstitution::all();
+            $institutionsExact = [];
+            $institutionsFullName = [];
+            foreach ($allInstitutions as $instItem) {
+                $fullName = strtolower(trim((string) $instItem->name));
+                if ($fullName !== '') {
+                    $institutionsExact[$fullName] = $instItem->id;
+                    $institutionsFullName[$fullName] = $instItem->id;
+                }
+                $shortName = strtolower(trim((string) $instItem->short_name));
+                if ($shortName !== '') {
+                    $institutionsExact[$shortName] = $instItem->id;
+                }
+            }
 
             $insertedCount = 0;
             $updatedCount = 0;
-            $errors = [];
+            $skippedInvalidCount = 0;
 
             DB::beginTransaction();
+
+            // Bersihkan data rusak sisa bug deteksi kolom sebelumnya (record bernama 'khusus', 'reguler', 'muatan_lokal')
+            Study::whereIn(DB::raw('LOWER(TRIM(name))'), ['khusus', 'reguler', 'muatan_lokal'])
+                ->forceDelete();
 
             for ($r = $headerRowIdx + 1; $r < count($rows); $r++) {
                 $row = $rows[$r];
                 $name = trim((string) ($row[$nameCol] ?? ''));
 
                 if ($name === '' || str_starts_with(strtoupper($name), 'PETUNJUK') || preg_match('/^\d+\./', $name)) {
+                    continue;
+                }
+
+                // Guard: jangan simpan nilai tipe mapel sebagai nama mata pelajaran
+                if (in_array(strtolower($name), ['khusus', 'reguler', 'muatan_lokal'], true)) {
+                    $skippedInvalidCount++;
+
                     continue;
                 }
 
@@ -565,20 +601,21 @@ class StudyController extends Controller implements HasMiddleware
                 $rawStatus = strtolower(trim((string) ($row[$statusCol] ?? 'aktif')));
 
                 $instId = null;
-                if ($instName !== '' && $instName !== '-' && $instName !== 'umum') {
-                    if (isset($institutions[$instName])) {
-                        $instId = $institutions[$instName]->id;
+                if ($instName !== '' && $instName !== '-' && ! str_contains($instName, 'umum') && ! str_contains($instName, 'semua')) {
+                    if (isset($institutionsExact[$instName])) {
+                        $instId = $institutionsExact[$instName];
                     } else {
-                        // Coba cari substring
-                        $found = $institutions->first(fn ($it, $k) => str_contains($k, $instName) || str_contains($instName, $k));
-                        if ($found) {
-                            $instId = $found->id;
+                        foreach ($institutionsFullName as $keyName => $idVal) {
+                            if (str_contains($keyName, $instName) || str_contains($instName, $keyName)) {
+                                $instId = $idVal;
+                                break;
+                            }
                         }
                     }
                 }
 
                 $studyType = 'reguler';
-                if (str_contains($rawType, 'khusus') || str_contains($rawType, 'diniyah') || str_contains($rawType, 'salaf')) {
+                if (str_contains($rawType, 'khusus') || str_contains($rawType, 'diniyah') || str_contains($rawType, 'salaf') || str_contains($rawType, 'inti')) {
                     $studyType = 'khusus';
                 } elseif (str_contains($rawType, 'muatan') || str_contains($rawType, 'lokal') || str_contains($rawType, 'mulok')) {
                     $studyType = 'muatan_lokal';
@@ -588,18 +625,31 @@ class StudyController extends Controller implements HasMiddleware
                 $order = is_numeric($rawOrder) ? (int) $rawOrder : 1;
                 $isActive = ! in_array($rawStatus, ['nonaktif', 'tidak', '0', 'false', 'inactive']);
 
-                // Cari berdasarkan code atau (name + educational_institution_id)
+                // Cari berdasarkan code terlebih dahulu.
+                // Hanya cocokkan berdasarkan (name + educational_institution_id) bila record target belum memiliki code
+                // agar mapel dengan nama sama tetapi berbeda kode tidak saling menimpa.
                 $existing = null;
                 if ($code !== '' && $code !== '-') {
-                    $existing = Study::where('code', $code)->first();
+                    $existing = Study::withTrashed()->where('code', $code)->first();
                 }
                 if (! $existing) {
-                    $existing = Study::where('name', $name)
-                        ->where('educational_institution_id', $instId)
-                        ->first();
+                    $nameQuery = Study::withTrashed()
+                        ->where('name', $name)
+                        ->where('educational_institution_id', $instId);
+
+                    if ($code !== '' && $code !== '-') {
+                        $nameQuery->where(function ($q) {
+                            $q->whereNull('code')->orWhere('code', '');
+                        });
+                    }
+
+                    $existing = $nameQuery->first();
                 }
 
                 if ($existing) {
+                    if ($existing->trashed()) {
+                        $existing->restore();
+                    }
                     $existing->update([
                         'code' => $code !== '' && $code !== '-' ? $code : $existing->code,
                         'name' => $name,

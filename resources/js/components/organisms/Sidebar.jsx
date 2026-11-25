@@ -174,29 +174,28 @@ export default function Sidebar({
         });
     }, [sidebarRes]);
 
-    // Inisialisasi status terbuka menu bertingkat
+    // Inisialisasi status terbuka menu bertingkat (tertutup secara default)
     const [openMenus, setOpenMenus] = useState({});
 
-    // Otomatis buka semua grup menu yang tersedia saat menu selesai dimuat atau rute anak aktif
+    // Buka otomatis hanya grup menu yang rute anaknya sedang aktif
     useEffect(() => {
         setOpenMenus((prev) => {
+            let changed = false;
             const next = { ...prev };
             navigationItems.forEach((item) => {
                 if (item.children) {
-                    if (next[item.name] === undefined) {
-                        next[item.name] = true;
-                    }
                     const isChildActive = item.children.some(
                         (c) =>
                             location.pathname === c.to ||
                             (c.to !== '/' && location.pathname.startsWith(c.to))
                     );
-                    if (isChildActive) {
+                    if (isChildActive && !next[item.name]) {
                         next[item.name] = true;
+                        changed = true;
                     }
                 }
             });
-            return next;
+            return changed ? next : prev;
         });
     }, [location.pathname, navigationItems]);
 

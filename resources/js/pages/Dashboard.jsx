@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { useGetDashboardStatsQuery } from '../store/slices/dashboardApi';
 import { resetToSystemActive } from '../store/slices/academicContextSlice';
-import HeroBanner from '../components/organisms/HeroBanner';
 import MetricCard from '../components/molecules/MetricCard';
 import PresenceChartCard from '../components/organisms/PresenceChartCard';
 import PresencePieChartCard from '../components/organisms/PresencePieChartCard';
@@ -27,7 +26,6 @@ import NoticeDisciplineWidget from '../components/organisms/NoticeDisciplineWidg
  */
 export default function Dashboard() {
     const dispatch = useDispatch();
-    const { user } = useSelector((state) => state.auth);
 
     // Ambil pilihan periode akademik dari Redux Toolkit
     const academicContext = useSelector((state) => state.academicContext);
@@ -101,14 +99,7 @@ export default function Dashboard() {
                 </div>
             )}
 
-            {/* 1. HERO BANNER MUDIR */}
-            <HeroBanner
-                user={user}
-                academicMeta={academicMeta}
-                className="shadow-xs"
-            />
-
-            {/* 2. 4 KPI METRIC CARDS (PERSIS MOCKUP DESAIN) */}
+            {/* 1. KPI METRIC CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                 {/* 1. TOTAL SANTRI AKTIF (100% PUTRA) */}
                 <MetricCard

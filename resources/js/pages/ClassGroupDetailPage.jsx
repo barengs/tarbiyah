@@ -165,6 +165,7 @@ export default function ClassGroupDetailPage() {
                 name,
                 code: code || null,
                 academic_year_id: group.academic_year_id || selectedYearId || 1,
+                program_id: targetInst?.program_id || targetInst?.program?.id || group.program_id || null,
                 educational_institution_id: institutionId,
                 education_class_id: educationClassId ? Number(educationClassId) : null,
                 homeroom_teacher_id: homeroomTeacherId || null,

@@ -144,6 +144,7 @@ export default function ClassGroupPage() {
             name,
             code: code || null,
             academic_year_id: editingItem?.academic_year_id || selectedYearId || 1,
+            program_id: targetInst?.program_id || targetInst?.program?.id || editingItem?.program_id || null,
             educational_institution_id: institutionId,
             education_class_id: educationClassId ? Number(educationClassId) : null,
             homeroom_teacher_id: homeroomTeacherId || null,
@@ -244,18 +245,21 @@ export default function ClassGroupPage() {
         {
             key: 'institution',
             label: 'Lembaga / Program',
-            render: (row) => (
-                <div className="flex flex-col gap-0.5">
-                    <span className="text-xs font-semibold text-slate-800">
-                        {row.educational_institution?.name || '-'}
-                    </span>
-                    {row.program && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700">
-                            Program: <span className="font-bold">{row.program.name}</span>
+            render: (row) => {
+                const prog = row.program || row.educational_institution?.program;
+                return (
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-semibold text-slate-800">
+                            {row.educational_institution?.name || '-'}
                         </span>
-                    )}
-                </div>
-            ),
+                        {prog && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700">
+                                Program: <span className="font-bold">{prog.name}</span>
+                            </span>
+                        )}
+                    </div>
+                );
+            },
         },
         {
             key: 'homeroom_teacher',

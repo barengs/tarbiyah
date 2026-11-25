@@ -417,7 +417,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
             $groupMap = [];
             if ($sourceYearId !== $targetYearId) {
                 foreach ($sourceGroupIds as $sGroupId) {
-                    $sGroup = ClassGroup::find($sGroupId);
+                    $sGroup = ClassGroup::with('educationalInstitution')->find($sGroupId);
                     $tGroup = ClassGroup::where('academic_year_id', $targetYearId)
                         ->where(function ($q) use ($sGroup) {
                             if ($sGroup->code) {
@@ -430,6 +430,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                     if (! $tGroup) {
                         $tGroup = ClassGroup::create([
                             'academic_year_id' => $targetYearId,
+                            'program_id' => $sGroup->program_id ?? $sGroup->educationalInstitution?->program_id,
                             'educational_institution_id' => $sGroup->educational_institution_id,
                             'education_id' => $sGroup->education_id,
                             'education_class_id' => $sGroup->education_class_id,
@@ -594,7 +595,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                     ->orWhere('education_id', $educationId);
             });
         }
-        $sourceGroups = $sourceGroupQuery->get();
+        $sourceGroups = $sourceGroupQuery->with('educationalInstitution')->get();
 
         if ($sourceGroups->isEmpty()) {
             return response()->json([
@@ -621,6 +622,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                 if (! $tg && $autoCreateGroups) {
                     $tg = ClassGroup::create([
                         'academic_year_id' => $toYearId,
+                        'program_id' => $sg->program_id ?? $sg->educationalInstitution?->program_id,
                         'educational_institution_id' => $sg->educational_institution_id,
                         'education_id' => $sg->education_id,
                         'education_class_id' => $sg->education_class_id,

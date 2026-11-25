@@ -28,10 +28,19 @@ class ClassGroupController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         try {
+            // Auto-heal data rombel yang sempat kehilangan program_id akibat update sebelumnya
+            if (ClassGroup::whereNull('program_id')->whereNotNull('educational_institution_id')->exists()) {
+                DB::table('class_groups')
+                    ->join('educational_institutions', 'class_groups.educational_institution_id', '=', 'educational_institutions.id')
+                    ->whereNull('class_groups.program_id')
+                    ->whereNotNull('educational_institutions.program_id')
+                    ->update(['class_groups.program_id' => DB::raw('educational_institutions.program_id')]);
+            }
+
             $query = ClassGroup::with([
                 'academicYear',
                 'program',
-                'educationalInstitution',
+                'educationalInstitution.program',
                 'education',
                 'educationClass',
                 'classroom',
@@ -110,6 +119,8 @@ class ClassGroupController extends Controller implements HasMiddleware
         ]);
 
         try {
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
             $inst = EducationalInstitution::find($validated['educational_institution_id']);
             if (empty($validated['progression_type'])) {
                 $validated['progression_type'] = $inst?->progression_type ?? 'triwulan';
@@ -117,14 +128,20 @@ class ClassGroupController extends Controller implements HasMiddleware
             if (empty($validated['program_id']) && $inst?->program_id) {
                 $validated['program_id'] = $inst->program_id;
             }
+            $edu = null;
             if (empty($validated['education_id']) && $inst) {
                 $edu = Education::where('educational_institution_id', $inst->id)->first();
                 if ($edu) {
                     $validated['education_id'] = $edu->id;
-                    if (empty($validated['program_id'])) {
-                        $validated['program_id'] = $edu->program_id;
-                    }
                 }
+            }
+            $validated['program_id'] = $validated['program_id']
+                ?? $inst?->program_id
+                ?? $edu?->program_id
+                ?? $userProgramId;
+
+            if ($userProgramId) {
+                $validated['program_id'] = $userProgramId;
             }
 
             $group = ClassGroup::create($validated);
@@ -132,7 +149,15 @@ class ClassGroupController extends Controller implements HasMiddleware
             return response()->json([
                 'status' => 'success',
                 'message' => 'Rombongan belajar berhasil dibuat',
-                'data' => $group->load(['academicYear', 'educationalInstitution', 'education', 'homeroomTeacher']),
+                'data' => $group->load([
+                    'academicYear',
+                    'program',
+                    'educationalInstitution.program',
+                    'education',
+                    'educationClass',
+                    'classroom',
+                    'homeroomTeacher',
+                ]),
             ], 201);
         } catch (\Exception $e) {
             Log::error('Error creating class group: '.$e->getMessage());
@@ -149,7 +174,7 @@ class ClassGroupController extends Controller implements HasMiddleware
         $group = ClassGroup::with([
             'academicYear',
             'program',
-            'educationalInstitution',
+            'educationalInstitution.program',
             'education',
             'educationClass',
             'classroom',
@@ -236,7 +261,16 @@ class ClassGroupController extends Controller implements HasMiddleware
             ], 404);
         }
 
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId && $group->program_id && (int) $group->program_id !== $userProgramId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak memiliki hak akses untuk mengubah rombel dari program lain.',
+            ], 403);
+        }
+
         $validated = $request->validate([
+            'program_id' => 'nullable|exists:programs,id',
             'educational_institution_id' => 'sometimes|required|exists:educational_institutions,id',
             'education_id' => 'nullable|exists:educations,id',
             'education_class_id' => 'nullable|exists:education_classes,id',
@@ -252,8 +286,10 @@ class ClassGroupController extends Controller implements HasMiddleware
         ]);
 
         try {
+            $instId = $validated['educational_institution_id'] ?? $group->educational_institution_id;
+            $inst = $instId ? EducationalInstitution::find($instId) : null;
+
             if (! empty($validated['educational_institution_id'])) {
-                $inst = EducationalInstitution::find($validated['educational_institution_id']);
                 if (empty($validated['progression_type'])) {
                     $validated['progression_type'] = $inst?->progression_type ?? 'triwulan';
                 }
@@ -261,9 +297,20 @@ class ClassGroupController extends Controller implements HasMiddleware
                     $edu = Education::where('educational_institution_id', $inst->id)->first();
                     if ($edu) {
                         $validated['education_id'] = $edu->id;
-                        $validated['program_id'] = $edu->program_id;
+                        if (empty($validated['program_id']) && ! empty($edu->program_id)) {
+                            $validated['program_id'] = $edu->program_id;
+                        }
                     }
                 }
+            }
+
+            // Pastikan program_id tidak hilang atau tertimpa NULL saat update
+            if ($request->has('educational_institution_id') || empty($group->program_id) || array_key_exists('program_id', $validated)) {
+                $resolvedProgramId = $validated['program_id'] ?? $inst?->program_id ?? $group->program_id;
+                if ($userProgramId) {
+                    $resolvedProgramId = $userProgramId;
+                }
+                $validated['program_id'] = $resolvedProgramId;
             }
 
             $group->update($validated);
@@ -271,7 +318,15 @@ class ClassGroupController extends Controller implements HasMiddleware
             return response()->json([
                 'status' => 'success',
                 'message' => 'Rombel berhasil diperbarui',
-                'data' => $group->fresh(['academicYear', 'educationalInstitution', 'education', 'homeroomTeacher']),
+                'data' => $group->fresh([
+                    'academicYear',
+                    'program',
+                    'educationalInstitution.program',
+                    'education',
+                    'educationClass',
+                    'classroom',
+                    'homeroomTeacher',
+                ]),
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error updating class group: '.$e->getMessage());

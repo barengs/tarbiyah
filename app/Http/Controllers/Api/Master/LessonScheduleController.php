@@ -29,6 +29,9 @@ class LessonScheduleController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         try {
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
             $query = LessonSchedule::with([
                 'academicYear',
                 'academicQuarter',
@@ -41,6 +44,10 @@ class LessonScheduleController extends Controller implements HasMiddleware
                 'lessonHour',
                 'classroom',
             ]);
+
+            if ($userProgramId) {
+                $query->whereHas('classGroup', fn ($cg) => $cg->where('program_id', $userProgramId));
+            }
 
             $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
             if ($targetYearId) {

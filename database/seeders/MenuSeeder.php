@@ -25,18 +25,19 @@ class MenuSeeder extends Seeder
 
         // --- Jenjang & Kurikulum ---
         $this->seedChild('kurikulum', 'jenjang', 'Jenjang Pendidikan', '/kurikulum/jenjang', 'Building2', 1, 'jenjang');
-        $this->seedChild('kurikulum', 'tahun-akademik', 'Tahun & Periode Triwulan', '/kurikulum/tahun-akademik', 'Calendar', 2, 'tahun_akademik');
+        $this->seedChild('kurikulum', 'tahun-akademik', 'Tahun & Periode Triwulan', '/kurikulum/tahun-akademik', 'Calendar', 2, 'tahun-akademik');
         $this->seedChild('kurikulum', 'mapel', 'Mata Pelajaran', '/kurikulum/mapel', 'BookOpen', 3, 'mapel');
-        $this->seedChild('kurikulum', 'jam-pelajaran', 'Jam Pelajaran', '/kurikulum/jam-pelajaran', 'Clock', 4, 'jam_pelajaran');
+        $this->seedChild('kurikulum', 'jam-pelajaran', 'Jam Pelajaran', '/kurikulum/jam-pelajaran', 'Clock', 4, 'jam-pelajaran');
         $this->seedChild('kurikulum', 'guru', 'Guru & Pendidik', '/guru', 'GraduationCap', 5, 'guru');
 
         // --- Kelas & Rombel ---
         $this->seedChild('kelas-rombel', 'kelas', 'Tingkat Kelas', '/kurikulum/kelas', 'Layers', 1, 'kelas');
-        $this->seedChild('kelas-rombel', 'rombel', 'Rombongan Belajar (Rombel)', '/kurikulum/rombel', 'Users', 2, 'rombel');
+        $this->seedChild('kelas-rombel', 'ruang-kelas', 'Ruang Kelas', '/kurikulum/ruang-kelas', 'DoorOpen', 2, 'kelas');
+        $this->seedChild('kelas-rombel', 'rombel', 'Rombongan Belajar (Rombel)', '/kurikulum/rombel', 'Users', 3, 'rombel');
 
         // --- Santri & Kenaikan Kelas ---
         $this->seedChild('santri', 'siswa', 'Data Santri / Siswa', '/siswa', 'UserCheck', 1, 'siswa');
-        $this->seedChild('santri', 'kenaikan-kelas', 'Kenaikan Kelas & Mutasi', '/kurikulum/kenaikan-kelas', 'TrendingUp', 2, 'kenaikan_kelas');
+        $this->seedChild('santri', 'kenaikan-kelas', 'Kenaikan Kelas & Mutasi', '/kurikulum/kenaikan-kelas', 'TrendingUp', 2, 'kenaikan-kelas');
 
         // --- Pengaturan (admin) ---
         $this->seedChild('pengaturan', 'masa-nilai', 'Masa Input Nilai', '/pengaturan/masa-nilai', 'CalendarCheck2', 1, 'pengaturan');

@@ -2,19 +2,31 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logOut } from '../../store/slices/authSlice';
+import { apiSlice } from '../../store/slices/apiSlice';
+import axios from 'axios';
 import { ChevronDown, LogOut, User, ShieldCheck } from 'lucide-react';
 import Avatar from '../atoms/Avatar';
 
 const ROLE_LABEL = {
+    superadmin: 'Superadmin',
     mudir: 'Mudir Ma\u2019had',
     admin: 'Administrator',
+    staf: 'Staf Akademik',
+    'staf-kubar': 'Staf Program Kubar',
+    'staf-tibyan': 'Staf Program Tibyan',
+    asatidz: 'Asatidz / Pengajar',
+    'asatidz-kubar': 'Asatidz Program Kubar',
+    'asatidz-tibyan': 'Asatidz Program Tibyan',
+    walikelas: 'Wali Kelas',
+    'walikelas-kubar': 'Wali Kelas Kubar',
+    'walikelas-tibyan': 'Wali Kelas Tibyan',
     guru: 'Guru / Pengampu',
 };
 
 export default function UserDropdown() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { user } = useSelector((s) => s.auth);
+    const { user, token } = useSelector((s) => s.auth);
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
 
@@ -26,13 +38,21 @@ export default function UserDropdown() {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        const activeToken = token || localStorage.getItem('token');
+        if (activeToken) {
+            axios.post('/api/auth/logout', {}, {
+                headers: { Authorization: `Bearer ${activeToken}` },
+            }).catch(() => {});
+        }
         dispatch(logOut());
-        navigate('/login');
+        dispatch(apiSlice.util.resetApiState());
+        navigate('/login', { replace: true });
     };
 
     const name = user?.name || 'Pengguna';
-    const role = ROLE_LABEL[user?.role] || user?.role || 'Staff Akademik';
+    const rawRoleName = user?.roles?.[0]?.name || user?.role || 'staf';
+    const role = ROLE_LABEL[rawRoleName] || rawRoleName;
 
     return (
         <div ref={ref} className="relative">
@@ -61,7 +81,7 @@ export default function UserDropdown() {
                     <div className="p-2">
                         <div className="flex items-center gap-2 px-2.5 py-1.5 text-[13px] text-slate-600 rounded hover:bg-slate-50">
                             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                            <span>Role: <b className="text-slate-800 capitalize">{user?.role || '-'}</b></span>
+                            <span>Role: <b className="text-slate-800">{role}</b></span>
                         </div>
                         <div className="flex items-center gap-2 px-2.5 py-1.5 text-[13px] text-slate-600 rounded hover:bg-slate-50">
                             <User className="w-4 h-4 text-slate-400" />

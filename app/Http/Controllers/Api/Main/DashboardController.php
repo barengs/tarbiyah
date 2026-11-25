@@ -79,10 +79,16 @@ class DashboardController extends Controller
         $isSystemActive = ($selectedYear && $systemActiveYear && $selectedYear->id === $systemActiveYear->id) &&
             ($selectedQuarter && $systemActiveQuarter && $selectedQuarter->id === $systemActiveQuarter->id);
 
-        // 3. JUMLAH SISWA AKTIF & DEMOGRAFI SESUAI TAHUN AKADEMIK TERPILIH
+        $user = auth('api')->user();
+        $userProgramId = $user?->getActiveProgramId();
+
+        // 3. JUMLAH SISWA AKTIF & DEMOGRAFI SESUAI TAHUN AKADEMIK TERPILIH & PROGRAM ROLE
         $studentClassQuery = StudentClass::query();
         if ($selectedYear) {
             $studentClassQuery->where('academic_year_id', $selectedYear->id);
+        }
+        if ($userProgramId) {
+            $studentClassQuery->whereHas('classGroup', fn ($cg) => $cg->where('program_id', $userProgramId));
         }
         $studentIdsInPeriod = $studentClassQuery->pluck('student_id')->unique();
         $assignedSantriCount = $studentIdsInPeriod->count();
@@ -91,6 +97,9 @@ class DashboardController extends Controller
         $yearPeriodSlash = $selectedYear ? trim($selectedYear->year) : null;
 
         $scopedStudentQuery = Student::whereIn('status', ['Aktif', 'aktif']);
+        if ($userProgramId) {
+            $scopedStudentQuery->where('program_id', $userProgramId);
+        }
         if ($selectedYear && ! $selectedYear->active) {
             // Tahun akademik arsip / non-aktif: hanya santri yang terdaftar di rombel tahun ini atau angkatan tahun ini
             $scopedStudentQuery->where(function ($q) use ($selectedYear, $yearPeriodDash, $yearPeriodSlash) {
@@ -155,11 +164,16 @@ class DashboardController extends Controller
             ];
         }
 
-        // 5. STATISTIK PRESENSI SESUAI TAHUN AKADEMIK & TRIWULAN
+        // 5. STATISTIK PRESENSI SESUAI TAHUN AKADEMIK & TRIWULAN & PROGRAM ROLE
         $presenceQuery = StudentPresence::query();
         if ($selectedYear) {
             $presenceQuery->whereHas('teachingJournal', function ($q) use ($selectedYear) {
                 $q->where('academic_year_id', $selectedYear->id);
+            });
+        }
+        if ($userProgramId) {
+            $presenceQuery->whereHas('teachingJournal.classGroup', function ($q) use ($userProgramId) {
+                $q->where('program_id', $userProgramId);
             });
         }
         if ($assignedSantriCount > 0) {
@@ -211,7 +225,7 @@ class DashboardController extends Controller
         ];
 
         // 6. PROGRAM TIBYAN & KUBAR SERTA STATISTIK PER JENJANG KELAS
-        $programs = Program::all();
+        $programs = Program::when($userProgramId, fn ($q) => $q->where('id', $userProgramId))->get();
         $programDistribution = [];
 
         foreach ($programs as $prog) {
@@ -253,7 +267,9 @@ class DashboardController extends Controller
         }
 
         // 7. STATISTIK SANTRI PER JENJANG PENDIDIKAN / LEMBAGA (MDU, MDW, MDUly, Takhossus)
-        $institutions = EducationalInstitution::orderBy('id', 'asc')->get();
+        $institutions = EducationalInstitution::when($userProgramId, fn ($q) => $q->where('program_id', $userProgramId))
+            ->orderBy('id', 'asc')
+            ->get();
 
         $institutionDistribution = [];
         foreach ($institutions as $inst) {
@@ -274,12 +290,19 @@ class DashboardController extends Controller
         }
 
         // 8. KURIKULUM & MAPEL AKTIF
-        $totalStudies = Study::where('is_active', true)->count();
+        $studyScope = fn ($q) => $q->when($userProgramId, function ($sq) use ($userProgramId) {
+            $sq->where(function ($sub) use ($userProgramId) {
+                $sub->whereNull('educational_institution_id')
+                    ->orWhereHas('educationalInstitution', fn ($ei) => $ei->where('program_id', $userProgramId));
+            });
+        });
+        $totalStudies = Study::where('is_active', true)->tap($studyScope)->count();
         if ($totalStudies === 0) {
-            $totalStudies = Study::count();
+            $totalStudies = Study::query()->tap($studyScope)->count();
         }
 
         $diniyahStudiesCount = Study::where('is_active', true)
+            ->tap($studyScope)
             ->where(function ($q) {
                 $q->where('name', 'like', '%Kitab%')
                     ->orWhere('name', 'like', '%Fiqh%')
@@ -289,11 +312,12 @@ class DashboardController extends Controller
                     ->orWhere('name', 'like', '%Akhlaq%');
             })->count();
         $umumStudiesCount = max(0, $totalStudies - $diniyahStudiesCount);
-        $avgKkm = Study::where('is_active', true)->avg('kkm') ?? 80.0;
+        $avgKkm = Study::where('is_active', true)->tap($studyScope)->avg('kkm') ?? 80.0;
 
         // 9. JADWAL KBM / HALAQAH AKTIF
         $scheduleQuery = LessonSchedule::with(['classGroup', 'study', 'teacher', 'lessonHour', 'classroom'])
-            ->where('is_active', true);
+            ->where('is_active', true)
+            ->when($userProgramId, fn ($q) => $q->whereHas('classGroup', fn ($cg) => $cg->where('program_id', $userProgramId)));
         if ($selectedYear) {
             $scheduleQuery->where('academic_year_id', $selectedYear->id);
         }

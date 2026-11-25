@@ -140,7 +140,7 @@ export default function MenuManagementPage() {
                 : val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
             permission_slug: editingMenu
                 ? prev.permission_slug
-                : val.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''),
+                : val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
         }));
     };
 

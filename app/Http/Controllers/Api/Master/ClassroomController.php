@@ -26,8 +26,18 @@ class ClassroomController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         try {
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
             $query = Classroom::with(['educationalInstitution'])
                 ->withCount(['classGroups', 'schedules']);
+
+            if ($userProgramId) {
+                $query->where(function ($q) use ($userProgramId) {
+                    $q->whereNull('educational_institution_id')
+                        ->orWhereHas('educationalInstitution', fn ($ei) => $ei->where('program_id', $userProgramId));
+                });
+            }
 
             if ($request->filled('educational_institution_id')) {
                 $query->where('educational_institution_id', $request->query('educational_institution_id'));

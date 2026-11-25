@@ -15,7 +15,20 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
+        $currentUser = auth('api')->user();
         $query = User::with('roles');
+
+        // Non-superadmin tidak boleh melihat/memodifikasi akun superadmin
+        if (! $currentUser || ! $currentUser->isSuperAdmin()) {
+            $query->where('role', '!=', 'superadmin')
+                ->whereDoesntHave('roles', fn ($q) => $q->where('name', 'superadmin'));
+        }
+
+        // Jika admin memiliki scope program tertentu, batasi daftar user sesuai program
+        $userProgramId = $currentUser?->getActiveProgramId();
+        if ($userProgramId) {
+            $query->whereHas('roles', fn ($q) => $q->where('program_id', $userProgramId));
+        }
 
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
@@ -28,6 +41,15 @@ class UserController extends Controller
             $query->whereHas('roles', function ($q) use ($role) {
                 $q->where('name', $role);
             });
+        }
+
+        if ($request->boolean('all')) {
+            $users = $query->orderBy('name')->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $users,
+            ]);
         }
 
         $perPage = min((int) ($request->query('per_page', 15)), 100);
@@ -44,6 +66,7 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+        $currentUser = auth('api')->user();
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email',
@@ -53,14 +76,21 @@ class UserController extends Controller
             'roles.*' => 'string|exists:roles,name',
         ]);
 
+        $rolesToSync = $validated['roles'] ?? (isset($validated['role']) ? [$validated['role']] : ['staf']);
+        if (in_array('superadmin', $rolesToSync, true) && (! $currentUser || ! $currentUser->isSuperAdmin())) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hanya Superadmin yang dapat memberikan role Superadmin.',
+            ], 403);
+        }
+
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role' => $validated['role'] ?? ($validated['roles'][0] ?? 'staf'),
+            'role' => $validated['role'] ?? ($rolesToSync[0] ?? 'staf'),
         ]);
 
-        $rolesToSync = $validated['roles'] ?? (isset($validated['role']) ? [$validated['role']] : ['staf']);
         $user->syncRoles($rolesToSync);
 
         return response()->json([
@@ -88,7 +118,15 @@ class UserController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $currentUser = auth('api')->user();
         $user = User::findOrFail($id);
+
+        if ($user->isSuperAdmin() && (! $currentUser || ! $currentUser->isSuperAdmin())) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak memiliki izin untuk mengubah akun Superadmin.',
+            ], 403);
+        }
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -98,6 +136,14 @@ class UserController extends Controller
             'roles' => 'nullable|array',
             'roles.*' => 'string|exists:roles,name',
         ]);
+
+        $requestedRoles = $validated['roles'] ?? (isset($validated['role']) ? [$validated['role']] : []);
+        if (in_array('superadmin', $requestedRoles, true) && (! $currentUser || ! $currentUser->isSuperAdmin())) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hanya Superadmin yang dapat menetapkan role Superadmin.',
+            ], 403);
+        }
 
         $updateData = [
             'name' => $validated['name'],
@@ -168,7 +214,15 @@ class UserController extends Controller
      */
     public function resetPassword(Request $request, $id)
     {
+        $currentUser = auth('api')->user();
         $user = User::findOrFail($id);
+
+        if ($user->isSuperAdmin() && (! $currentUser || ! $currentUser->isSuperAdmin())) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak memiliki izin untuk me-reset password Superadmin.',
+            ], 403);
+        }
 
         $validated = $request->validate([
             'password' => 'required|string|min:6',

@@ -569,6 +569,14 @@ class AssessmentController extends Controller implements HasMiddleware
             $classGroup = ClassGroup::with(['educationalInstitution', 'education', 'program', 'homeroomTeacher', 'academicYear'])
                 ->findOrFail($validated['class_group_id']);
 
+            $userProgramId = auth('api')->user()?->getActiveProgramId();
+            if ($userProgramId && $classGroup->program_id && (int) $classGroup->program_id !== $userProgramId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Anda tidak memiliki hak akses ke penilaian rombel dari program lain.',
+                ], 403);
+            }
+
             $yearId = (int) ($validated['academic_year_id']
                 ?? $classGroup->academic_year_id
                 ?? AcademicYear::where('active', true)->value('id')
@@ -1125,6 +1133,14 @@ class AssessmentController extends Controller implements HasMiddleware
         try {
             $classGroup = ClassGroup::with(['educationalInstitution', 'education', 'program', 'homeroomTeacher', 'academicYear'])
                 ->findOrFail($validated['class_group_id']);
+
+            $userProgramId = auth('api')->user()?->getActiveProgramId();
+            if ($userProgramId && $classGroup->program_id && (int) $classGroup->program_id !== $userProgramId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Anda tidak memiliki hak akses ke penilaian rombel dari program lain.',
+                ], 403);
+            }
 
             $yearId = (int) ($validated['academic_year_id']
                 ?? $classGroup->academic_year_id

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '../store/slices/authSlice';
+import { apiSlice } from '../store/slices/apiSlice';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import AuthLayout from '../layouts/AuthLayout';
@@ -21,13 +22,14 @@ export default function LoginPage() {
             });
 
             if (response.data.status === 'success') {
+                dispatch(apiSlice.util.resetApiState());
                 dispatch(
                     setCredentials({
                         token: response.data.access_token,
                         user: response.data.user,
                     })
                 );
-                toast.success(`Selamat datang, ${response.data.user?.name || 'Mudir'}!`);
+                toast.success(`Selamat datang, ${response.data.user?.name || 'Pengguna'}!`);
                 navigate('/');
             }
         } catch (error) {

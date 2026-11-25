@@ -29,6 +29,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             api.dispatch(logOut());
+            api.dispatch(apiSlice.util.resetApiState());
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login?expired=1';
             }

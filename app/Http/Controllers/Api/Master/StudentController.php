@@ -139,8 +139,9 @@ class StudentController extends Controller implements HasMiddleware
                 'program',
             ]);
 
-            // Ringkasan komposisi siswa (dinamis sesuai tahun akademik terpilih)
-            $summaryBase = Student::query()->where($yearScope);
+            // Ringkasan komposisi siswa (dinamis sesuai tahun akademik terpilih & program role)
+            $summaryBase = Student::query()->where($yearScope)
+                ->when($userProgramId, fn ($q) => $q->where('program_id', $userProgramId));
             $summaryTotal = (clone $summaryBase)->count();
             $summaryMukim = (clone $summaryBase)->where('is_mukim', true)->count();
             $summaryLuar = $summaryTotal - $summaryMukim;
@@ -156,7 +157,10 @@ class StudentController extends Controller implements HasMiddleware
             $periodOptions = (clone $summaryBase)->select('period')->whereNotNull('period')->distinct()->orderBy('period')->pluck('period')->all();
             $filterOptions = [
                 'periods' => $periodOptions,
-                'programs' => Program::query()->orderBy('name')->get(['id', 'name', 'code']),
+                'programs' => Program::query()
+                    ->when($userProgramId, fn ($q) => $q->where('id', $userProgramId))
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code']),
             ];
 
             // Dukung pengambilan seluruh data tanpa pagination (misal untuk DataTable TanStack klien)
@@ -307,7 +311,11 @@ class StudentController extends Controller implements HasMiddleware
                 $academicYearId = $activeYear ? $activeYear->id : AcademicYear::latest('id')->value('id');
             }
 
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
             $query = Student::where('status', 'aktif')
+                ->when($userProgramId, fn ($q) => $q->where('program_id', $userProgramId))
                 ->whereDoesntHave('studentClasses', function ($q) use ($academicYearId) {
                     $q->where('academic_year_id', $academicYearId)
                         ->where('status', 'aktif');
@@ -864,6 +872,12 @@ class StudentController extends Controller implements HasMiddleware
                 ?? null;
         }
 
+        $user = auth('api')->user();
+        $userProgramId = $user?->getActiveProgramId();
+        if ($userProgramId) {
+            $validated['program_id'] = $userProgramId;
+        }
+
         try {
             $student = Student::create($validated);
 
@@ -905,6 +919,14 @@ class StudentController extends Controller implements HasMiddleware
             ], 404);
         }
 
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId && $student->program_id && (int) $student->program_id !== $userProgramId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak memiliki hak akses untuk melihat data santri dari program lain.',
+            ], 403);
+        }
+
         return response()->json([
             'status' => 'success',
             'message' => 'Detail siswa berhasil diambil',
@@ -921,6 +943,14 @@ class StudentController extends Controller implements HasMiddleware
                 'status' => 'error',
                 'message' => 'Data siswa tidak ditemukan',
             ], 404);
+        }
+
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId && $student->program_id && (int) $student->program_id !== $userProgramId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak memiliki hak akses untuk melihat data santri dari program lain.',
+            ], 403);
         }
 
         $validated = $request->validate([
@@ -965,6 +995,14 @@ class StudentController extends Controller implements HasMiddleware
                 'status' => 'error',
                 'message' => 'Data siswa tidak ditemukan',
             ], 404);
+        }
+
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId && $student->program_id && (int) $student->program_id !== $userProgramId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak memiliki hak akses untuk melihat data santri dari program lain.',
+            ], 403);
         }
 
         try {

@@ -126,6 +126,14 @@ const DEFAULT_NAVIGATION_ITEMS = [
     },
 ];
 
+const MINIMAL_FALLBACK_NAVIGATION = [
+    {
+        name: 'Dashboard Utama',
+        to: '/',
+        icon: LayoutDashboard,
+    },
+];
+
 export default function Sidebar({
     collapsed = false,
     mobileOpen = false,
@@ -133,13 +141,13 @@ export default function Sidebar({
     className = '',
 }) {
     const location = useLocation();
-    const { data: sidebarRes } = useGetSidebarMenusQuery();
+    const { data: sidebarRes, isLoading: isMenusLoading } = useGetSidebarMenusQuery();
 
-    // Transformasi menu dinamis dari API auth/menus
+    // Transformasi menu dinamis dari API auth/menus (tanpa membocorkan menu admin saat loading/kosong)
     const navigationItems = useMemo(() => {
         const rawMenus = sidebarRes?.data;
         if (!Array.isArray(rawMenus) || rawMenus.length === 0) {
-            return DEFAULT_NAVIGATION_ITEMS;
+            return MINIMAL_FALLBACK_NAVIGATION;
         }
 
         return rawMenus.map((item) => {
@@ -167,28 +175,28 @@ export default function Sidebar({
     }, [sidebarRes]);
 
     // Inisialisasi status terbuka menu bertingkat
-    const [openMenus, setOpenMenus] = useState(() => {
-        const initial = {};
-        DEFAULT_NAVIGATION_ITEMS.forEach((item) => {
-            if (item.children) {
-                initial[item.name] = true;
-            }
-        });
-        return initial;
-    });
+    const [openMenus, setOpenMenus] = useState({});
 
-    // Otomatis buka grup jika rute anak sedang aktif
+    // Otomatis buka semua grup menu yang tersedia saat menu selesai dimuat atau rute anak aktif
     useEffect(() => {
-        navigationItems.forEach((item) => {
-            if (item.children) {
-                const isChildActive = item.children.some((c) =>
-                    location.pathname === c.to ||
-                    (c.to !== '/' && location.pathname.startsWith(c.to))
-                );
-                if (isChildActive) {
-                    setOpenMenus((prev) => ({ ...prev, [item.name]: true }));
+        setOpenMenus((prev) => {
+            const next = { ...prev };
+            navigationItems.forEach((item) => {
+                if (item.children) {
+                    if (next[item.name] === undefined) {
+                        next[item.name] = true;
+                    }
+                    const isChildActive = item.children.some(
+                        (c) =>
+                            location.pathname === c.to ||
+                            (c.to !== '/' && location.pathname.startsWith(c.to))
+                    );
+                    if (isChildActive) {
+                        next[item.name] = true;
+                    }
                 }
-            }
+            });
+            return next;
         });
     }, [location.pathname, navigationItems]);
 

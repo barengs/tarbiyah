@@ -27,6 +27,9 @@ class ReportCardController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         try {
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
             $query = ReportCard::with([
                 'student',
                 'classGroup.educationalInstitution',
@@ -36,6 +39,10 @@ class ReportCardController extends Controller implements HasMiddleware
                 'academicYear',
                 'academicQuarter',
             ]);
+
+            if ($userProgramId) {
+                $query->whereHas('classGroup', fn ($cg) => $cg->where('program_id', $userProgramId));
+            }
 
             if ($request->filled('class_group_id')) {
                 $query->where('class_group_id', $request->query('class_group_id'));

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import { store } from './store';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -31,8 +31,68 @@ import MenuManagementPage from './pages/security/MenuManagementPage';
 import RoleManagementPage from './pages/security/RoleManagementPage';
 import UserManagementPage from './pages/security/UserManagementPage';
 import GradingPeriodPage from './pages/settings/GradingPeriodPage';
+import { useGetSidebarMenusQuery } from './store/slices/securityApi';
 
 import '../css/app.css';
+
+function RequireAccess({ permissionPrefix, adminOnly = false, children }) {
+    const { user } = useSelector((state) => state.auth);
+    const { data: sidebarRes, isLoading } = useGetSidebarMenusQuery();
+
+    if (!user) {
+        return null;
+    }
+
+    const roleNames = Array.isArray(user.roles)
+        ? user.roles.map((r) => (typeof r === 'string' ? r : r?.name)).filter(Boolean)
+        : [];
+    const primaryRole = user.role || roleNames[0] || '';
+    const isSuperAdmin =
+        primaryRole === 'superadmin' ||
+        primaryRole === 'mudir' ||
+        roleNames.includes('superadmin');
+    const isAdmin = isSuperAdmin || primaryRole === 'admin' || roleNames.includes('admin');
+
+    if (isSuperAdmin) {
+        return children;
+    }
+
+    if (adminOnly && !isAdmin) {
+        return <Navigate to="/" replace />;
+    }
+
+    if (permissionPrefix) {
+        const perms = Array.isArray(user.permission_names) ? user.permission_names : [];
+        if (perms.length > 0) {
+            const hasPerm = perms.some(
+                (p) => p === permissionPrefix || p.startsWith(`${permissionPrefix}.`)
+            );
+            if (!hasPerm) {
+                return <Navigate to="/" replace />;
+            }
+            return children;
+        }
+
+        // Fallback cek dari daftar menu sidebar yang diizinkan untuk role user
+        if (!isLoading && Array.isArray(sidebarRes?.data)) {
+            const flatMenus = [];
+            sidebarRes.data.forEach((m) => {
+                flatMenus.push(m);
+                if (Array.isArray(m.children)) {
+                    flatMenus.push(...m.children);
+                }
+            });
+            const hasMenu = flatMenus.some(
+                (m) => m.permission_slug === permissionPrefix || m.slug === permissionPrefix
+            );
+            if (!hasMenu && !isAdmin) {
+                return <Navigate to="/" replace />;
+            }
+        }
+    }
+
+    return children;
+}
 
 const App = () => {
     return (
@@ -102,13 +162,13 @@ const App = () => {
                             <Route path="rapor" element={<ReportCardPage />} />
 
                             {/* Modul Keamanan & Manajemen Akses (Admin / Superadmin) */}
-                            <Route path="pengaturan/masa-nilai" element={<GradingPeriodPage />} />
-                            <Route path="admin/masa-nilai" element={<GradingPeriodPage />} />
-                            <Route path="admin/menu" element={<MenuManagementPage />} />
-                            <Route path="admin/role" element={<RoleManagementPage />} />
-                            <Route path="admin/pengguna" element={<UserManagementPage />} />
-                            <Route path="admin/users" element={<UserManagementPage />} />
-                            <Route path="admin/user" element={<UserManagementPage />} />
+                            <Route path="pengaturan/masa-nilai" element={<RequireAccess permissionPrefix="pengaturan" adminOnly><GradingPeriodPage /></RequireAccess>} />
+                            <Route path="admin/masa-nilai" element={<RequireAccess permissionPrefix="pengaturan" adminOnly><GradingPeriodPage /></RequireAccess>} />
+                            <Route path="admin/menu" element={<RequireAccess permissionPrefix="menu" adminOnly><MenuManagementPage /></RequireAccess>} />
+                            <Route path="admin/role" element={<RequireAccess permissionPrefix="role" adminOnly><RoleManagementPage /></RequireAccess>} />
+                            <Route path="admin/pengguna" element={<RequireAccess permissionPrefix="user" adminOnly><UserManagementPage /></RequireAccess>} />
+                            <Route path="admin/users" element={<RequireAccess permissionPrefix="user" adminOnly><UserManagementPage /></RequireAccess>} />
+                            <Route path="admin/user" element={<RequireAccess permissionPrefix="user" adminOnly><UserManagementPage /></RequireAccess>} />
 
                             {/* Fallback route */}
                             <Route path="*" element={<Navigate to="/" replace />} />

@@ -31,16 +31,22 @@ class DatabaseSeeder extends Seeder
             MenuSeeder::class,
             RolePermissionSeeder::class,
             SuperAdminSeeder::class,
-            UserSeeder::class,
-            TeacherSeeder::class,
-            InstitutionSeeder::class,
-            AcademicYearSeeder::class,
-            StudySeeder::class,
-            LessonHourSeeder::class,
-            ClassGroupSeeder::class,
-            StudentSeeder::class,
-            KbmSeeder::class,
-            AssessmentSeeder::class,
         ]);
+
+        // Jangan jalankan dummy data seeder di environment production
+        if (!app()->environment('production')) {
+            $this->call([
+                UserSeeder::class,
+                TeacherSeeder::class,
+                InstitutionSeeder::class,
+                AcademicYearSeeder::class,
+                StudySeeder::class,
+                LessonHourSeeder::class,
+                ClassGroupSeeder::class,
+                StudentSeeder::class,
+                KbmSeeder::class,
+                AssessmentSeeder::class,
+            ]);
+        }
     }
 }

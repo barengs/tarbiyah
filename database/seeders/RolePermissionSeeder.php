@@ -25,6 +25,56 @@ class RolePermissionSeeder extends Seeder
      */
     private function assignmentMatrix(): array
     {
+        $stafMatrix = [
+            'dashboard'       => ['view'],
+            'jenjang'         => ['view'],
+            'tahun-akademik'  => ['view'],
+            'mapel'           => ['view'],
+            'jam-pelajaran'   => ['view'],
+            'guru'            => ['view'],
+            'kelas'           => ['view'],
+            'ruang-kelas'     => ['view'],
+            'rombel'          => ['view'],
+            'siswa'           => ['view', 'create', 'update', 'print'],
+            'kenaikan-kelas'  => ['view'],
+            'kbm'             => ['view', 'print'],
+            'presensi'        => ['view', 'create'],
+            'rapor'           => ['view'],
+        ];
+
+        $asatidzMatrix = [
+            'dashboard'       => ['view'],
+            'jenjang'         => ['view'],
+            'tahun-akademik'  => ['view'],
+            'mapel'           => ['view'],
+            'jam-pelajaran'   => ['view'],
+            'guru'            => ['view'],
+            'kelas'           => ['view'],
+            'ruang-kelas'     => ['view'],
+            'rombel'          => ['view'],
+            'siswa'           => ['view'],
+            'kbm'             => ['view', 'create', 'update'],
+            'presensi'        => ['view', 'create'],
+            'rapor'           => ['view', 'create', 'update', 'approve'],
+        ];
+
+        $walikelasMatrix = [
+            'dashboard'       => ['view'],
+            'jenjang'         => ['view'],
+            'tahun-akademik'  => ['view'],
+            'mapel'           => ['view'],
+            'jam-pelajaran'   => ['view'],
+            'guru'            => ['view'],
+            'kelas'           => ['view'],
+            'ruang-kelas'     => ['view'],
+            'rombel'          => ['view'],
+            'siswa'           => ['view', 'update', 'print'],
+            'kenaikan-kelas'  => ['view', 'update'],
+            'kbm'             => ['view'],
+            'presensi'        => ['view', 'create'],
+            'rapor'           => ['view', 'print'],
+        ];
+
         return [
             'admin' => [
                 'dashboard'       => ['view'],
@@ -34,65 +84,33 @@ class RolePermissionSeeder extends Seeder
                 'jam-pelajaran'   => ['view', 'create', 'update', 'delete'],
                 'guru'            => ['view', 'create', 'update', 'delete'],
                 'kelas'           => ['view', 'create', 'update', 'delete'],
+                'ruang-kelas'     => ['view', 'create', 'update', 'delete'],
                 'rombel'          => ['view', 'create', 'update', 'delete'],
                 'siswa'           => ['view', 'create', 'update', 'delete', 'print'],
                 'kenaikan-kelas'  => ['view', 'update', 'approve'],
                 'kbm'             => ['view', 'create', 'update', 'delete', 'print'],
                 'presensi'        => ['view', 'create', 'update', 'print'],
                 'rapor'           => ['view', 'create', 'update', 'print', 'approve'],
+                'masa-nilai'      => ['view', 'create', 'update', 'delete'],
                 'user'            => ['view', 'create', 'update', 'delete'],
                 'menu'            => ['view', 'create', 'update', 'delete'],
                 'role'            => ['view', 'create', 'update', 'delete'],
             ],
-            'staf' => [
-                'dashboard'       => ['view'],
-                'jenjang'         => ['view'],
-                'tahun-akademik'  => ['view'],
-                'mapel'           => ['view'],
-                'jam-pelajaran'   => ['view'],
-                'guru'            => ['view'],
-                'kelas'           => ['view'],
-                'rombel'          => ['view'],
-                'siswa'           => ['view', 'create', 'update', 'print'],
-                'kenaikan-kelas'  => ['view'],
-                'kbm'             => ['view', 'print'],
-                'presensi'        => ['view', 'create'],
-                'rapor'           => ['view'],
-            ],
-            'asatidz' => [
-                'dashboard'       => ['view'],
-                'jenjang'         => ['view'],
-                'tahun-akademik'  => ['view'],
-                'mapel'           => ['view'],
-                'jam-pelajaran'   => ['view'],
-                'guru'            => ['view'],
-                'kelas'           => ['view'],
-                'rombel'          => ['view'],
-                'siswa'           => ['view'],
-                'kbm'             => ['view', 'create', 'update'],
-                'presensi'        => ['view', 'create'],
-                'rapor'           => ['view', 'create', 'update', 'approve'],
-            ],
-            'walikelas' => [
-                'dashboard'       => ['view'],
-                'jenjang'         => ['view'],
-                'tahun-akademik'  => ['view'],
-                'mapel'           => ['view'],
-                'jam-pelajaran'   => ['view'],
-                'guru'            => ['view'],
-                'kelas'           => ['view'],
-                'rombel'          => ['view'],
-                'siswa'           => ['view', 'update', 'print'],
-                'kenaikan-kelas'  => ['view', 'update'],
-                'kbm'             => ['view'],
-                'presensi'        => ['view', 'create'],
-                'rapor'           => ['view', 'print'],
-            ],
+            'staf'             => $stafMatrix,
+            'staf-kubar'       => $stafMatrix,
+            'staf-tibyan'      => $stafMatrix,
+            'asatidz'          => $asatidzMatrix,
+            'asatidz-kubar'    => $asatidzMatrix,
+            'asatidz-tibyan'   => $asatidzMatrix,
+            'walikelas'        => $walikelasMatrix,
+            'walikelas-kubar'  => $walikelasMatrix,
+            'walikelas-tibyan' => $walikelasMatrix,
         ];
     }
 
     public function run(): void
     {
+        $this->cleanupLegacyUnderscorePermissions();
         $this->ensurePermissionsExist();
         $matrix = $this->assignmentMatrix();
 
@@ -103,13 +121,7 @@ class RolePermissionSeeder extends Seeder
             $super->menus()->sync(Menu::pluck('id'));
         }
 
-        // admin: semua menu & semua permission operasional
-        $admin = Role::where('name', 'admin')->where('guard_name', 'api')->first();
-        if ($admin) {
-            $admin->menus()->sync(Menu::pluck('id'));
-        }
-
-        // role lain: sync permission & menu berdasarkan matriks
+        // role lain (termasuk admin dan role spesifik program): sync permission & menu berdasarkan matriks
         foreach ($matrix as $roleName => $menuMap) {
             $role = Role::where('name', $roleName)->where('guard_name', 'api')->first();
             if (!$role) continue;
@@ -131,12 +143,22 @@ class RolePermissionSeeder extends Seeder
                 }
             }
 
-            $role->syncPermissions($permNames);
-            $role->menus()->sync($menuIds);
+            $role->syncPermissions(array_values(array_unique($permNames)));
+            $role->menus()->sync(array_values(array_unique($menuIds)));
         }
 
         // Cache spatie
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+    }
+
+    private function cleanupLegacyUnderscorePermissions(): void
+    {
+        $legacyPrefixes = ['tahun_akademik.', 'jam_pelajaran.', 'kenaikan_kelas.'];
+        foreach ($legacyPrefixes as $prefix) {
+            Permission::where('guard_name', 'api')
+                ->where('name', 'like', $prefix . '%')
+                ->delete();
+        }
     }
 
     /**

@@ -31,6 +31,9 @@ class TeachingJournalController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         try {
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
             $query = TeachingJournal::with([
                 'classGroup',
                 'study',
@@ -52,6 +55,10 @@ class TeachingJournalController extends Controller implements HasMiddleware
                     $q->where('status', 'alpa');
                 },
             ]);
+
+            if ($userProgramId) {
+                $query->whereHas('classGroup', fn ($cg) => $cg->where('program_id', $userProgramId));
+            }
 
             $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
             if ($targetYearId) {
@@ -1203,6 +1210,9 @@ class TeachingJournalController extends Controller implements HasMiddleware
     public function listWithPresenceSummary(Request $request)
     {
         try {
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
             $query = TeachingJournal::with([
                 'classGroup',
                 'study',
@@ -1224,6 +1234,10 @@ class TeachingJournalController extends Controller implements HasMiddleware
                 },
                 'presences as total_presented',
             ]);
+
+            if ($userProgramId) {
+                $query->whereHas('classGroup', fn ($cg) => $cg->where('program_id', $userProgramId));
+            }
 
             $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
             if ($targetYearId) {

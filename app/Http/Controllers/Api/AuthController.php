@@ -26,16 +26,34 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = User::with('roles')
+        $user = User::with(['roles.permissions', 'roles.program', 'permissions'])
             ->where('email', $loginInput)
-            ->orWhere('name', $loginInput)
             ->first();
+
+        if (! $user) {
+            // Hanya fallback ke exact name match jika unik (1 akun saja)
+            $byName = User::with(['roles.permissions', 'roles.program', 'permissions'])
+                ->where('name', $loginInput)
+                ->get();
+            if ($byName->count() === 1) {
+                $user = $byName->first();
+            }
+        }
 
         if (! $user || ! Hash::check($password, $user->password)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Email atau Password salah.',
             ], 401);
+        }
+
+        // Pastikan role Spatie terpasang sesuai kolom role jika sempat kosong
+        if ($user->roles->isEmpty() && ! empty($user->role)) {
+            $fallbackRole = Role::where('name', $user->role)->where('guard_name', 'api')->first();
+            if ($fallbackRole) {
+                $user->syncRoles([$fallbackRole]);
+                $user->load(['roles.permissions', 'roles.program', 'permissions']);
+            }
         }
 
         try {
@@ -59,7 +77,7 @@ class AuthController extends Controller
     {
         $user = auth('api')->user();
         if ($user) {
-            $user->load(['roles.permissions', 'permissions']);
+            $user->load(['roles.permissions', 'roles.program', 'permissions']);
         }
 
         return response()->json([
@@ -104,8 +122,8 @@ class AuthController extends Controller
     protected function respondWithToken($token, $user = null)
     {
         $userData = $user ?? auth('api')->user();
-        if ($userData && ! $userData->relationLoaded('roles')) {
-            $userData->load('roles');
+        if ($userData) {
+            $userData->load(['roles.permissions', 'roles.program', 'permissions']);
         }
 
         return response()->json([
@@ -144,18 +162,13 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Petakan role smpt ke 5 role familiar Tarbiyah
+        // Petakan role smpt ke role Tarbiyah (termasuk cakupan program jika ada)
         $rawRole = $smptUser['role'] ?? ($smptUser['roles'][0] ?? 'staf');
-        $roleMap = [
-            'superadmin' => 'superadmin',
-            'admin' => 'admin',
-            'asatidz' => 'asatidz',
-            'guru' => 'asatidz',
-            'staf' => 'staf',
-            'staff' => 'staf',
-            'walikelas' => 'walikelas',
-        ];
-        $tarbiyahRole = $roleMap[strtolower((string) $rawRole)] ?? 'staf';
+        if (! empty($smptUser['is_super_admin'])) {
+            $rawRole = 'superadmin';
+        }
+        $accessiblePrograms = $smptUser['accessible_program_ids'] ?? null;
+        $tarbiyahRole = User::mapExternalRole((string) $rawRole, is_array($accessiblePrograms) ? $accessiblePrograms : null);
 
         $user = User::where('email', $email)->first();
         if (! $user) {
@@ -165,17 +178,22 @@ class AuthController extends Controller
                 'password' => Hash::make(Str::random(32)),
                 'role' => $tarbiyahRole,
             ]);
+            $roleModel = Role::where('name', $tarbiyahRole)->where('guard_name', 'api')->first();
+            if ($roleModel) {
+                $user->syncRoles([$roleModel]);
+            }
         } else {
             $user->update([
-                'name' => $smptUser['name'] ?? ($smptUser['sub_name'] ?? $email),
-                'role' => $tarbiyahRole,
+                'name' => $smptUser['name'] ?? ($smptUser['sub_name'] ?? $user->name),
             ]);
-        }
-
-        // Pastikan role Spatie tersinkronisasi
-        $roleModel = Role::where('name', $tarbiyahRole)->where('guard_name', 'api')->first();
-        if ($roleModel) {
-            $user->syncRoles([$roleModel]);
+            if ($user->roles->isEmpty()) {
+                $roleToSync = $user->role ?: $tarbiyahRole;
+                $roleModel = Role::where('name', $roleToSync)->where('guard_name', 'api')->first()
+                    ?? Role::where('name', $tarbiyahRole)->where('guard_name', 'api')->first();
+                if ($roleModel) {
+                    $user->syncRoles([$roleModel]);
+                }
+            }
         }
 
         try {
@@ -187,8 +205,8 @@ class AuthController extends Controller
             ], 500);
         }
 
-        Log::info("SSO Handover dari smpt: {$user->email} (role: {$tarbiyahRole}) berhasil masuk ke tarbiyah.");
+        Log::info("SSO Handover dari smpt: {$user->email} (role: {$user->role}) berhasil masuk ke tarbiyah.");
 
-        return $this->respondWithToken($token, $user->fresh()->load('roles'));
+        return $this->respondWithToken($token, $user->fresh());
     }
 }

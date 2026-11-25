@@ -177,9 +177,23 @@ export default function RoleManagementPage() {
         }
     };
 
+    const SYSTEM_ROLES = [
+        'superadmin',
+        'admin',
+        'staf',
+        'staf-kubar',
+        'staf-tibyan',
+        'asatidz',
+        'asatidz-kubar',
+        'asatidz-tibyan',
+        'walikelas',
+        'walikelas-kubar',
+        'walikelas-tibyan',
+    ];
+
     const handleDeleteRole = async () => {
         if (!deleteTargetRole) return;
-        if (['superadmin', 'admin', 'staf', 'asatidz', 'walikelas'].includes(deleteTargetRole.name)) {
+        if (SYSTEM_ROLES.includes(deleteTargetRole.name)) {
             toast.warning('Role bawaan sistem tidak boleh dihapus.');
             setDeleteTargetRole(null);
             return;
@@ -240,7 +254,7 @@ export default function RoleManagementPage() {
                     <div className="p-2 space-y-1">
                         {roles.map((r) => {
                             const isSelected = selectedRole?.id === r.id;
-                            const isSystem = ['superadmin', 'admin', 'staf', 'asatidz', 'walikelas'].includes(r.name);
+                            const isSystem = SYSTEM_ROLES.includes(r.name);
 
                             return (
                                 <div

@@ -23,12 +23,8 @@ class SecurityController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthenticated', 'data' => []], 401);
         }
 
-        // Superadmin, Admin, & Mudir melihat seluruh menu aktif sistem
-        if (
-            $user->hasRole('superadmin') ||
-            $user->hasRole('admin') ||
-            in_array($user->role, ['superadmin', 'admin', 'mudir'])
-        ) {
+        // Hanya Superadmin yang otomatis melihat seluruh menu aktif sistem tanpa filter role_menu
+        if ($user->isSuperAdmin()) {
             $menus = Menu::whereNull('parent_id')
                 ->where('is_active', true)
                 ->with(['children' => function ($q) {
@@ -236,9 +232,15 @@ class SecurityController extends Controller
      */
     public function getRoles()
     {
-        $roles = Role::where('guard_name', 'api')
-            ->with(['menus', 'permissions', 'program'])
-            ->get();
+        $user = auth('api')->user();
+        $query = Role::where('guard_name', 'api')
+            ->with(['menus', 'permissions', 'program']);
+
+        if (! $user?->isSuperAdmin()) {
+            $query->where('name', '!=', 'superadmin');
+        }
+
+        $roles = $query->get();
 
         return response()->json([
             'status' => 'success',
@@ -307,7 +309,21 @@ class SecurityController extends Controller
     {
         $role = Role::findOrFail($id);
 
-        if (in_array($role->name, ['superadmin', 'admin', 'staf', 'asatidz', 'walikelas'])) {
+        $systemRoles = [
+            'superadmin',
+            'admin',
+            'staf',
+            'staf-kubar',
+            'staf-tibyan',
+            'asatidz',
+            'asatidz-kubar',
+            'asatidz-tibyan',
+            'walikelas',
+            'walikelas-kubar',
+            'walikelas-tibyan',
+        ];
+
+        if (in_array($role->name, $systemRoles, true)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Role bawaan sistem tidak dapat dihapus.',
@@ -328,6 +344,14 @@ class SecurityController extends Controller
     public function syncRoleMenus(Request $request, $id)
     {
         $role = Role::findOrFail($id);
+        $currentUser = auth('api')->user();
+
+        if ($role->name === 'superadmin' && (! $currentUser || ! $currentUser->isSuperAdmin())) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hanya Superadmin yang dapat mengubah akses menu role Superadmin.',
+            ], 403);
+        }
 
         $validated = $request->validate([
             'menu_ids' => 'present|array',
@@ -358,6 +382,14 @@ class SecurityController extends Controller
     public function syncRolePermissions(Request $request, $id)
     {
         $role = Role::findOrFail($id);
+        $currentUser = auth('api')->user();
+
+        if ($role->name === 'superadmin' && (! $currentUser || ! $currentUser->isSuperAdmin())) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hanya Superadmin yang dapat mengubah permission matrix role Superadmin.',
+            ], 403);
+        }
 
         $validated = $request->validate([
             'permissions' => 'present|array',

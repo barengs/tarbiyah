@@ -23,7 +23,29 @@ class LessonHourController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         try {
-            $query = LessonHour::with('educationalInstitution');
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
+            $query = LessonHour::with(['program', 'educationalInstitution']);
+
+            if ($userProgramId) {
+                $query->where(function ($q) use ($userProgramId) {
+                    $q->where('program_id', $userProgramId)
+                        ->orWhereNull('program_id');
+                });
+            } elseif ($request->filled('program_id') && $request->query('program_id') !== 'all') {
+                $progId = $request->query('program_id');
+                if ($progId === 'general' || $progId === 'null') {
+                    $query->whereNull('program_id');
+                } elseif ($request->boolean('include_general')) {
+                    $query->where(function ($q) use ($progId) {
+                        $q->where('program_id', $progId)
+                            ->orWhereNull('program_id');
+                    });
+                } else {
+                    $query->where('program_id', $progId);
+                }
+            }
 
             if ($request->has('educational_institution_id') && $request->query('educational_institution_id')) {
                 $query->where('educational_institution_id', $request->query('educational_institution_id'));
@@ -33,7 +55,7 @@ class LessonHourController extends Controller implements HasMiddleware
                 $query->where('is_active', filter_var($request->query('is_active'), FILTER_VALIDATE_BOOLEAN));
             }
 
-            $hours = $query->orderBy('order', 'asc')->get();
+            $hours = $query->orderBy('order', 'asc')->orderBy('start_time', 'asc')->get();
 
             return response()->json([
                 'status' => 'success',
@@ -53,6 +75,7 @@ class LessonHourController extends Controller implements HasMiddleware
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'program_id' => 'nullable|exists:programs,id',
             'educational_institution_id' => 'nullable|exists:educational_institutions,id',
             'name' => 'required|string|max:100',
             'start_time' => 'required|date_format:H:i',
@@ -63,13 +86,18 @@ class LessonHourController extends Controller implements HasMiddleware
             'is_active' => 'nullable|boolean',
         ]);
 
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId) {
+            $validated['program_id'] = $userProgramId;
+        }
+
         try {
             $hour = LessonHour::create($validated);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Jam pelajaran berhasil ditambahkan',
-                'data' => $hour->load('educationalInstitution'),
+                'data' => $hour->load(['program', 'educationalInstitution']),
             ], 201);
         } catch (\Exception $e) {
             Log::error('Error creating lesson hour: '.$e->getMessage());
@@ -83,7 +111,7 @@ class LessonHourController extends Controller implements HasMiddleware
 
     public function show(string $id)
     {
-        $hour = LessonHour::with('educationalInstitution')->find($id);
+        $hour = LessonHour::with(['program', 'educationalInstitution'])->find($id);
 
         if (! $hour) {
             return response()->json([
@@ -111,6 +139,7 @@ class LessonHourController extends Controller implements HasMiddleware
         }
 
         $validated = $request->validate([
+            'program_id' => 'nullable|exists:programs,id',
             'educational_institution_id' => 'nullable|exists:educational_institutions,id',
             'name' => 'sometimes|required|string|max:100',
             'start_time' => 'sometimes|required|date_format:H:i',
@@ -121,13 +150,18 @@ class LessonHourController extends Controller implements HasMiddleware
             'is_active' => 'nullable|boolean',
         ]);
 
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId) {
+            $validated['program_id'] = $userProgramId;
+        }
+
         try {
             $hour->update($validated);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Jam pelajaran berhasil diperbarui',
-                'data' => $hour->fresh('educationalInstitution'),
+                'data' => $hour->fresh(['program', 'educationalInstitution']),
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error updating lesson hour: '.$e->getMessage());

@@ -164,10 +164,24 @@ export default function ScheduleKbmPage() {
     }, [selectedEducation, institutions]);
 
     const { data: hoursData } = useGetLessonHoursQuery();
-    const lessonHours = useMemo(() => {
+    const allLessonHours = useMemo(() => {
         const raw = hoursData?.data || [];
         return [...raw].sort((a, b) => (a.order || 0) - (b.order || 0));
     }, [hoursData]);
+
+    // Filter jam pelajaran sesuai Program aktif (Tibyan / Kubar / Umum)
+    const lessonHours = useMemo(() => {
+        let activeProgId = selectedProgram !== 'all' ? selectedProgram : null;
+        if (!activeProgId && selectedEducation !== 'all') {
+            const inst = institutions.find((i) => String(i.id) === String(selectedEducation));
+            activeProgId = inst?.program_id || inst?.program?.id || null;
+        }
+        if (!activeProgId) return allLessonHours;
+        const filtered = allLessonHours.filter(
+            (h) => !h.program_id || String(h.program_id) === String(activeProgId)
+        );
+        return filtered.length > 0 ? filtered : allLessonHours;
+    }, [allLessonHours, selectedProgram, selectedEducation, institutions]);
 
     const { data: studiesData } = useGetStudiesQuery({ for_schedule: 1 });
     const studies = useMemo(() => {
@@ -1996,11 +2010,27 @@ export default function ScheduleKbmPage() {
                                 onChange={(e) => setSchedHourId(e.target.value)}
                                 className="block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
                             >
-                                {lessonHours.map((h) => (
-                                    <option key={h.id} value={h.id}>
-                                        {h.name} ({h.start_time?.substring(0, 5)} - {h.end_time?.substring(0, 5)})
-                                    </option>
-                                ))}
+                                {(() => {
+                                    const targetGroup = allGroups.find(
+                                        (g) => String(g.id) === String(schedTargetGroupId || paginatedGroups[0]?.id)
+                                    );
+                                    const targetProgId =
+                                        targetGroup?.program_id ||
+                                        targetGroup?.program?.id ||
+                                        targetGroup?.educational_institution?.program_id;
+                                    const modalHours = targetProgId
+                                        ? allLessonHours.filter(
+                                              (h) => !h.program_id || String(h.program_id) === String(targetProgId)
+                                          )
+                                        : lessonHours;
+                                    const list = modalHours.length > 0 ? modalHours : allLessonHours;
+                                    return list.map((h) => (
+                                        <option key={h.id} value={h.id}>
+                                            {h.name} ({h.start_time?.substring(0, 5)} - {h.end_time?.substring(0, 5)})
+                                            {h.program?.name ? ` • ${h.program.name}` : ''}
+                                        </option>
+                                    ));
+                                })()}
                             </select>
                         </div>
                     </div>

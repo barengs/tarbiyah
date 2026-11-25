@@ -17,6 +17,11 @@ class LessonHour extends Model
         'is_active' => 'boolean',
     ];
 
+    public function program()
+    {
+        return $this->belongsTo(Program::class, 'program_id');
+    }
+
     public function educationalInstitution()
     {
         return $this->belongsTo(EducationalInstitution::class, 'educational_institution_id');

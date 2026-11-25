@@ -30,6 +30,8 @@ RUN apk add --no-cache \
     libpng-dev \
     libjpeg-turbo \
     libjpeg-turbo-dev \
+    libwebp \
+    libwebp-dev \
     freetype \
     freetype-dev \
     libzip \
@@ -38,9 +40,9 @@ RUN apk add --no-cache \
     icu-dev \
     oniguruma \
     oniguruma-dev && \
-    docker-php-ext-configure gd --with-freetype --with-jpeg && \
+    docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp && \
     docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip intl opcache && \
-    apk del --no-network libpng-dev libjpeg-turbo-dev freetype-dev libzip-dev icu-dev oniguruma-dev
+    apk del --no-network libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev libzip-dev icu-dev oniguruma-dev
 
 WORKDIR /var/www/html
 

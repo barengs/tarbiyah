@@ -926,35 +926,52 @@ export default function ScheduleKbmPage() {
             </div>
 
             {/* ═══════════════════════════════════════════════════════════
-                PANEL NAMA JADWAL, MASA BERLAKU, AKTIVASI & RESET JADWAL
+                BAR RINGKAS NAMA JADWAL, MASA BERLAKU & KONTROL STATUS
                 ═══════════════════════════════════════════════════════════ */}
-            <div className="bg-white border border-slate-200 rounded-md p-4 shadow-xs space-y-3">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div>
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                Nama Jadwal / Masa Berlaku
-                            </label>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <select
-                                    value={selectedSchedulePeriodId}
-                                    onChange={(e) => setSelectedSchedulePeriodId(e.target.value)}
-                                    className="px-3 py-1.5 text-xs font-bold border border-slate-300 rounded bg-white text-slate-900 min-w-[230px]"
-                                >
-                                    {schedulePeriods.length === 0 ? (
-                                        <option value="">-- Belum Ada Nama Jadwal --</option>
-                                    ) : (
-                                        schedulePeriods.map((p) => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} • {p.validity_label} ({p.schedules_count ?? 0} sesi)
-                                            </option>
-                                        ))
-                                    )}
-                                </select>
+            <div className="bg-white border border-slate-200 rounded-md px-3.5 py-2 shadow-xs">
+                {schedulePeriods.length === 0 ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+                        <div className="flex items-center gap-2">
+                            <CalendarClock className="w-4 h-4 text-slate-400 shrink-0" />
+                            <span>
+                                Belum ada nama jadwal pada periode ini (contoh: <b>Jadwal Periode 1447</b>).
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={openCreatePeriodModal}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded transition shrink-0"
+                        >
+                            <Plus className="w-3.5 h-3.5" /> Buat Nama Jadwal
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-2.5">
+                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
+                                Jadwal:
+                            </span>
+                            <select
+                                value={selectedSchedulePeriodId}
+                                onChange={(e) => setSelectedSchedulePeriodId(e.target.value)}
+                                className="px-2.5 py-1 text-xs font-bold border border-slate-300 rounded bg-white text-slate-900 max-w-[280px] sm:max-w-[340px]"
+                            >
+                                {schedulePeriods.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.name} ({p.schedules_count ?? 0} sesi)
+                                    </option>
+                                ))}
+                            </select>
 
-                                {currentSchedulePeriod && (
+                            {currentSchedulePeriod && (
+                                <>
                                     <span
-                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold border ${
+                                        title={
+                                            !currentSchedulePeriod.is_active
+                                                ? 'Mode Draft: belum berlaku di Presensi, Jurnal & Dashboard sebelum diberlakukan'
+                                                : currentSchedulePeriod.description || currentSchedulePeriod.validity_label
+                                        }
+                                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold border shrink-0 ${
                                             currentSchedulePeriod.validity_status === 'active'
                                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                                 : currentSchedulePeriod.validity_status === 'scheduled'
@@ -965,7 +982,7 @@ export default function ScheduleKbmPage() {
                                         }`}
                                     >
                                         <span
-                                            className={`w-2 h-2 rounded-full ${
+                                            className={`w-1.5 h-1.5 rounded-full ${
                                                 currentSchedulePeriod.validity_status === 'active'
                                                     ? 'bg-emerald-500 animate-pulse'
                                                     : currentSchedulePeriod.validity_status === 'scheduled'
@@ -977,131 +994,105 @@ export default function ScheduleKbmPage() {
                                         />
                                         {currentSchedulePeriod.validity_label}
                                     </span>
-                                )}
-                            </div>
+
+                                    {(currentSchedulePeriod.effective_start_date || currentSchedulePeriod.effective_end_date) && (
+                                        <span
+                                            className="inline-flex items-center gap-1 text-[11px] text-slate-500 whitespace-nowrap"
+                                            title={currentSchedulePeriod.description || 'Masa berlaku jadwal'}
+                                        >
+                                            <CalendarClock className="w-3.5 h-3.5 text-slate-400" />
+                                            {formatShortDate(currentSchedulePeriod.effective_start_date) || '...'} s/d{' '}
+                                            {formatShortDate(currentSchedulePeriod.effective_end_date) || '...'}
+                                        </span>
+                                    )}
+                                </>
+                            )}
                         </div>
 
-                        {currentSchedulePeriod && (
-                            <div className="text-xs text-slate-600 border-l border-slate-200 pl-3 space-y-0.5">
-                                <div className="flex items-center gap-1.5 font-semibold text-slate-800">
-                                    <CalendarClock className="w-3.5 h-3.5 text-emerald-700" />
-                                    <span>
-                                        Masa Berlaku:{' '}
-                                        {currentSchedulePeriod.effective_start_date || currentSchedulePeriod.effective_end_date
-                                            ? `${formatShortDate(currentSchedulePeriod.effective_start_date) || 'Sekarang'} s/d ${formatShortDate(currentSchedulePeriod.effective_end_date) || 'Seterusnya'}`
-                                            : 'Berlaku selama berstatus aktif'}
-                                    </span>
-                                </div>
-                                {currentSchedulePeriod.description && (
-                                    <p className="text-[11px] text-slate-500 truncate max-w-md">
-                                        {currentSchedulePeriod.description}
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={openCreatePeriodModal}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0b57d0] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition"
-                        >
-                            <Plus className="w-3.5 h-3.5" /> Buat Nama Jadwal
-                        </button>
-
-                        {currentSchedulePeriod && (
-                            <>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            {currentSchedulePeriod && !currentSchedulePeriod.is_active ? (
                                 <button
                                     type="button"
-                                    onClick={() => openEditPeriodModal(currentSchedulePeriod)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded transition"
-                                    title="Edit nama & tanggal masa berlaku jadwal"
+                                    onClick={() => setPeriodConfirmAction({ type: 'activate', period: currentSchedulePeriod })}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded shadow-xs transition"
+                                    title="Aktifkan agar jadwal ini mulai berlaku untuk KBM & Presensi"
                                 >
-                                    <FileEdit className="w-3.5 h-3.5" /> Atur Masa Berlaku
+                                    <CalendarCheck className="w-3.5 h-3.5" /> Berlakukan
                                 </button>
+                            ) : currentSchedulePeriod ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setPeriodConfirmAction({ type: 'deactivate', period: currentSchedulePeriod })}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded transition"
+                                    title="Nonaktifkan jadwal agar tidak lagi berlaku"
+                                >
+                                    <Power className="w-3.5 h-3.5" /> Nonaktifkan
+                                </button>
+                            ) : null}
 
-                                {!currentSchedulePeriod.is_active ? (
-                                    <>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setResetScope('all');
-                                                setResetTargetGroupId(paginatedGroups[0]?.id ? String(paginatedGroups[0].id) : '');
-                                                setResetModalOpen(true);
-                                            }}
-                                            disabled={allSchedules.length === 0}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded transition disabled:opacity-40"
-                                            title="Kosongkan / reset susunan jadwal sebelum jadwal diberlakukan"
-                                        >
-                                            <RotateCcw className="w-3.5 h-3.5" /> Reset Jadwal
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setPeriodConfirmAction({ type: 'activate', period: currentSchedulePeriod })}
-                                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded shadow-xs transition"
-                                            title="Aktifkan agar jadwal ini mulai berlaku untuk KBM & Presensi"
-                                        >
-                                            <CalendarCheck className="w-3.5 h-3.5" /> Berlakukan Jadwal
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setPeriodConfirmAction({ type: 'delete', period: currentSchedulePeriod })}
-                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded transition"
-                                            title="Hapus draft jadwal ini"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <button
-                                            type="button"
-                                            disabled
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded cursor-not-allowed"
-                                            title="Jadwal sudah diberlakukan (aktif), sehingga tidak dapat direset"
-                                        >
-                                            <RotateCcw className="w-3.5 h-3.5" /> Reset Terkunci
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setPeriodConfirmAction({ type: 'deactivate', period: currentSchedulePeriod })}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded transition"
-                                            title="Nonaktifkan jadwal agar tidak lagi berlaku"
-                                        >
-                                            <Power className="w-3.5 h-3.5" /> Nonaktifkan
-                                        </button>
-                                    </>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                {currentSchedulePeriod && !currentSchedulePeriod.is_active && (
-                    <div className="flex items-start gap-2.5 p-2.5 rounded bg-amber-50/80 border border-amber-200 text-xs text-amber-900">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <div>
-                            <b>Mode Draft (Belum Berlaku):</b> Jadwal <b>&ldquo;{currentSchedulePeriod.name}&rdquo;</b> belum berstatus aktif sehingga <b>belum berlaku</b> pada Presensi Harian, Jurnal Mengajar, dan Dashboard. Anda dapat menyusun atau me-<b>Reset Jadwal</b> sebelum menekan <b>Berlakukan Jadwal</b>.
+                            <ActionDropdown
+                                label="Kelola"
+                                size="sm"
+                                variant="outline"
+                                items={[
+                                    {
+                                        id: 'create_period',
+                                        label: 'Buat Nama Jadwal Baru',
+                                        description: 'Buat draft jadwal baru beserta masa berlakunya',
+                                        icon: Plus,
+                                        iconColor: 'text-[#0b57d0]',
+                                        onClick: openCreatePeriodModal,
+                                    },
+                                    ...(currentSchedulePeriod
+                                        ? [
+                                              {
+                                                  id: 'edit_period',
+                                                  label: 'Atur Nama & Masa Berlaku',
+                                                  description: 'Ubah nama jadwal, tanggal berlaku, atau catatan',
+                                                  icon: FileEdit,
+                                                  iconColor: 'text-slate-700',
+                                                  onClick: () => openEditPeriodModal(currentSchedulePeriod),
+                                              },
+                                              {
+                                                  id: 'reset_period',
+                                                  label: 'Reset Jadwal',
+                                                  description: currentSchedulePeriod.is_active
+                                                      ? 'Terkunci karena jadwal sudah diberlakukan'
+                                                      : 'Kosongkan slot jadwal sebelum diberlakukan',
+                                                  icon: RotateCcw,
+                                                  iconColor: 'text-rose-600',
+                                                  badge: currentSchedulePeriod.is_active ? 'Aktif' : undefined,
+                                                  disabled: currentSchedulePeriod.is_active || allSchedules.length === 0,
+                                                  dividerBefore: true,
+                                                  onClick: () => {
+                                                      setResetScope('all');
+                                                      setResetTargetGroupId(
+                                                          paginatedGroups[0]?.id ? String(paginatedGroups[0].id) : ''
+                                                      );
+                                                      setResetModalOpen(true);
+                                                  },
+                                              },
+                                              ...(!currentSchedulePeriod.is_active
+                                                  ? [
+                                                        {
+                                                            id: 'delete_period',
+                                                            label: 'Hapus Draft Jadwal',
+                                                            description: 'Hapus nama jadwal yang belum aktif ini',
+                                                            icon: Trash2,
+                                                            danger: true,
+                                                            onClick: () =>
+                                                                setPeriodConfirmAction({
+                                                                    type: 'delete',
+                                                                    period: currentSchedulePeriod,
+                                                                }),
+                                                        },
+                                                    ]
+                                                  : []),
+                                          ]
+                                        : []),
+                                ]}
+                            />
                         </div>
-                    </div>
-                )}
-
-                {schedulePeriods.length === 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded bg-slate-50 border border-dashed border-slate-300 text-xs text-slate-600">
-                        <div>
-                            Belum ada nama jadwal pada tahun akademik &amp; periode ini. Buat jadwal baru terlebih dahulu (contoh: <b>Jadwal Periode 1447</b>).
-                        </div>
-                        <button
-                            type="button"
-                            onClick={openCreatePeriodModal}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shrink-0"
-                        >
-                            <Plus className="w-3.5 h-3.5" /> Buat Nama Jadwal Pertama
-                        </button>
                     </div>
                 )}
             </div>

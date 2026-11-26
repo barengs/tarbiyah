@@ -269,7 +269,11 @@ export default function ScheduleKbmPage() {
         scheduleParams,
         { skip: !selectedSchedulePeriodId }
     );
-    const allSchedules = schedulesData?.data || [];
+    const allSchedules = useMemo(() => {
+        if (!selectedSchedulePeriodId) return [];
+        const list = schedulesData?.data || [];
+        return list.filter((s) => String(s.schedule_period_id) === String(selectedSchedulePeriodId));
+    }, [selectedSchedulePeriodId, schedulesData]);
 
     const [createSchedule, { isLoading: isCreatingSchedule }] = useCreateScheduleMutation();
     const [updateSchedule, { isLoading: isUpdatingSchedule }] = useUpdateScheduleMutation();

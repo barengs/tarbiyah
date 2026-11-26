@@ -300,4 +300,32 @@ class SchedulePeriodValidityTest extends TestCase
             ->postJson("/api/main/schedule-periods/{$period->id}/reset")
             ->assertStatus(422);
     }
+
+    public function test_deleting_draft_schedule_period_cleans_up_its_schedule_slots(): void
+    {
+        $draft = SchedulePeriod::create([
+            'name' => 'Draft Hapus 1447',
+            'academic_year_id' => $this->year->id,
+            'academic_quarter_id' => $this->quarter->id,
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($this->admin, 'api')->postJson('/api/main/schedules', [
+            'schedule_period_id' => $draft->id,
+            'class_group_id' => $this->classGroup->id,
+            'study_id' => $this->study->id,
+            'teacher_id' => $this->teacher->id,
+            'lesson_hour_id' => $this->lessonHour->id,
+            'day' => 6,
+        ])->assertStatus(201);
+
+        $this->assertEquals(1, LessonSchedule::where('schedule_period_id', $draft->id)->count());
+
+        $this->actingAs($this->admin, 'api')
+            ->deleteJson("/api/main/schedule-periods/{$draft->id}")
+            ->assertStatus(200);
+
+        $this->assertSoftDeleted('schedule_periods', ['id' => $draft->id]);
+        $this->assertEquals(0, LessonSchedule::withTrashed()->where('schedule_period_id', $draft->id)->count());
+    }
 }

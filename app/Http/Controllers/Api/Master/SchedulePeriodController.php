@@ -438,14 +438,33 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             ], 422);
         }
 
+        DB::beginTransaction();
         try {
+            $scheduleIds = LessonSchedule::withTrashed()
+                ->where('schedule_period_id', $period->id)
+                ->pluck('id');
+
+            $hasJournals = $scheduleIds->isNotEmpty()
+                && TeachingJournal::whereIn('lesson_schedule_id', $scheduleIds)->exists();
+
+            if ($hasJournals) {
+                $period->schedules()->delete();
+            } else {
+                LessonSchedule::withTrashed()
+                    ->where('schedule_period_id', $period->id)
+                    ->forceDelete();
+            }
+
             $period->delete();
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
                 'message' => "Periode jadwal \"{$period->name}\" berhasil dihapus.",
             ], 200);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Error deleting schedule period: '.$e->getMessage());
 
             return response()->json([

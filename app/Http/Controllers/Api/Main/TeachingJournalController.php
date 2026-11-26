@@ -1153,9 +1153,11 @@ class TeachingJournalController extends Controller implements HasMiddleware
 
             $study = ! empty($validated['study_id']) ? Study::find($validated['study_id']) : null;
 
-            // Cari jadwal terkait untuk mata pelajaran ini jika ada
+            // Cari jadwal aktif yang berlaku untuk mata pelajaran ini jika ada
             $schedule = LessonSchedule::with(['teacher', 'lessonHour'])
                 ->where('class_group_id', $classGroup->id)
+                ->where('is_active', true)
+                ->fromActivePeriod()
                 ->when($study, function ($q) use ($study) {
                     $q->where('study_id', $study->id);
                 })
@@ -1320,23 +1322,23 @@ class TeachingJournalController extends Controller implements HasMiddleware
 
             // Loop setiap hari yang diproses
             foreach ($targetDays as $dayId) {
-                // Ambil jadwal pelajaran aktif untuk rombel di hari ini
+                // Hitung tanggal riil untuk hari tersebut relatif terhadap pekan refDate
+                // (Sabtu awal pekan sampai Kamis akhir pekan)
+                $kbmDate = $validated['mode'] === 'daily'
+                    ? $refDate->format('Y-m-d')
+                    : $refDate->copy()->startOfWeek(Carbon::SATURDAY)->addDays(($dayId == 6 ? 0 : ($dayId == 7 ? 1 : $dayId + 1)))->format('Y-m-d');
+
+                // Ambil jadwal pelajaran aktif & berlaku untuk rombel di hari & tanggal ini
                 $schedules = LessonSchedule::where('class_group_id', $classGroup->id)
                     ->where('day', $dayId)
+                    ->where('is_active', true)
+                    ->fromActivePeriod($kbmDate)
                     ->with('lessonHour')
                     ->get();
 
                 if ($schedules->isEmpty()) {
                     continue;
                 }
-
-                // Hitung tanggal riil untuk hari tersebut relatif terhadap pekan refDate
-                // (Sabtu awal pekan sampai Kamis akhir pekan)
-                $currentDayOfWeek = $refDate->dayOfWeekIso; // 1=Mon..7=Sun
-                // Kita gunakan tanggal refDate jika daily, atau hitung offset jika weekly
-                $kbmDate = $validated['mode'] === 'daily'
-                    ? $refDate->format('Y-m-d')
-                    : $refDate->copy()->startOfWeek(Carbon::SATURDAY)->addDays(($dayId == 6 ? 0 : ($dayId == 7 ? 1 : $dayId + 1)))->format('Y-m-d');
 
                 // Loop setiap jadwal KBM (misal Jam 1 s.d Jam 6)
                 foreach ($schedules as $sched) {
@@ -1461,11 +1463,12 @@ class TeachingJournalController extends Controller implements HasMiddleware
             ];
             $dayName = $dayNames[$dayNumber] ?? 'Hari Belajar';
 
-            // Ambil seluruh jadwal aktif rombel untuk hari tersebut urut berdasarkan jam (order)
+            // Ambil seluruh jadwal aktif & berlaku untuk rombel pada tanggal & hari tersebut urut berdasarkan jam (order)
             $schedules = LessonSchedule::with(['lessonHour', 'study', 'teacher'])
                 ->where('class_group_id', $classGroup->id)
-                ->where('day', $dayNumber)
+                    ->where('day', $dayNumber)
                 ->where('is_active', true)
+                ->fromActivePeriod($refDate->format('Y-m-d'))
                 ->get()
                 ->sortBy(fn ($s) => $s->lessonHour->order ?? 0)
                 ->values();
@@ -1592,10 +1595,12 @@ class TeachingJournalController extends Controller implements HasMiddleware
             $refDate = Carbon::parse($validated['date']);
             $academicYearId = $classGroup->academic_year_id ?? 1;
 
-            // Dapatkan seluruh jadwal aktif untuk rombel ini di hari tersebut
+            // Dapatkan seluruh jadwal aktif & berlaku untuk rombel ini pada tanggal tersebut
             $isoDay = $refDate->dayOfWeekIso;
             $schedules = LessonSchedule::where('class_group_id', $classGroup->id)
                 ->where('day', $isoDay)
+                ->where('is_active', true)
+                ->fromActivePeriod($refDate->format('Y-m-d'))
                 ->with(['lessonHour', 'study'])
                 ->get()
                 ->keyBy('lesson_hour_id');
@@ -1741,7 +1746,7 @@ class TeachingJournalController extends Controller implements HasMiddleware
                 $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
                 $targetQuarterId = $request->query('academic_quarter_id') ?: $request->header('X-Academic-Quarter-Id');
 
-                // Jadwal pada hari tersebut sesuai tahun akademik & triwulan
+                // Jadwal pada hari tersebut sesuai tahun akademik, triwulan, dan periode jadwal yang aktif & berlaku
                 $schedules = LessonSchedule::with(['lessonHour', 'study', 'teacher'])
                     ->where('class_group_id', $classGroup->id)
                     ->when($targetYearId, fn ($q) => $q->where('academic_year_id', $targetYearId))
@@ -1751,6 +1756,7 @@ class TeachingJournalController extends Controller implements HasMiddleware
                     }))
                     ->where('day', $isoDay)
                     ->where('is_active', true)
+                    ->fromActivePeriod($curDateStr)
                     ->get()
                     ->sortBy(fn ($s) => $s->lessonHour->order ?? 0)
                     ->values();

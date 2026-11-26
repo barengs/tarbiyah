@@ -21,6 +21,8 @@ export default function PrintScheduleModal({
     academicYear = '',
     quarterName = '',
     selectedEducation = 'all',
+    scheduleName = '',
+    effectivePeriodText = '',
 }) {
     // Scope cetak: 'current' | 'filtered' | 'all'
     const [printScope, setPrintScope] = useState(currentGroup ? 'current' : 'filtered');
@@ -43,6 +45,8 @@ export default function PrintScheduleModal({
     const meta = {
         academicYear: academicYear || '1446/1447 H',
         quarterName: quarterName || 'Triwulan IV (Syawal - Dzulhijjah)',
+        scheduleName,
+        effectivePeriodText,
     };
 
     // Fungsi membuat instance jsPDF

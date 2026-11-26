@@ -40,6 +40,21 @@ class LessonSchedule extends Model
         return $this->belongsTo(AcademicQuarter::class);
     }
 
+    public function schedulePeriod()
+    {
+        return $this->belongsTo(SchedulePeriod::class, 'schedule_period_id');
+    }
+
+    /**
+     * Scope jadwal yang termasuk dalam periode jadwal aktif dan sedang berlaku.
+     */
+    public function scopeFromActivePeriod($query, ?string $date = null)
+    {
+        return $query->whereHas('schedulePeriod', function ($q) use ($date) {
+            $q->effective($date);
+        });
+    }
+
     public function classGroup()
     {
         return $this->belongsTo(ClassGroup::class, 'class_group_id');

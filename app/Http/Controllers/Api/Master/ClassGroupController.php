@@ -182,6 +182,7 @@ class ClassGroupController extends Controller implements HasMiddleware
             'studentClasses.student',
             'subjects.study',
             'subjects.teacher',
+            'schedules' => fn ($q) => $q->where('is_active', true)->fromActivePeriod(),
             'schedules.study',
             'schedules.teacher',
             'schedules.lessonHour',

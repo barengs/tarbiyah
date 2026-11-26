@@ -13,7 +13,13 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Perluas opsi enum progression_type agar menyertakan 'triwulan' (standar pondok pesantren)
-        DB::statement("ALTER TABLE educational_institutions MODIFY COLUMN progression_type ENUM('triwulan', 'semester', 'leveling') NOT NULL DEFAULT 'triwulan'");
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('educational_institutions', function (Blueprint $table) {
+                $table->string('progression_type', 30)->default('triwulan')->change();
+            });
+        } else {
+            DB::statement("ALTER TABLE educational_institutions MODIFY COLUMN progression_type ENUM('triwulan', 'semester', 'leveling') NOT NULL DEFAULT 'triwulan'");
+        }
 
         // 2. Tambah kolom letterhead (kop surat resmi lembaga) setelah kolom logo
         Schema::table('educational_institutions', function (Blueprint $table) {
@@ -39,7 +45,13 @@ return new class extends Migration
             }
         });
 
-        DB::statement("ALTER TABLE educational_institutions MODIFY COLUMN progression_type ENUM('semester', 'leveling') NOT NULL DEFAULT 'semester'");
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('educational_institutions', function (Blueprint $table) {
+                $table->string('progression_type', 30)->default('semester')->change();
+            });
+        } else {
+            DB::statement("ALTER TABLE educational_institutions MODIFY COLUMN progression_type ENUM('semester', 'leveling') NOT NULL DEFAULT 'semester'");
+        }
     }
 };
 

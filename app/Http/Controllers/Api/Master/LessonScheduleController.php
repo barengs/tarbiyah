@@ -8,6 +8,7 @@ use App\Models\AcademicYear;
 use App\Models\ClassGroup;
 use App\Models\Education;
 use App\Models\LessonSchedule;
+use App\Models\SchedulePeriod;
 use App\Models\Study;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -35,6 +36,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
             $query = LessonSchedule::with([
                 'academicYear',
                 'academicQuarter',
+                'schedulePeriod',
                 'classGroup.program',
                 'classGroup.educationalInstitution',
                 'classGroup.education',
@@ -49,17 +51,27 @@ class LessonScheduleController extends Controller implements HasMiddleware
                 $query->whereHas('classGroup', fn ($cg) => $cg->where('program_id', $userProgramId));
             }
 
-            $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
-            if ($targetYearId) {
-                $query->where('lesson_schedules.academic_year_id', $targetYearId);
-            }
+            $schedulePeriodId = $request->query('schedule_period_id');
+            if ($schedulePeriodId) {
+                $query->where('lesson_schedules.schedule_period_id', $schedulePeriodId);
+            } else {
+                $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
+                if ($targetYearId) {
+                    $query->where('lesson_schedules.academic_year_id', $targetYearId);
+                }
 
-            $targetQuarterId = $request->query('academic_quarter_id') ?: $request->header('X-Academic-Quarter-Id');
-            if ($targetQuarterId) {
-                $query->where(function ($q) use ($targetQuarterId) {
-                    $q->where('lesson_schedules.academic_quarter_id', $targetQuarterId)
-                        ->orWhereNull('lesson_schedules.academic_quarter_id');
-                });
+                $targetQuarterId = $request->query('academic_quarter_id') ?: $request->header('X-Academic-Quarter-Id');
+                if ($targetQuarterId) {
+                    $query->where(function ($q) use ($targetQuarterId) {
+                        $q->where('lesson_schedules.academic_quarter_id', $targetQuarterId)
+                            ->orWhereNull('lesson_schedules.academic_quarter_id');
+                    });
+                }
+
+                // Tanpa schedule_period_id spesifik, hanya tampilkan jadwal yang aktif & sedang berlaku kecuali diminta semua
+                if (! $request->boolean('all_periods')) {
+                    $query->fromActivePeriod();
+                }
             }
 
             if ($request->has('class_group_id') && $request->query('class_group_id')) {
@@ -98,7 +110,8 @@ class LessonScheduleController extends Controller implements HasMiddleware
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'academic_year_id' => 'required|exists:academic_years,id',
+            'schedule_period_id' => 'nullable|exists:schedule_periods,id',
+            'academic_year_id' => 'required_without:schedule_period_id|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
             'class_group_id' => 'required|exists:class_groups,id',
             'study_id' => 'required|exists:studies,id',
@@ -109,11 +122,36 @@ class LessonScheduleController extends Controller implements HasMiddleware
             'is_active' => 'nullable|boolean',
         ]);
 
-        if (empty($validated['academic_quarter_id'])) {
-            $activeQuarter = AcademicQuarter::where('academic_year_id', $validated['academic_year_id'])
-                ->where('active', true)
-                ->first() ?? AcademicQuarter::where('academic_year_id', $validated['academic_year_id'])->first();
-            $validated['academic_quarter_id'] = $activeQuarter?->id;
+        if (! empty($validated['schedule_period_id'])) {
+            $period = SchedulePeriod::findOrFail($validated['schedule_period_id']);
+            $validated['academic_year_id'] = $period->academic_year_id;
+            $validated['academic_quarter_id'] = $period->academic_quarter_id ?? ($validated['academic_quarter_id'] ?? null);
+        } else {
+            if (empty($validated['academic_quarter_id'])) {
+                $activeQuarter = AcademicQuarter::where('academic_year_id', $validated['academic_year_id'])
+                    ->where('active', true)
+                    ->first() ?? AcademicQuarter::where('academic_year_id', $validated['academic_year_id'])->first();
+                $validated['academic_quarter_id'] = $activeQuarter?->id;
+            }
+
+            $period = SchedulePeriod::where('academic_year_id', $validated['academic_year_id'])
+                ->when($validated['academic_quarter_id'], fn ($q, $qid) => $q->where('academic_quarter_id', $qid))
+                ->orderByDesc('is_active')
+                ->orderByDesc('id')
+                ->first();
+
+            if (! $period) {
+                $yearObj = AcademicYear::find($validated['academic_year_id']);
+                $period = SchedulePeriod::create([
+                    'academic_year_id' => $validated['academic_year_id'],
+                    'academic_quarter_id' => $validated['academic_quarter_id'],
+                    'name' => 'Jadwal Periode '.($yearObj?->year ?? $validated['academic_year_id']),
+                    'is_active' => false,
+                    'created_by' => auth('api')->id(),
+                ]);
+            }
+
+            $validated['schedule_period_id'] = $period->id;
         }
 
         // Cek 0: Mata Pelajaran Muatan Lokal (Non-Kelas) tidak boleh masuk ke jadwal pelajaran KBM
@@ -125,11 +163,8 @@ class LessonScheduleController extends Controller implements HasMiddleware
             ], 422);
         }
 
-        // Cek 1: Apakah rombel sudah memiliki jadwal di hari & jam tersebut pada periode ini?
-        $clashGroup = LessonSchedule::where('academic_year_id', $validated['academic_year_id'])
-            ->when($validated['academic_quarter_id'], function ($q, $qId) {
-                $q->where('academic_quarter_id', $qId);
-            })
+        // Cek 1: Apakah rombel sudah memiliki jadwal di hari & jam tersebut pada nama jadwal ini?
+        $clashGroup = LessonSchedule::where('schedule_period_id', $validated['schedule_period_id'])
             ->where('class_group_id', $validated['class_group_id'])
             ->where('day', $validated['day'])
             ->where('lesson_hour_id', $validated['lesson_hour_id'])
@@ -138,15 +173,12 @@ class LessonScheduleController extends Controller implements HasMiddleware
         if ($clashGroup) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Rombel ini sudah memiliki mata pelajaran pada hari dan jam tersebut di periode ini',
+                'message' => 'Rombel ini sudah memiliki mata pelajaran pada hari dan jam tersebut di jadwal ini',
             ], 422);
         }
 
-        // Cek 2: Apakah guru sedang mengajar di rombel lain pada hari & jam tersebut pada periode ini?
-        $clashTeacher = LessonSchedule::where('academic_year_id', $validated['academic_year_id'])
-            ->when($validated['academic_quarter_id'], function ($q, $qId) {
-                $q->where('academic_quarter_id', $qId);
-            })
+        // Cek 2: Apakah guru sedang mengajar di rombel lain pada hari & jam tersebut pada nama jadwal ini?
+        $clashTeacher = LessonSchedule::where('schedule_period_id', $validated['schedule_period_id'])
             ->where('teacher_id', $validated['teacher_id'])
             ->where('day', $validated['day'])
             ->where('lesson_hour_id', $validated['lesson_hour_id'])
@@ -155,17 +187,25 @@ class LessonScheduleController extends Controller implements HasMiddleware
         if ($clashTeacher) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Guru tersebut sudah terjadwal mengajar di rombel lain pada hari dan jam yang sama di periode ini',
+                'message' => 'Guru tersebut sudah terjadwal mengajar di rombel lain pada hari dan jam yang sama di jadwal ini',
             ], 422);
         }
 
         try {
+            // Bersihkan sisa soft-deleted slot yang identik agar tidak bentrok dengan unique constraint
+            LessonSchedule::onlyTrashed()
+                ->where('schedule_period_id', $validated['schedule_period_id'])
+                ->where('class_group_id', $validated['class_group_id'])
+                ->where('day', $validated['day'])
+                ->where('lesson_hour_id', $validated['lesson_hour_id'])
+                ->forceDelete();
+
             $schedule = LessonSchedule::create($validated);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Jadwal pelajaran berhasil ditambahkan',
-                'data' => $schedule->load(['academicQuarter', 'classGroup', 'study', 'teacher', 'lessonHour']),
+                'data' => $schedule->load(['academicQuarter', 'schedulePeriod', 'classGroup', 'study', 'teacher', 'lessonHour']),
             ], 201);
         } catch (\Exception $e) {
             Log::error('Error creating schedule: '.$e->getMessage());
@@ -182,6 +222,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
         $schedule = LessonSchedule::with([
             'academicYear',
             'academicQuarter',
+            'schedulePeriod',
             'classGroup',
             'study',
             'teacher',
@@ -226,6 +267,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
             'is_active' => 'nullable|boolean',
         ]);
 
+        $targetPeriodId = $schedule->schedule_period_id;
         $targetYearId = $validated['academic_year_id'] ?? $schedule->academic_year_id;
         $targetQuarterId = array_key_exists('academic_quarter_id', $validated)
             ? $validated['academic_quarter_id']
@@ -245,11 +287,11 @@ class LessonScheduleController extends Controller implements HasMiddleware
             ], 422);
         }
 
-        // Cek 1: Apakah rombel sudah memiliki jadwal lain di hari & jam tersebut pada periode ini?
+        // Cek 1: Apakah rombel sudah memiliki jadwal lain di hari & jam tersebut pada periode jadwal ini?
         $clashGroup = LessonSchedule::where('id', '!=', $schedule->id)
-            ->where('academic_year_id', $targetYearId)
-            ->when($targetQuarterId, function ($q, $qId) {
-                $q->where('academic_quarter_id', $qId);
+            ->when($targetPeriodId, fn ($q, $pid) => $q->where('schedule_period_id', $pid), function ($q) use ($targetYearId, $targetQuarterId) {
+                $q->where('academic_year_id', $targetYearId)
+                    ->when($targetQuarterId, fn ($sq, $qId) => $sq->where('academic_quarter_id', $qId));
             })
             ->where('class_group_id', $targetGroupId)
             ->where('day', $targetDay)
@@ -259,15 +301,15 @@ class LessonScheduleController extends Controller implements HasMiddleware
         if ($clashGroup) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Rombel ini sudah memiliki mata pelajaran lain pada hari dan jam tersebut di periode ini',
+                'message' => 'Rombel ini sudah memiliki mata pelajaran lain pada hari dan jam tersebut di jadwal ini',
             ], 422);
         }
 
-        // Cek 2: Apakah guru sedang mengajar di rombel lain pada hari & jam tersebut pada periode ini?
+        // Cek 2: Apakah guru sedang mengajar di rombel lain pada hari & jam tersebut pada periode jadwal ini?
         $clashTeacher = LessonSchedule::where('id', '!=', $schedule->id)
-            ->where('academic_year_id', $targetYearId)
-            ->when($targetQuarterId, function ($q, $qId) {
-                $q->where('academic_quarter_id', $qId);
+            ->when($targetPeriodId, fn ($q, $pid) => $q->where('schedule_period_id', $pid), function ($q) use ($targetYearId, $targetQuarterId) {
+                $q->where('academic_year_id', $targetYearId)
+                    ->when($targetQuarterId, fn ($sq, $qId) => $sq->where('academic_quarter_id', $qId));
             })
             ->where('teacher_id', $targetTeacherId)
             ->where('day', $targetDay)
@@ -277,11 +319,20 @@ class LessonScheduleController extends Controller implements HasMiddleware
         if ($clashTeacher) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Guru tersebut sudah terjadwal mengajar di rombel lain pada hari dan jam yang sama di periode ini',
+                'message' => 'Guru tersebut sudah terjadwal mengajar di rombel lain pada hari dan jam yang sama di jadwal ini',
             ], 422);
         }
 
         try {
+            if ($targetPeriodId) {
+                LessonSchedule::onlyTrashed()
+                    ->where('schedule_period_id', $targetPeriodId)
+                    ->where('class_group_id', $targetGroupId)
+                    ->where('day', $targetDay)
+                    ->where('lesson_hour_id', $targetHourId)
+                    ->forceDelete();
+            }
+
             $schedule->update($validated);
 
             return response()->json([
@@ -290,6 +341,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                 'data' => $schedule->fresh([
                     'academicYear',
                     'academicQuarter',
+                    'schedulePeriod',
                     'classGroup.program',
                     'classGroup.educationalInstitution',
                     'classGroup.education',
@@ -347,7 +399,12 @@ class LessonScheduleController extends Controller implements HasMiddleware
         $validated = $request->validate([
             'academic_year_id' => 'required|exists:academic_years,id',
             'from_quarter_id' => 'required|exists:academic_quarters,id',
-            'to_quarter_id' => 'required|exists:academic_quarters,id|different:from_quarter_id',
+            'to_quarter_id' => 'required|exists:academic_quarters,id',
+            'from_schedule_period_id' => 'nullable|exists:schedule_periods,id',
+            'to_schedule_period_id' => 'nullable|exists:schedule_periods,id',
+            'new_schedule_name' => 'nullable|string|max:150',
+            'effective_start_date' => 'nullable|date',
+            'effective_end_date' => 'nullable|date|after_or_equal:effective_start_date',
             'education_id' => 'nullable',
             'target_academic_year_id' => 'nullable|exists:academic_years,id',
             'mode' => 'nullable|in:overwrite,skip_existing',
@@ -359,6 +416,18 @@ class LessonScheduleController extends Controller implements HasMiddleware
         $toQuarterId = $validated['to_quarter_id'];
         $educationId = $validated['education_id'] ?? null;
         $mode = $validated['mode'] ?? 'overwrite';
+
+        if (
+            (int) $fromQuarterId === (int) $toQuarterId &&
+            (int) $sourceYearId === (int) $targetYearId &&
+            empty($validated['to_schedule_period_id']) &&
+            empty($validated['new_schedule_name'])
+        ) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Pilih periode tujuan yang berbeda atau buat nama jadwal baru.',
+            ], 422);
+        }
 
         // Validasi keberadaan periode
         $fromQuarter = AcademicQuarter::where('id', $fromQuarterId)->where('academic_year_id', $sourceYearId)->first();
@@ -394,9 +463,19 @@ class LessonScheduleController extends Controller implements HasMiddleware
             ], 404);
         }
 
-        // Ambil jadwal sumber
+        // Ambil jadwal sumber (prioritaskan from_schedule_period_id jika disediakan, atau periode aktif/terbaru di quarter asal)
+        $fromSchedulePeriodId = $validated['from_schedule_period_id'] ?? null;
+        if (! $fromSchedulePeriodId) {
+            $fromSchedulePeriodId = SchedulePeriod::where('academic_year_id', $sourceYearId)
+                ->where('academic_quarter_id', $fromQuarterId)
+                ->orderByDesc('is_active')
+                ->orderByDesc('id')
+                ->value('id');
+        }
+
         $sourceSchedules = LessonSchedule::where('academic_year_id', $sourceYearId)
             ->where('academic_quarter_id', $fromQuarterId)
+            ->when($fromSchedulePeriodId, fn ($q, $pid) => $q->where('schedule_period_id', $pid))
             ->whereIn('class_group_id', $sourceGroupIds)
             ->get();
 
@@ -409,6 +488,43 @@ class LessonScheduleController extends Controller implements HasMiddleware
 
         DB::beginTransaction();
         try {
+            // Tentukan / buat SchedulePeriod tujuan (default berstatus Draft / Belum Berlaku jika baru)
+            $targetSchedulePeriod = null;
+            if (! empty($validated['to_schedule_period_id'])) {
+                $targetSchedulePeriod = SchedulePeriod::findOrFail($validated['to_schedule_period_id']);
+            } elseif (! empty($validated['new_schedule_name'])) {
+                $targetSchedulePeriod = SchedulePeriod::create([
+                    'academic_year_id' => $targetYearId,
+                    'academic_quarter_id' => $toQuarterId,
+                    'name' => trim($validated['new_schedule_name']),
+                    'description' => "Salinan jadwal dari {$fromQuarter->name}",
+                    'effective_start_date' => $validated['effective_start_date'] ?? null,
+                    'effective_end_date' => $validated['effective_end_date'] ?? null,
+                    'is_active' => false,
+                    'created_by' => auth('api')->id(),
+                ]);
+            } else {
+                $targetSchedulePeriod = SchedulePeriod::where('academic_year_id', $targetYearId)
+                    ->where('academic_quarter_id', $toQuarterId)
+                    ->orderByDesc('is_active')
+                    ->orderByDesc('id')
+                    ->first();
+
+                if (! $targetSchedulePeriod) {
+                    $targetYearObj = AcademicYear::find($targetYearId);
+                    $targetSchedulePeriod = SchedulePeriod::create([
+                        'academic_year_id' => $targetYearId,
+                        'academic_quarter_id' => $toQuarterId,
+                        'name' => 'Jadwal '.($targetYearObj?->year ?? $targetYearId).' - '.$toQuarter->name,
+                        'description' => "Salinan jadwal dari {$fromQuarter->name}",
+                        'effective_start_date' => $validated['effective_start_date'] ?? null,
+                        'effective_end_date' => $validated['effective_end_date'] ?? null,
+                        'is_active' => false,
+                        'created_by' => auth('api')->id(),
+                    ]);
+                }
+            }
+
             $copiedCount = 0;
             $updatedCount = 0;
             $skippedCount = 0;
@@ -460,8 +576,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                     continue;
                 }
 
-                $existing = LessonSchedule::where('academic_year_id', $targetYearId)
-                    ->where('academic_quarter_id', $toQuarterId)
+                $existing = LessonSchedule::where('schedule_period_id', $targetSchedulePeriod->id)
                     ->where('class_group_id', $targetGroupId)
                     ->where('day', $source->day)
                     ->where('lesson_hour_id', $source->lesson_hour_id)
@@ -480,9 +595,17 @@ class LessonScheduleController extends Controller implements HasMiddleware
                         $skippedCount++;
                     }
                 } else {
+                    LessonSchedule::onlyTrashed()
+                        ->where('schedule_period_id', $targetSchedulePeriod->id)
+                        ->where('class_group_id', $targetGroupId)
+                        ->where('day', $source->day)
+                        ->where('lesson_hour_id', $source->lesson_hour_id)
+                        ->forceDelete();
+
                     LessonSchedule::create([
                         'academic_year_id' => $targetYearId,
                         'academic_quarter_id' => $toQuarterId,
+                        'schedule_period_id' => $targetSchedulePeriod->id,
                         'class_group_id' => $targetGroupId,
                         'study_id' => $source->study_id,
                         'teacher_id' => $source->teacher_id,
@@ -510,7 +633,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
 
             return response()->json([
                 'status' => 'success',
-                'message' => "Jadwal {$eduName} berhasil disalin dari {$fromQuarter->name} ke {$toQuarter->name}",
+                'message' => "Jadwal {$eduName} berhasil disalin ke \"{$targetSchedulePeriod->name}\" ({$toQuarter->name})",
                 'data' => [
                     'copied' => $copiedCount,
                     'overwritten' => $updatedCount,
@@ -519,6 +642,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                     'from_quarter' => $fromQuarter->name,
                     'to_quarter' => $toQuarter->name,
                     'education' => $eduName,
+                    'target_schedule_period' => $targetSchedulePeriod->fresh(['academicYear', 'academicQuarter'])->loadCount('schedules'),
                 ],
             ], 200);
         } catch (\Exception $e) {
@@ -534,7 +658,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
 
     /**
      * Salin jadwal seluruh jenjang (atau jenjang tertentu) ke tahun akademik berikutnya.
-     * Otomatis membuat rombel di tahun tujuan jika belum ada.
+     * Otomatis membuat rombel di tahun tujuan jika belum ada, dan menyimpan hasil salinan sebagai draft.
      */
     public function copyAcademicYear(Request $request)
     {
@@ -544,6 +668,10 @@ class LessonScheduleController extends Controller implements HasMiddleware
             'education_id' => 'nullable',
             'from_quarter_id' => 'nullable|exists:academic_quarters,id',
             'to_quarter_id' => 'nullable|exists:academic_quarters,id',
+            'from_schedule_period_id' => 'nullable|exists:schedule_periods,id',
+            'new_schedule_name' => 'nullable|string|max:150',
+            'effective_start_date' => 'nullable|date',
+            'effective_end_date' => 'nullable|date|after_or_equal:effective_start_date',
             'auto_create_class_groups' => 'nullable|boolean',
             'mode' => 'nullable|in:overwrite,skip_existing',
         ]);
@@ -604,6 +732,26 @@ class LessonScheduleController extends Controller implements HasMiddleware
             ], 404);
         }
 
+        // Ambil jadwal sumber
+        $schedulesQuery = LessonSchedule::where('academic_year_id', $fromYearId)
+            ->whereIn('class_group_id', $sourceGroups->pluck('id'));
+
+        if (! empty($validated['from_schedule_period_id'])) {
+            $schedulesQuery->where('schedule_period_id', $validated['from_schedule_period_id']);
+        }
+        if (! empty($validated['from_quarter_id'])) {
+            $schedulesQuery->where('academic_quarter_id', $validated['from_quarter_id']);
+        }
+
+        $sourceSchedules = $schedulesQuery->get();
+
+        if ($sourceSchedules->isEmpty()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Tidak ditemukan jadwal untuk disalin pada tahun akademik {$fromYear->year}.",
+            ], 404);
+        }
+
         DB::beginTransaction();
         try {
             $groupMap = [];
@@ -644,23 +792,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                 }
             }
 
-            // Ambil jadwal sumber
-            $schedulesQuery = LessonSchedule::where('academic_year_id', $fromYearId)
-                ->whereIn('class_group_id', $sourceGroups->pluck('id'));
-
-            if (! empty($validated['from_quarter_id'])) {
-                $schedulesQuery->where('academic_quarter_id', $validated['from_quarter_id']);
-            }
-
-            $sourceSchedules = $schedulesQuery->get();
-
-            if ($sourceSchedules->isEmpty()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => "Tidak ditemukan jadwal untuk disalin pada tahun akademik {$fromYear->year}.",
-                ], 404);
-            }
-
+            $targetPeriodCache = [];
             $copiedCount = 0;
             $updatedCount = 0;
             $skippedCount = 0;
@@ -674,9 +806,38 @@ class LessonScheduleController extends Controller implements HasMiddleware
                 }
 
                 $targetQuarterId = $quarterMap[$source->academic_quarter_id] ?? $toQuarters->first()?->id;
+                $cacheKey = (string) ($targetQuarterId ?? 'year');
 
-                $existing = LessonSchedule::where('academic_year_id', $toYearId)
-                    ->when($targetQuarterId, fn ($q, $qid) => $q->where('academic_quarter_id', $qid))
+                if (! isset($targetPeriodCache[$cacheKey])) {
+                    $targetQ = $targetQuarterId ? $toQuarters->firstWhere('id', $targetQuarterId) : null;
+                    $defaultName = ! empty($validated['new_schedule_name'])
+                        ? trim($validated['new_schedule_name']).($targetQ ? " ({$targetQ->name})" : '')
+                        : "Jadwal Periode {$toYear->year}".($targetQ ? " - {$targetQ->name}" : '');
+
+                    $tp = SchedulePeriod::where('academic_year_id', $toYearId)
+                        ->when($targetQuarterId, fn ($q, $qid) => $q->where('academic_quarter_id', $qid))
+                        ->when(! empty($validated['new_schedule_name']), fn ($q) => $q->where('name', mb_substr($defaultName, 0, 150)))
+                        ->orderByDesc('id')
+                        ->first();
+
+                    if (! $tp) {
+                        $tp = SchedulePeriod::create([
+                            'academic_year_id' => $toYearId,
+                            'academic_quarter_id' => $targetQuarterId,
+                            'name' => mb_substr($defaultName, 0, 150),
+                            'description' => "Salinan jadwal dari tahun akademik {$fromYear->year}",
+                            'effective_start_date' => $validated['effective_start_date'] ?? null,
+                            'effective_end_date' => $validated['effective_end_date'] ?? null,
+                            'is_active' => false,
+                            'created_by' => auth('api')->id(),
+                        ]);
+                    }
+                    $targetPeriodCache[$cacheKey] = $tp;
+                }
+
+                $targetPeriod = $targetPeriodCache[$cacheKey];
+
+                $existing = LessonSchedule::where('schedule_period_id', $targetPeriod->id)
                     ->where('class_group_id', $targetGroupId)
                     ->where('day', $source->day)
                     ->where('lesson_hour_id', $source->lesson_hour_id)
@@ -695,9 +856,17 @@ class LessonScheduleController extends Controller implements HasMiddleware
                         $skippedCount++;
                     }
                 } else {
+                    LessonSchedule::onlyTrashed()
+                        ->where('schedule_period_id', $targetPeriod->id)
+                        ->where('class_group_id', $targetGroupId)
+                        ->where('day', $source->day)
+                        ->where('lesson_hour_id', $source->lesson_hour_id)
+                        ->forceDelete();
+
                     LessonSchedule::create([
                         'academic_year_id' => $toYearId,
                         'academic_quarter_id' => $targetQuarterId,
+                        'schedule_period_id' => $targetPeriod->id,
                         'class_group_id' => $targetGroupId,
                         'study_id' => $source->study_id,
                         'teacher_id' => $source->teacher_id,
@@ -714,7 +883,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
 
             return response()->json([
                 'status' => 'success',
-                'message' => "Berhasil menyalin jadwal dari {$fromYear->year} ke {$toYear->year}",
+                'message' => "Berhasil menyalin jadwal dari {$fromYear->year} ke {$toYear->year} (status draft hingga diaktifkan)",
                 'data' => [
                     'from_year' => $fromYear->year,
                     'to_year' => $toYear->year,

@@ -140,6 +140,7 @@ class TeacherController extends Controller implements HasMiddleware
             'studies.educationalInstitution',
             'homeroomClassGroups.education',
             'homeroomClassGroups.academicYear',
+            'schedules' => fn ($q) => $q->where('is_active', true)->fromActivePeriod(),
             'schedules.study',
             'schedules.classGroup.education',
             'schedules.lessonHour',

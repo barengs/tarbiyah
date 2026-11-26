@@ -63,11 +63,18 @@ function drawGroupHeaderInfo(doc, group, meta, startY, pageWidth) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(71, 85, 105);
-    const subtitle = `Tahun Akademik: ${meta.academicYear || '-'} • Periode: ${meta.quarterName || '-'}`;
+    const scheduleLabel = meta.scheduleName ? ` • ${meta.scheduleName}` : '';
+    const subtitle = `Tahun Akademik: ${meta.academicYear || '-'} • Periode: ${meta.quarterName || '-'}${scheduleLabel}`;
     doc.text(subtitle, pageWidth / 2, startY + 13, { align: 'center' });
 
+    if (meta.effectivePeriodText) {
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(meta.effectivePeriodText, pageWidth / 2, startY + 23, { align: 'center' });
+    }
+
     // Kotak Info Rombel & Jenjang
-    const boxY = startY + 22;
+    const boxY = startY + (meta.effectivePeriodText ? 30 : 22);
     const boxWidth = pageWidth - 72;
     const boxHeight = 32;
 

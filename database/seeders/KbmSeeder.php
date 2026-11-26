@@ -53,9 +53,28 @@ class KbmSeeder extends Seeder
         $sArab    = Study::where('name', 'like', '%Arab%')->first() ?? $studies->first();
         $sHadits  = Study::where('name', 'like', '%Hadits%')->orWhere('name', 'like', '%Hadis%')->first() ?? $studies->first();
 
+        // Buat atau perbarui periode jadwal aktif untuk tahun akademik & caturwulan aktif
+        $schedulePeriod = \App\Models\SchedulePeriod::updateOrCreate(
+            [
+                'academic_year_id' => $tahun->id,
+                'academic_quarter_id' => $quarter?->id,
+                'name' => 'Jadwal Periode '.$tahun->year.($quarter ? ' - '.$quarter->name : ''),
+            ],
+            [
+                'description' => 'Jadwal KBM hasil seeder awal',
+                'effective_start_date' => $quarter?->start_date ?? $tahun->start_date,
+                'effective_end_date' => $quarter?->end_date ?? $tahun->end_date,
+                'is_active' => true,
+                'activated_at' => now(),
+            ]
+        );
+
         // Hapus jadwal rombel untuk dimuat ulang
         foreach ($rombels as $rombel) {
-            LessonSchedule::where('class_group_id', $rombel->id)->forceDelete();
+            LessonSchedule::withTrashed()
+                ->where('schedule_period_id', $schedulePeriod->id)
+                ->where('class_group_id', $rombel->id)
+                ->forceDelete();
         }
 
         $scheduleTemplates = [];
@@ -112,6 +131,7 @@ class KbmSeeder extends Seeder
                 LessonSchedule::create([
                     'academic_year_id'    => $tahun->id,
                     'academic_quarter_id' => $quarter?->id,
+                    'schedule_period_id'  => $schedulePeriod->id,
                     'class_group_id'      => $rombel->id,
                     'study_id'            => $study->id,
                     'teacher_id'          => $teacher->id,

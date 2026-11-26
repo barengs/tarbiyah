@@ -410,8 +410,9 @@ class DashboardController extends Controller
         $avgKkm = Study::where('is_active', true)->tap($studyScope)->avg('kkm') ?? 80.0;
 
         // 9. JADWAL KBM / HALAQAH AKTIF
-        $scheduleQuery = LessonSchedule::with(['classGroup', 'study', 'teacher', 'lessonHour', 'classroom'])
+        $scheduleQuery = LessonSchedule::with(['classGroup', 'study', 'teacher', 'lessonHour', 'classroom', 'schedulePeriod'])
             ->where('is_active', true)
+            ->fromActivePeriod()
             ->when($userProgramId, fn ($q) => $q->whereHas('classGroup', fn ($cg) => $cg->where('program_id', $userProgramId)));
         if ($selectedYear) {
             $scheduleQuery->where('academic_year_id', $selectedYear->id);

@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Master\EducationTypeController;
 use App\Http\Controllers\Api\Master\LessonHourController;
 use App\Http\Controllers\Api\Master\LessonScheduleController;
 use App\Http\Controllers\Api\Master\ProgramController;
+use App\Http\Controllers\Api\Master\SchedulePeriodController;
 use App\Http\Controllers\Api\Master\StudentController;
 use App\Http\Controllers\Api\Master\StudyController;
 use App\Http\Controllers\Api\Master\TeacherController;
@@ -172,6 +173,12 @@ Route::prefix('master')->middleware(['autoprovision', 'auth:api'])->group(functi
 // Main Academic, KBM & Penilaian Routes (Protected by JWT & AutoProvision)
 Route::prefix('main')->middleware(['autoprovision', 'auth:api'])->group(function () {
     Route::get('dashboard/stats', [DashboardController::class, 'stats']);
+
+    // Periode & Masa Berlaku Jadwal Pelajaran (Schedule Periods)
+    Route::post('schedule-periods/{id}/activate', [SchedulePeriodController::class, 'activate']);
+    Route::post('schedule-periods/{id}/deactivate', [SchedulePeriodController::class, 'deactivate']);
+    Route::post('schedule-periods/{id}/reset', [SchedulePeriodController::class, 'reset']);
+    Route::apiResource('schedule-periods', SchedulePeriodController::class);
 
     // Jadwal Pelajaran (Lesson Schedules)
     Route::post('schedules/copy-period', [LessonScheduleController::class, 'copyPeriod']);

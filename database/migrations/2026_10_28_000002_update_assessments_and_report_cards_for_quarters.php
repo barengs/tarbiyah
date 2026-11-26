@@ -32,7 +32,13 @@ return new class extends Migration
         }
 
         // Ubah tipe kolom semester dari ENUM('ganjil','genap') menjadi VARCHAR(50)
-        DB::statement("ALTER TABLE report_cards MODIFY COLUMN semester VARCHAR(50) NOT NULL DEFAULT 'triwulan_4'");
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('report_cards', function (Blueprint $table) {
+                $table->string('semester', 50)->default('triwulan_4')->change();
+            });
+        } else {
+            DB::statement("ALTER TABLE report_cards MODIFY COLUMN semester VARCHAR(50) NOT NULL DEFAULT 'triwulan_4'");
+        }
 
         // 3. Backfill academic_quarter_id yang masih kosong ke kuartal aktif
         $activeQuarter = DB::table('academic_quarters')->where('active', true)->first()

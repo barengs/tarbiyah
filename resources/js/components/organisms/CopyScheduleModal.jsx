@@ -19,6 +19,8 @@ export default function CopyScheduleModal({
     activeQuarterId,
     educations = [],
     currentEducation = 'all',
+    schedulePeriods = [],
+    activeSchedulePeriodId = '',
     onSuccess,
 }) {
     const [tab, setTab] = useState('period'); // 'period' | 'academic_year'
@@ -28,6 +30,8 @@ export default function CopyScheduleModal({
     const [periodEducationId, setPeriodEducationId] = useState('all');
     const [fromQuarterId, setFromQuarterId] = useState('');
     const [toQuarterId, setToQuarterId] = useState('');
+    const [fromSchedulePeriodId, setFromSchedulePeriodId] = useState('');
+    const [newPeriodScheduleName, setNewPeriodScheduleName] = useState('');
     const [periodMode, setPeriodMode] = useState('overwrite'); // 'overwrite' | 'skip_existing'
 
     // Form State Tab 2: Antar Tahun Akademik
@@ -35,6 +39,7 @@ export default function CopyScheduleModal({
     const [toAcademicYearId, setToAcademicYearId] = useState('');
     const [yearEducationId, setYearEducationId] = useState('all');
     const [yearFromQuarterId, setYearFromQuarterId] = useState('all');
+    const [newYearScheduleName, setNewYearScheduleName] = useState('');
     const [autoCreateGroups, setAutoCreateGroups] = useState(true);
     const [yearMode, setYearMode] = useState('overwrite');
 
@@ -47,6 +52,9 @@ export default function CopyScheduleModal({
             const yrId = activeYearId || academicYears[0]?.id || '';
             setPeriodSourceYearId(yrId);
             setFromAcademicYearId(yrId);
+            setFromSchedulePeriodId(activeSchedulePeriodId || '');
+            setNewPeriodScheduleName('');
+            setNewYearScheduleName('');
 
             // Cari target year berikutnya jika ada
             const targetYears = academicYears.filter(y => String(y.id) !== String(yrId));
@@ -87,8 +95,8 @@ export default function CopyScheduleModal({
     const handleCopyPeriod = async (e) => {
         e.preventDefault();
 
-        if (fromQuarterId === toQuarterId) {
-            toast.warning('Periode asal dan periode tujuan tidak boleh sama.');
+        if (fromQuarterId === toQuarterId && !newPeriodScheduleName.trim()) {
+            toast.warning('Pilih periode tujuan yang berbeda atau isi nama jadwal baru untuk salinan.');
             return;
         }
 
@@ -97,6 +105,8 @@ export default function CopyScheduleModal({
                 academic_year_id: Number(periodSourceYearId),
                 from_quarter_id: Number(fromQuarterId),
                 to_quarter_id: Number(toQuarterId),
+                ...(fromSchedulePeriodId ? { from_schedule_period_id: Number(fromSchedulePeriodId) } : {}),
+                ...(newPeriodScheduleName.trim() ? { new_schedule_name: newPeriodScheduleName.trim() } : {}),
                 education_id: periodEducationId === 'all' ? null : Number(periodEducationId),
                 mode: periodMode,
             };
@@ -104,7 +114,11 @@ export default function CopyScheduleModal({
             const res = await copyPeriodSchedule(payload).unwrap();
             toast.success(res?.message || 'Jadwal periode berhasil disalin!');
             if (onSuccess) {
-                onSuccess({ type: 'period', targetQuarterId: Number(toQuarterId) });
+                onSuccess({
+                    type: 'period',
+                    targetQuarterId: Number(toQuarterId),
+                    targetSchedulePeriodId: res?.data?.target_schedule_period?.id,
+                });
             }
             onClose();
         } catch (err) {
@@ -127,6 +141,8 @@ export default function CopyScheduleModal({
                 to_academic_year_id: Number(toAcademicYearId),
                 education_id: yearEducationId === 'all' ? null : Number(yearEducationId),
                 from_quarter_id: yearFromQuarterId === 'all' ? null : Number(yearFromQuarterId),
+                ...(fromSchedulePeriodId ? { from_schedule_period_id: Number(fromSchedulePeriodId) } : {}),
+                ...(newYearScheduleName.trim() ? { new_schedule_name: newYearScheduleName.trim() } : {}),
                 auto_create_class_groups: autoCreateGroups,
                 mode: yearMode,
             };
@@ -263,12 +279,26 @@ export default function CopyScheduleModal({
                             </div>
                         </div>
 
-                        {fromQuarterId === toQuarterId && (
+                        {fromQuarterId === toQuarterId && !newPeriodScheduleName.trim() && (
                             <div className="flex items-center gap-2 p-2.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs">
                                 <AlertCircle className="w-4 h-4 shrink-0" />
-                                <span>Periode asal dan tujuan harus berbeda.</span>
+                                <span>Periode asal dan tujuan sama — isi <b>Nama Jadwal Baru</b> di bawah jika ingin membuat salinan draft pada periode yang sama.</span>
                             </div>
                         )}
+
+                        {/* Nama Jadwal Tujuan (Opsional - Draft Baru) */}
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Nama Jadwal Baru (Opsional, otomatis berstatus Draft / Belum Berlaku)
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Contoh: Jadwal Periode 1447 - Triwulan II"
+                                value={newPeriodScheduleName}
+                                onChange={(e) => setNewPeriodScheduleName(e.target.value)}
+                                className="w-full px-3 py-2 text-xs border border-slate-300 rounded bg-white text-slate-800 placeholder:text-slate-400"
+                            />
+                        </div>
 
                         {/* Opsi Penimpaan */}
                         <div className="space-y-2 pt-1">
@@ -340,7 +370,7 @@ export default function CopyScheduleModal({
                             </button>
                             <button
                                 type="submit"
-                                disabled={isCopyingPeriod || fromQuarterId === toQuarterId}
+                                disabled={isCopyingPeriod || (fromQuarterId === toQuarterId && !newPeriodScheduleName.trim())}
                                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition disabled:opacity-50"
                             >
                                 {isCopyingPeriod ? (
@@ -434,6 +464,20 @@ export default function CopyScheduleModal({
                                     </option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Nama Jadwal Baru (Opsional) */}
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Nama Jadwal di Tahun Tujuan (Opsional, berstatus Draft hingga diaktifkan)
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Contoh: Jadwal Periode 1447"
+                                value={newYearScheduleName}
+                                onChange={(e) => setNewYearScheduleName(e.target.value)}
+                                className="w-full px-3 py-2 text-xs border border-slate-300 rounded bg-white text-slate-800 placeholder:text-slate-400"
+                            />
                         </div>
 
                         {/* Checkbox Otomatis Buat Rombel */}

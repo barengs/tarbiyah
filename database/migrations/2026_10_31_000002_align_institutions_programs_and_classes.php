@@ -24,7 +24,13 @@ return new class extends Migration
         }
 
         // 1b. Perluas enum progression_type pada tabel class_groups agar mencakup 'triwulan'
-        DB::statement("ALTER TABLE class_groups MODIFY COLUMN progression_type ENUM('triwulan', 'semester', 'leveling') NOT NULL DEFAULT 'triwulan'");
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('class_groups', function (Blueprint $table) {
+                $table->string('progression_type', 30)->default('triwulan')->change();
+            });
+        } else {
+            DB::statement("ALTER TABLE class_groups MODIFY COLUMN progression_type ENUM('triwulan', 'semester', 'leveling') NOT NULL DEFAULT 'triwulan'");
+        }
 
         // 1c. Pastikan master education_types (ID 1 & 2) tersedia saat migrasi dijalankan di DB kosong
         DB::table('education_types')->insertOrIgnore([

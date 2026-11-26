@@ -1,6 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { 
+    useGetSchedulePeriodsQuery,
+    useCreateSchedulePeriodMutation,
+    useUpdateSchedulePeriodMutation,
+    useDeleteSchedulePeriodMutation,
+    useActivateSchedulePeriodMutation,
+    useDeactivateSchedulePeriodMutation,
+    useResetSchedulePeriodMutation,
     useGetSchedulesQuery, 
     useCreateScheduleMutation, 
     useUpdateScheduleMutation,
@@ -34,7 +41,7 @@ import {
     Trash2, Pencil, Sun, Moon, Coffee, GraduationCap, Users, LayoutGrid, 
     Table as TableIcon, Columns, Search, Filter, AlertTriangle, CheckCircle2,
     School, ShieldAlert, ChevronLeft, ChevronRight, Printer, Layers, Copy, RotateCcw,
-    FileSpreadsheet, Loader2
+    FileSpreadsheet, Loader2, Power, CalendarCheck, CalendarClock, FileEdit
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -193,15 +200,75 @@ export default function ScheduleKbmPage() {
     const { data: teachersData } = useGetTeachersQuery();
     const teachers = teachersData?.data || [];
 
-    // Fetch Schedules
-    const scheduleParams = useMemo(() => {
+    // ═══════════════════════════════════════════════════════════
+    // PERIODE & MASA BERLAKU JADWAL (NAMA JADWAL, STATUS AKTIF, RESET)
+    // ═══════════════════════════════════════════════════════════
+    const schedulePeriodQueryParams = useMemo(() => {
         const params = {};
         if (selectedYearId) params.academic_year_id = selectedYearId;
         if (selectedQuarterId) params.academic_quarter_id = selectedQuarterId;
         return params;
     }, [selectedYearId, selectedQuarterId]);
 
-    const { data: schedulesData, refetch: refetchSchedules } = useGetSchedulesQuery(scheduleParams);
+    const { data: schedulePeriodsData, refetch: refetchSchedulePeriods } = useGetSchedulePeriodsQuery(
+        schedulePeriodQueryParams,
+        { skip: !selectedYearId }
+    );
+    const schedulePeriods = schedulePeriodsData?.data || [];
+
+    const [selectedSchedulePeriodId, setSelectedSchedulePeriodId] = useState('');
+    useEffect(() => {
+        if (schedulePeriods.length === 0) {
+            setSelectedSchedulePeriodId('');
+            return;
+        }
+        const exists = schedulePeriods.some(p => String(p.id) === String(selectedSchedulePeriodId));
+        if (!exists) {
+            const activeP = schedulePeriods.find(p => p.is_active) || schedulePeriods[0];
+            setSelectedSchedulePeriodId(String(activeP.id));
+        }
+    }, [schedulePeriods, selectedSchedulePeriodId]);
+
+    const currentSchedulePeriod = useMemo(
+        () => schedulePeriods.find(p => String(p.id) === String(selectedSchedulePeriodId)) || null,
+        [schedulePeriods, selectedSchedulePeriodId]
+    );
+
+    const [createSchedulePeriod, { isLoading: isCreatingPeriod }] = useCreateSchedulePeriodMutation();
+    const [updateSchedulePeriod, { isLoading: isUpdatingPeriod }] = useUpdateSchedulePeriodMutation();
+    const [deleteSchedulePeriod, { isLoading: isDeletingPeriod }] = useDeleteSchedulePeriodMutation();
+    const [activateSchedulePeriod, { isLoading: isActivatingPeriod }] = useActivateSchedulePeriodMutation();
+    const [deactivateSchedulePeriod, { isLoading: isDeactivatingPeriod }] = useDeactivateSchedulePeriodMutation();
+    const [resetSchedulePeriod, { isLoading: isResettingPeriod }] = useResetSchedulePeriodMutation();
+
+    // Modal & Confirm States untuk Periode Jadwal
+    const [periodModalOpen, setPeriodModalOpen] = useState(false);
+    const [editingPeriod, setEditingPeriod] = useState(null);
+    const [periodFormName, setPeriodFormName] = useState('');
+    const [periodFormQuarterId, setPeriodFormQuarterId] = useState('');
+    const [periodFormStartDate, setPeriodFormStartDate] = useState('');
+    const [periodFormEndDate, setPeriodFormEndDate] = useState('');
+    const [periodFormDesc, setPeriodFormDesc] = useState('');
+
+    const [resetModalOpen, setResetModalOpen] = useState(false);
+    const [resetScope, setResetScope] = useState('all'); // 'all' | 'group'
+    const [resetTargetGroupId, setResetTargetGroupId] = useState('');
+
+    const [periodConfirmAction, setPeriodConfirmAction] = useState(null); // { type: 'activate' | 'deactivate' | 'delete', period }
+
+    // Fetch Schedules
+    const scheduleParams = useMemo(() => {
+        const params = {};
+        if (selectedYearId) params.academic_year_id = selectedYearId;
+        if (selectedQuarterId) params.academic_quarter_id = selectedQuarterId;
+        if (selectedSchedulePeriodId) params.schedule_period_id = selectedSchedulePeriodId;
+        return params;
+    }, [selectedYearId, selectedQuarterId, selectedSchedulePeriodId]);
+
+    const { data: schedulesData, refetch: refetchSchedules } = useGetSchedulesQuery(
+        scheduleParams,
+        { skip: !selectedSchedulePeriodId }
+    );
     const allSchedules = schedulesData?.data || [];
 
     const [createSchedule, { isLoading: isCreatingSchedule }] = useCreateScheduleMutation();
@@ -563,7 +630,84 @@ export default function ScheduleKbmPage() {
         ) || null;
     };
 
+    const openCreatePeriodModal = () => {
+        setEditingPeriod(null);
+        setPeriodFormName('');
+        setPeriodFormQuarterId(selectedQuarterId || '');
+        setPeriodFormStartDate(currentQuarter?.start_date ? String(currentQuarter.start_date).substring(0, 10) : '');
+        setPeriodFormEndDate(currentQuarter?.end_date ? String(currentQuarter.end_date).substring(0, 10) : '');
+        setPeriodFormDesc('');
+        setPeriodModalOpen(true);
+    };
+
+    const openEditPeriodModal = (period) => {
+        if (!period) return;
+        setEditingPeriod(period);
+        setPeriodFormName(period.name || '');
+        setPeriodFormQuarterId(period.academic_quarter_id ? String(period.academic_quarter_id) : '');
+        setPeriodFormStartDate(period.effective_start_date ? String(period.effective_start_date).substring(0, 10) : '');
+        setPeriodFormEndDate(period.effective_end_date ? String(period.effective_end_date).substring(0, 10) : '');
+        setPeriodFormDesc(period.description || '');
+        setPeriodModalOpen(true);
+    };
+
+    const handleSaveSchedulePeriod = async (e) => {
+        e.preventDefault();
+        if (!periodFormName.trim()) {
+            toast.warning('Nama jadwal wajib diisi (misal: Jadwal Periode 1447).');
+            return;
+        }
+        const payload = {
+            name: periodFormName.trim(),
+            academic_year_id: Number(selectedYearId || activeYearObj?.id || 1),
+            academic_quarter_id: periodFormQuarterId ? Number(periodFormQuarterId) : null,
+            effective_start_date: periodFormStartDate || null,
+            effective_end_date: periodFormEndDate || null,
+            description: periodFormDesc.trim() || null,
+        };
+
+        try {
+            if (editingPeriod?.id) {
+                await updateSchedulePeriod({ id: editingPeriod.id, ...payload }).unwrap();
+                toast.success('Nama dan masa berlaku jadwal berhasil diperbarui');
+            } else {
+                const res = await createSchedulePeriod(payload).unwrap();
+                if (res?.data?.id) {
+                    setSelectedSchedulePeriodId(String(res.data.id));
+                }
+                toast.success('Jadwal baru berhasil dibuat (berstatus Draft hingga diberlakukan)');
+            }
+            setPeriodModalOpen(false);
+            setEditingPeriod(null);
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal menyimpan periode jadwal');
+        }
+    };
+
+    const handleResetScheduleConfirm = async (e) => {
+        e.preventDefault();
+        if (!currentSchedulePeriod) return;
+        try {
+            const payload = {
+                id: currentSchedulePeriod.id,
+                ...(resetScope === 'group' && resetTargetGroupId ? { class_group_id: Number(resetTargetGroupId) } : {}),
+            };
+            const res = await resetSchedulePeriod(payload).unwrap();
+            toast.success(res?.message || 'Jadwal berhasil direset');
+            setResetModalOpen(false);
+            refetchSchedules();
+            refetchSchedulePeriods();
+        } catch (err) {
+            toast.error(err?.data?.message || 'Gagal mereset jadwal');
+        }
+    };
+
     const handleCellClick = (dayId, hourOrder, targetGroupId) => {
+        if (!selectedSchedulePeriodId) {
+            toast.info('Silakan buat atau pilih nama jadwal terlebih dahulu (misal: Jadwal Periode 1447).');
+            openCreatePeriodModal();
+            return;
+        }
         setEditingSchedule(null);
         setSchedDay(dayId);
         setSchedHourId(lessonHours.find(h => h.order === hourOrder)?.id || '');
@@ -588,7 +732,12 @@ export default function ScheduleKbmPage() {
 
     const handleSaveSchedule = async (e) => {
         e.preventDefault();
+        if (!selectedSchedulePeriodId && !editingSchedule?.schedule_period_id) {
+            toast.error('Pilih atau buat nama jadwal terlebih dahulu.');
+            return;
+        }
         const payload = {
+            schedule_period_id: Number(editingSchedule?.schedule_period_id || selectedSchedulePeriodId),
             academic_year_id: Number(selectedYearId || editingSchedule?.academic_year_id || 1),
             academic_quarter_id: Number(selectedQuarterId || editingSchedule?.academic_quarter_id || 4),
             class_group_id: Number(schedTargetGroupId || paginatedGroups[0]?.id),
@@ -731,6 +880,11 @@ export default function ScheduleKbmPage() {
                                 icon: Plus,
                                 iconColor: 'text-emerald-700',
                                 onClick: () => {
+                                    if (!selectedSchedulePeriodId) {
+                                        toast.info('Silakan buat nama jadwal terlebih dahulu (misal: Jadwal Periode 1447).');
+                                        openCreatePeriodModal();
+                                        return;
+                                    }
                                     setEditingSchedule(null);
                                     setSchedDay(selectedDayFilter || 6);
                                     setSchedHourId(lessonHours[0]?.id || '');
@@ -740,6 +894,14 @@ export default function ScheduleKbmPage() {
                                     setSchedClassroomId('');
                                     setScheduleModalOpen(true);
                                 }
+                            },
+                            {
+                                id: 'create_schedule_period',
+                                label: 'Buat Nama Jadwal Baru',
+                                description: 'Buat rancangan jadwal baru beserta masa berlakunya',
+                                icon: CalendarClock,
+                                iconColor: 'text-amber-600',
+                                onClick: openCreatePeriodModal
                             },
                             {
                                 id: 'copy_schedule',
@@ -761,6 +923,187 @@ export default function ScheduleKbmPage() {
                         ]}
                     />
                 </div>
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════
+                PANEL NAMA JADWAL, MASA BERLAKU, AKTIVASI & RESET JADWAL
+                ═══════════════════════════════════════════════════════════ */}
+            <div className="bg-white border border-slate-200 rounded-md p-4 shadow-xs space-y-3">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                Nama Jadwal / Masa Berlaku
+                            </label>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                    value={selectedSchedulePeriodId}
+                                    onChange={(e) => setSelectedSchedulePeriodId(e.target.value)}
+                                    className="px-3 py-1.5 text-xs font-bold border border-slate-300 rounded bg-white text-slate-900 min-w-[230px]"
+                                >
+                                    {schedulePeriods.length === 0 ? (
+                                        <option value="">-- Belum Ada Nama Jadwal --</option>
+                                    ) : (
+                                        schedulePeriods.map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.name} • {p.validity_label} ({p.schedules_count ?? 0} sesi)
+                                            </option>
+                                        ))
+                                    )}
+                                </select>
+
+                                {currentSchedulePeriod && (
+                                    <span
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold border ${
+                                            currentSchedulePeriod.validity_status === 'active'
+                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                : currentSchedulePeriod.validity_status === 'scheduled'
+                                                ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                                : currentSchedulePeriod.validity_status === 'expired'
+                                                ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                                        }`}
+                                    >
+                                        <span
+                                            className={`w-2 h-2 rounded-full ${
+                                                currentSchedulePeriod.validity_status === 'active'
+                                                    ? 'bg-emerald-500 animate-pulse'
+                                                    : currentSchedulePeriod.validity_status === 'scheduled'
+                                                    ? 'bg-blue-500'
+                                                    : currentSchedulePeriod.validity_status === 'expired'
+                                                    ? 'bg-rose-500'
+                                                    : 'bg-amber-500'
+                                            }`}
+                                        />
+                                        {currentSchedulePeriod.validity_label}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {currentSchedulePeriod && (
+                            <div className="text-xs text-slate-600 border-l border-slate-200 pl-3 space-y-0.5">
+                                <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                                    <CalendarClock className="w-3.5 h-3.5 text-emerald-700" />
+                                    <span>
+                                        Masa Berlaku:{' '}
+                                        {currentSchedulePeriod.effective_start_date || currentSchedulePeriod.effective_end_date
+                                            ? `${formatShortDate(currentSchedulePeriod.effective_start_date) || 'Sekarang'} s/d ${formatShortDate(currentSchedulePeriod.effective_end_date) || 'Seterusnya'}`
+                                            : 'Berlaku selama berstatus aktif'}
+                                    </span>
+                                </div>
+                                {currentSchedulePeriod.description && (
+                                    <p className="text-[11px] text-slate-500 truncate max-w-md">
+                                        {currentSchedulePeriod.description}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={openCreatePeriodModal}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0b57d0] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition"
+                        >
+                            <Plus className="w-3.5 h-3.5" /> Buat Nama Jadwal
+                        </button>
+
+                        {currentSchedulePeriod && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => openEditPeriodModal(currentSchedulePeriod)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded transition"
+                                    title="Edit nama & tanggal masa berlaku jadwal"
+                                >
+                                    <FileEdit className="w-3.5 h-3.5" /> Atur Masa Berlaku
+                                </button>
+
+                                {!currentSchedulePeriod.is_active ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setResetScope('all');
+                                                setResetTargetGroupId(paginatedGroups[0]?.id ? String(paginatedGroups[0].id) : '');
+                                                setResetModalOpen(true);
+                                            }}
+                                            disabled={allSchedules.length === 0}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded transition disabled:opacity-40"
+                                            title="Kosongkan / reset susunan jadwal sebelum jadwal diberlakukan"
+                                        >
+                                            <RotateCcw className="w-3.5 h-3.5" /> Reset Jadwal
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setPeriodConfirmAction({ type: 'activate', period: currentSchedulePeriod })}
+                                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded shadow-xs transition"
+                                            title="Aktifkan agar jadwal ini mulai berlaku untuk KBM & Presensi"
+                                        >
+                                            <CalendarCheck className="w-3.5 h-3.5" /> Berlakukan Jadwal
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setPeriodConfirmAction({ type: 'delete', period: currentSchedulePeriod })}
+                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded transition"
+                                            title="Hapus draft jadwal ini"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded cursor-not-allowed"
+                                            title="Jadwal sudah diberlakukan (aktif), sehingga tidak dapat direset"
+                                        >
+                                            <RotateCcw className="w-3.5 h-3.5" /> Reset Terkunci
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setPeriodConfirmAction({ type: 'deactivate', period: currentSchedulePeriod })}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded transition"
+                                            title="Nonaktifkan jadwal agar tidak lagi berlaku"
+                                        >
+                                            <Power className="w-3.5 h-3.5" /> Nonaktifkan
+                                        </button>
+                                    </>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {currentSchedulePeriod && !currentSchedulePeriod.is_active && (
+                    <div className="flex items-start gap-2.5 p-2.5 rounded bg-amber-50/80 border border-amber-200 text-xs text-amber-900">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                            <b>Mode Draft (Belum Berlaku):</b> Jadwal <b>&ldquo;{currentSchedulePeriod.name}&rdquo;</b> belum berstatus aktif sehingga <b>belum berlaku</b> pada Presensi Harian, Jurnal Mengajar, dan Dashboard. Anda dapat menyusun atau me-<b>Reset Jadwal</b> sebelum menekan <b>Berlakukan Jadwal</b>.
+                        </div>
+                    </div>
+                )}
+
+                {schedulePeriods.length === 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded bg-slate-50 border border-dashed border-slate-300 text-xs text-slate-600">
+                        <div>
+                            Belum ada nama jadwal pada tahun akademik &amp; periode ini. Buat jadwal baru terlebih dahulu (contoh: <b>Jadwal Periode 1447</b>).
+                        </div>
+                        <button
+                            type="button"
+                            onClick={openCreatePeriodModal}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shrink-0"
+                        >
+                            <Plus className="w-3.5 h-3.5" /> Buat Nama Jadwal Pertama
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* ═══════════════════════════════════════════════════════════
@@ -2528,6 +2871,264 @@ export default function ScheduleKbmPage() {
                 onCancel={() => setDeleteScheduleTarget(null)}
             />
 
+            {/* Modal Buat / Edit Nama & Masa Berlaku Jadwal */}
+            <Modal
+                open={periodModalOpen}
+                title={editingPeriod ? 'Edit Nama & Masa Berlaku Jadwal' : 'Buat Nama Jadwal Baru'}
+                onClose={() => {
+                    setPeriodModalOpen(false);
+                    setEditingPeriod(null);
+                }}
+            >
+                <form onSubmit={handleSaveSchedulePeriod} className="space-y-4">
+                    {!editingPeriod && (
+                        <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                            Jadwal yang baru dibuat berstatus <b>Draft (Belum Berlaku)</b> dan belum digunakan di KBM/Presensi sampai Anda mengaktifkannya.
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                            Nama Jadwal <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            required
+                            placeholder="Contoh: Jadwal Periode 1447"
+                            value={periodFormName}
+                            onChange={(e) => setPeriodFormName(e.target.value)}
+                            className="block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                            Caturwulan / Periode Akademik (Opsional)
+                        </label>
+                        <select
+                            value={periodFormQuarterId}
+                            onChange={(e) => setPeriodFormQuarterId(e.target.value)}
+                            className="block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
+                        >
+                            <option value="">Berlaku Umum (Semua Periode Tahun Ini)</option>
+                            {quarters.map((q) => (
+                                <option key={q.id} value={q.id}>
+                                    {q.name} {q.active ? '• Aktif' : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                                Mulai Berlaku (Opsional)
+                            </label>
+                            <input
+                                type="date"
+                                value={periodFormStartDate}
+                                onChange={(e) => setPeriodFormStartDate(e.target.value)}
+                                className="block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                                Berakhir Berlaku (Opsional)
+                            </label>
+                            <input
+                                type="date"
+                                min={periodFormStartDate || undefined}
+                                value={periodFormEndDate}
+                                onChange={(e) => setPeriodFormEndDate(e.target.value)}
+                                className="block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                            Keterangan (Opsional)
+                        </label>
+                        <textarea
+                            rows={2}
+                            placeholder="Catatan penyusunan atau revisi jadwal..."
+                            value={periodFormDesc}
+                            onChange={(e) => setPeriodFormDesc(e.target.value)}
+                            className="block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-3 border-t">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setPeriodModalOpen(false);
+                                setEditingPeriod(null);
+                            }}
+                            className="px-3.5 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-md"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isCreatingPeriod || isUpdatingPeriod}
+                            className="px-4 py-2 bg-[#0b57d0] text-white text-sm font-semibold rounded-md disabled:opacity-50 hover:bg-[#0842a0]"
+                        >
+                            {isCreatingPeriod || isUpdatingPeriod
+                                ? 'Menyimpan...'
+                                : editingPeriod
+                                ? 'Simpan Perubahan'
+                                : 'Simpan Nama Jadwal'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Modal Reset Jadwal Sebelum Diberlakukan */}
+            <Modal
+                open={resetModalOpen}
+                title="Reset Jadwal Sebelum Diberlakukan"
+                onClose={() => setResetModalOpen(false)}
+            >
+                <form onSubmit={handleResetScheduleConfirm} className="space-y-4">
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-900 flex items-start gap-2.5">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <div>
+                            Tindakan ini akan mengosongkan susunan mata pelajaran pada draft jadwal{' '}
+                            <b>&ldquo;{currentSchedulePeriod?.name}&rdquo;</b> sebelum diberlakukan agar Anda dapat menyusun ulang dari awal.
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="block text-xs font-bold text-slate-700">
+                            Cakupan Reset Jadwal:
+                        </label>
+                        <label className="flex items-start gap-2 p-2.5 rounded border border-slate-200 cursor-pointer text-xs">
+                            <input
+                                type="radio"
+                                name="resetScope"
+                                value="all"
+                                checked={resetScope === 'all'}
+                                onChange={() => setResetScope('all')}
+                                className="mt-0.5"
+                            />
+                            <div>
+                                <span className="font-bold text-slate-900">Semua Rombel dalam Jadwal Ini</span>
+                                <p className="text-[11px] text-slate-500">
+                                    Hapus seluruh {allSchedules.length} sesi terjadwal di &ldquo;{currentSchedulePeriod?.name}&rdquo;.
+                                </p>
+                            </div>
+                        </label>
+
+                        <label className="flex items-start gap-2 p-2.5 rounded border border-slate-200 cursor-pointer text-xs">
+                            <input
+                                type="radio"
+                                name="resetScope"
+                                value="group"
+                                checked={resetScope === 'group'}
+                                onChange={() => setResetScope('group')}
+                                className="mt-0.5"
+                            />
+                            <div className="flex-1 space-y-2">
+                                <div>
+                                    <span className="font-bold text-slate-900">Rombel Tertentu Saja</span>
+                                    <p className="text-[11px] text-slate-500">
+                                        Hanya kosongkan jadwal untuk 1 rombel yang dipilih.
+                                    </p>
+                                </div>
+                                {resetScope === 'group' && (
+                                    <select
+                                        value={resetTargetGroupId}
+                                        onChange={(e) => setResetTargetGroupId(e.target.value)}
+                                        className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white"
+                                    >
+                                        {allGroups.map((g) => (
+                                            <option key={g.id} value={g.id}>
+                                                {g.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                        </label>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-3 border-t">
+                        <button
+                            type="button"
+                            onClick={() => setResetModalOpen(false)}
+                            className="px-3.5 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-md"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isResettingPeriod || (resetScope === 'group' && !resetTargetGroupId)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-md disabled:opacity-50"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            {isResettingPeriod ? 'Mereset...' : 'Ya, Reset Jadwal'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Confirm Dialog Aktivasi / Nonaktifkan / Hapus Nama Jadwal */}
+            <ConfirmDialog
+                open={!!periodConfirmAction}
+                title={
+                    periodConfirmAction?.type === 'activate'
+                        ? 'Berlakukan Jadwal Pelajaran'
+                        : periodConfirmAction?.type === 'deactivate'
+                        ? 'Nonaktifkan Jadwal Pelajaran'
+                        : 'Hapus Draft Nama Jadwal'
+                }
+                message={
+                    periodConfirmAction?.type === 'activate'
+                        ? `Aktifkan dan berlakukan jadwal "${periodConfirmAction?.period?.name}"? Jadwal aktif lain pada tahun & periode yang sama akan dinonaktifkan, dan jadwal ini akan langsung digunakan untuk KBM & Presensi.`
+                        : periodConfirmAction?.type === 'deactivate'
+                        ? `Nonaktifkan jadwal "${periodConfirmAction?.period?.name}"? Jadwal ini tidak akan berlaku di Presensi & Jurnal KBM sampai diaktifkan kembali.`
+                        : `Yakin ingin menghapus draft jadwal "${periodConfirmAction?.period?.name}" beserta seluruh susunan slot di dalamnya?`
+                }
+                confirmLabel={
+                    periodConfirmAction?.type === 'activate'
+                        ? 'Ya, Berlakukan'
+                        : periodConfirmAction?.type === 'deactivate'
+                        ? 'Ya, Nonaktifkan'
+                        : 'Ya, Hapus'
+                }
+                loadingLabel="Memproses..."
+                confirmTone={
+                    periodConfirmAction?.type === 'activate'
+                        ? 'primary'
+                        : periodConfirmAction?.type === 'deactivate'
+                        ? 'amber'
+                        : 'danger'
+                }
+                isLoading={isActivatingPeriod || isDeactivatingPeriod || isDeletingPeriod}
+                onConfirm={async () => {
+                    if (!periodConfirmAction?.period) return;
+                    const { type, period } = periodConfirmAction;
+                    try {
+                        if (type === 'activate') {
+                            const res = await activateSchedulePeriod(period.id).unwrap();
+                            toast.success(res?.message || 'Jadwal berhasil diberlakukan');
+                        } else if (type === 'deactivate') {
+                            const res = await deactivateSchedulePeriod(period.id).unwrap();
+                            toast.success(res?.message || 'Jadwal berhasil dinonaktifkan');
+                        } else if (type === 'delete') {
+                            const res = await deleteSchedulePeriod(period.id).unwrap();
+                            toast.success(res?.message || 'Draft jadwal berhasil dihapus');
+                            setSelectedSchedulePeriodId('');
+                        }
+                        setPeriodConfirmAction(null);
+                    } catch (err) {
+                        toast.error(err?.data?.message || 'Gagal memproses aksi jadwal');
+                    }
+                }}
+                onCancel={() => setPeriodConfirmAction(null)}
+            />
+
             {/* Modal Salin Jadwal Antar Periode / Tahun Akademik */}
             <CopyScheduleModal
                 open={copyModalOpen}
@@ -2538,12 +3139,18 @@ export default function ScheduleKbmPage() {
                 activeQuarterId={selectedQuarterId}
                 educations={institutions}
                 currentEducation={selectedEducation}
+                schedulePeriods={schedulePeriods}
+                activeSchedulePeriodId={selectedSchedulePeriodId}
                 onSuccess={(result) => {
                     if (result?.type === 'period' && result?.targetQuarterId) {
                         setSelectedQuarterId(String(result.targetQuarterId));
+                        if (result?.targetSchedulePeriodId) {
+                            setSelectedSchedulePeriodId(String(result.targetSchedulePeriodId));
+                        }
                     } else if (result?.type === 'year' && result?.targetYearId) {
                         setSelectedYearId(String(result.targetYearId));
                     }
+                    refetchSchedulePeriods();
                     refetchSchedules();
                 }}
             />
@@ -2560,6 +3167,16 @@ export default function ScheduleKbmPage() {
                 academicYear={currentYear?.year ? `${currentYear.year} H` : '1446/1447 H'}
                 quarterName={currentQuarter?.name || 'Triwulan IV (Syawal - Dzulhijjah)'}
                 selectedEducation={selectedEducationLabel}
+                scheduleName={currentSchedulePeriod?.name || ''}
+                effectivePeriodText={
+                    currentSchedulePeriod
+                        ? `${currentSchedulePeriod.validity_label}${
+                              currentSchedulePeriod.effective_start_date || currentSchedulePeriod.effective_end_date
+                                  ? ` (${formatShortDate(currentSchedulePeriod.effective_start_date) || '...'} s/d ${formatShortDate(currentSchedulePeriod.effective_end_date) || '...'})`
+                                  : ''
+                          }`
+                        : ''
+                }
             />
 
             {/* Modal Pratinjau & Cetak PDF Rekapitulasi Kehadiran */}
@@ -2584,4 +3201,17 @@ export default function ScheduleKbmPage() {
 function getDayName(dayId) {
     const m = { 6: 'Sabtu', 7: 'Ahad', 1: 'Senin', 2: 'Selasa', 3: 'Rabu', 4: 'Kamis', 5: 'Jumat (Libur)' };
     return m[dayId] || 'Tidak Diketahui';
+}
+
+function formatShortDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const clean = String(dateStr).substring(0, 10);
+        const [y, m, d] = clean.split('-');
+        if (!y || !m || !d) return clean;
+        const dt = new Date(Number(y), Number(m) - 1, Number(d));
+        return dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+        return String(dateStr);
+    }
 }

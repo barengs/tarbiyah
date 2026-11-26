@@ -15,7 +15,13 @@ class ProgramController extends Controller
     public function index()
     {
         try {
-            $programs = Program::withCount('institutions')->orderBy('id', 'asc')->get();
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
+            $programs = Program::withCount('institutions')
+                ->when($userProgramId, fn ($q) => $q->where('id', $userProgramId))
+                ->orderBy('id', 'asc')
+                ->get();
 
             return response()->json([
                 'status' => 'success',
@@ -38,6 +44,12 @@ class ProgramController extends Controller
      */
     public function syncFromSmpt()
     {
+        if (auth('api')->user()?->getActiveProgramId()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hanya admin global yang dapat menyinkronkan seluruh master program.',
+            ], 403);
+        }
         $smptCoreUrl = config('services.smpt.core_url', 'http://localhost:8000');
         $internalKey = config('services.smpt.internal_key', 'smpt-tarbiyah-internal-secret-2026');
 

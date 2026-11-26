@@ -55,6 +55,7 @@ import {
     SlidersHorizontal,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { hasPermission, hasAnyPermission } from '../utils/access';
 
 const STUDY_TYPE_BADGE = {
     khusus: {
@@ -96,6 +97,12 @@ const PROMOTION_BADGE = {
 export default function ReportCardPage({ initialTab }) {
     const location = useLocation();
     const navigate = useNavigate();
+    const user = useSelector((state) => state.auth?.user);
+    const canViewRapor = hasAnyPermission(user, ['rapor.view', 'rapor.create', 'rapor.update', 'rapor.print', 'rapor.approve']);
+    const canInputScore = hasAnyPermission(user, ['rapor.create', 'rapor.update']);
+    const canManageRemedial = hasAnyPermission(user, ['rapor.update', 'rapor.approve', 'rapor.view']);
+    const canPrintRapor = hasPermission(user, 'rapor.print');
+
     const defaultTab = initialTab || (location.pathname.includes('nilai') ? 'quarterly_input' : 'reports');
     const [activeTab, setActiveTab] = useState(defaultTab);
 
@@ -614,29 +621,43 @@ export default function ReportCardPage({ initialTab }) {
         window.open(url, '_blank');
     };
 
-    const tabs = [
-        {
-            id: 'quarterly_input',
-            label: 'Input Nilai Akhir Triwulan',
-            icon: FileSpreadsheet,
-        },
-        {
-            id: 'remedial',
-            label: 'Remidi Khusus & Evaluasi Kenaikan',
-            icon: RotateCcw,
-        },
-        {
-            id: 'reports',
-            label: 'Buku Rapor Digital',
-            icon: BookOpen,
-            count: reports.length || undefined,
-        },
-        {
-            id: 'eligibility',
-            label: 'Kelayakan Ujian (Bank Santri)',
-            icon: ShieldCheck,
-        },
-    ];
+    const tabs = useMemo(() => {
+        const list = [];
+        if (canInputScore || canViewRapor) {
+            list.push({
+                id: 'quarterly_input',
+                label: 'Input Nilai Akhir Triwulan',
+                icon: FileSpreadsheet,
+            });
+        }
+        if (canManageRemedial) {
+            list.push({
+                id: 'remedial',
+                label: 'Remidi Khusus & Evaluasi Kenaikan',
+                icon: RotateCcw,
+            });
+        }
+        if (canViewRapor || canPrintRapor) {
+            list.push({
+                id: 'reports',
+                label: 'Buku Rapor Digital',
+                icon: BookOpen,
+                count: reports.length || undefined,
+            });
+            list.push({
+                id: 'eligibility',
+                label: 'Kelayakan Ujian (Bank Santri)',
+                icon: ShieldCheck,
+            });
+        }
+        return list;
+    }, [canInputScore, canViewRapor, canManageRemedial, canPrintRapor, reports.length]);
+
+    useEffect(() => {
+        if (tabs.length > 0 && !tabs.some((t) => t.id === activeTab)) {
+            setActiveTab(tabs[0].id);
+        }
+    }, [tabs, activeTab]);
 
     return (
         <div className="space-y-4">
@@ -660,6 +681,7 @@ export default function ReportCardPage({ initialTab }) {
 
                     <div className="flex flex-wrap items-center gap-2">
                         {/* Tombol Import Nilai Kolektif (Excel) */}
+                        {canInputScore && (
                         <button
                             type="button"
                             onClick={() => setImportExcelModalOpen(true)}
@@ -670,8 +692,10 @@ export default function ReportCardPage({ initialTab }) {
                             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-800" />
                             Import Excel
                         </button>
+                        )}
 
                         {/* Tombol Cetak PDF (Riwayat Nilai & Buku Rapor) */}
+                        {canPrintRapor && (
                         <button
                             type="button"
                             onClick={() =>
@@ -688,6 +712,7 @@ export default function ReportCardPage({ initialTab }) {
                             <Printer className="w-3.5 h-3.5 text-emerald-800" />
                             Cetak
                         </button>
+                        )}
 
                         {/* Status Masa Penginputan Nilai */}
                         <div

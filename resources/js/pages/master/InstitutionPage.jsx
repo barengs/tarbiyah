@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
+import { getUserProgramId, hasPermission } from '../../utils/access';
 import {
     useGetInstitutionsQuery,
     useCreateInstitutionMutation,
@@ -58,6 +60,9 @@ const PROGRESSION_TYPES = {
 };
 
 export default function InstitutionPage() {
+    const user = useSelector((state) => state.auth?.user);
+    const userProgramId = getUserProgramId(user);
+    const canCreateInst = hasPermission(user, 'jenjang.create');
     const [activeTab, setActiveTab] = useState('institutions'); // 'institutions' | 'programs'
 
     // ================== INSTITUSI & JENJANG ==================
@@ -126,7 +131,7 @@ export default function InstitutionPage() {
         setEditingItem(null);
         setName('');
         setShortName('');
-        setProgramId('');
+        setProgramId(userProgramId ? String(userProgramId) : '');
         setProgressionType('triwulan');
         setRegNumber('');
         setPhone('');
@@ -509,6 +514,8 @@ export default function InstitutionPage() {
                                 <Download className="w-4 h-4 text-emerald-600" />
                                 {isExporting ? 'Mengekspor...' : 'Ekspor Excel'}
                             </button>
+                            {canCreateInst && (
+                            <>
                             <button
                                 onClick={() => setImportModalOpen(true)}
                                 className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
@@ -523,8 +530,10 @@ export default function InstitutionPage() {
                                 <Plus className="w-4 h-4" />
                                 Tambah Lembaga
                             </button>
+                            </>
+                            )}
                         </>
-                    ) : (
+                    ) : !userProgramId ? (
                         <button
                             onClick={handleSyncPrograms}
                             disabled={isSyncingPrograms}
@@ -533,7 +542,7 @@ export default function InstitutionPage() {
                             <RefreshCw className={`w-4 h-4 ${isSyncingPrograms ? 'animate-spin' : ''}`} />
                             {isSyncingPrograms ? 'Menyinkronkan...' : 'Sinkronkan Program Tamjid'}
                         </button>
-                    )}
+                    ) : null}
                 </div>
             </div>
 
@@ -707,18 +716,24 @@ export default function InstitutionPage() {
                             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
                                 Program Pesantren (Tamjid)
                             </label>
-                            <select
-                                value={programId}
-                                onChange={(e) => setProgramId(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium"
-                            >
-                                <option value="">-- Pilih Program Pesantren --</option>
-                                {programs.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name} ({p.code || 'PRG'})
-                                    </option>
-                                ))}
-                            </select>
+                            {userProgramId ? (
+                                <div className="mt-1 px-3 py-2 border border-slate-200 rounded-md text-sm bg-slate-50 text-slate-700 font-semibold">
+                                    {programs.find((p) => Number(p.id) === userProgramId)?.name || `Program #${userProgramId}`}
+                                </div>
+                            ) : (
+                                <select
+                                    value={programId}
+                                    onChange={(e) => setProgramId(e.target.value)}
+                                    className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium"
+                                >
+                                    <option value="">-- Pilih Program Pesantren --</option>
+                                    {programs.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.name} ({p.code || 'PRG'})
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
 
                         <div>

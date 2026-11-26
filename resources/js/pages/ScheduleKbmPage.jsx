@@ -44,9 +44,40 @@ import {
     FileSpreadsheet, Loader2, Power, CalendarCheck, CalendarClock, FileEdit
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { getUserProgramId, getUserProgram, hasPermission, hasAnyPermission } from '../utils/access';
 
 export default function ScheduleKbmPage() {
-    const [activeTab, setActiveTab] = useState('schedules'); // 'schedules' | 'journals' | 'recap'
+    const user = useSelector((state) => state.auth?.user);
+    const userProgramId = getUserProgramId(user);
+
+    const canViewSchedules = hasAnyPermission(user, ['kbm.view', 'kbm.create', 'kbm.update', 'kbm.delete', 'kbm.print']);
+    const canCreateSchedule = hasPermission(user, 'kbm.create');
+    const canUpdateSchedule = hasPermission(user, 'kbm.update');
+    const canDeleteSchedule = hasPermission(user, 'kbm.delete');
+    const canPrintSchedule = hasPermission(user, 'kbm.print');
+    const canViewJournals = hasAnyPermission(user, ['presensi.view', 'presensi.create', 'presensi.update', 'presensi.print']);
+    const canCreateJournal = hasPermission(user, 'presensi.create');
+    const canPrintPresence = hasPermission(user, 'presensi.print');
+
+    const scheduleTabs = useMemo(() => {
+        const list = [];
+        if (canViewSchedules) {
+            list.push({ id: 'schedules', name: 'Matriks Jadwal Pelajaran', icon: Calendar });
+        }
+        if (canViewJournals) {
+            list.push({ id: 'journals', name: 'Jurnal Mengajar & Presensi', icon: BookOpen });
+            list.push({ id: 'recap', name: 'Rekapitulasi Kehadiran', icon: BarChart3 });
+        }
+        return list;
+    }, [canViewSchedules, canViewJournals]);
+
+    const [activeTab, setActiveTab] = useState(() => (canViewSchedules ? 'schedules' : 'journals')); // 'schedules' | 'journals' | 'recap'
+    useEffect(() => {
+        if (scheduleTabs.length > 0 && !scheduleTabs.some((t) => t.id === activeTab)) {
+            setActiveTab(scheduleTabs[0].id);
+        }
+    }, [scheduleTabs, activeTab]);
+
     const [viewMode, setViewMode] = useState('inverted_matrix'); // 'inverted_matrix' | 'weekly_matrix' | 'list_table'
 
     // ═══════════════════════════════════════════════════════════
@@ -104,7 +135,12 @@ export default function ScheduleKbmPage() {
     // ═══════════════════════════════════════════════════════════
     // FILTER DATA MASTER BERTINGKAT: PROGRAM -> JENJANG -> KELAS -> HARI
     // ═══════════════════════════════════════════════════════════
-    const [selectedProgram, setSelectedProgram] = useState('all'); // 'all' | program_id
+    const [selectedProgram, setSelectedProgram] = useState(() => (userProgramId ? String(userProgramId) : 'all')); // 'all' | program_id
+    useEffect(() => {
+        if (userProgramId) {
+            setSelectedProgram(String(userProgramId));
+        }
+    }, [userProgramId]);
     const [selectedEducation, setSelectedEducation] = useState('all'); // 'all' | educational_institution_id
     const [selectedEducationClass, setSelectedEducationClass] = useState('all'); // 'all' | education_class_id
     const [selectedDayFilter, setSelectedDayFilter] = useState(6); // Default: Sabtu (6)
@@ -121,18 +157,32 @@ export default function ScheduleKbmPage() {
     );
     const allGroups = groupsData?.data || [];
 
-    // Daftar Program Dinamis (dari master programs atau fallback dari institutions/rombels)
+    const userProgram = useMemo(() => getUserProgram(user, programs), [user, programs]);
+
+    // Daftar Program Dinamis (terbatas sesuai cakupan program role pengguna bila ada)
     const availablePrograms = useMemo(() => {
-        if (programs.length > 0) return programs;
-        const map = new Map();
-        institutions.forEach(inst => {
-            if (inst.program?.id) map.set(String(inst.program.id), inst.program);
-        });
-        allGroups.forEach(g => {
-            if (g.program?.id) map.set(String(g.program.id), g.program);
-        });
-        return Array.from(map.values());
-    }, [programs, institutions, allGroups]);
+        let list = [];
+        if (programs.length > 0) {
+            list = programs;
+        } else {
+            const map = new Map();
+            institutions.forEach(inst => {
+                if (inst.program?.id) map.set(String(inst.program.id), inst.program);
+            });
+            allGroups.forEach(g => {
+                if (g.program?.id) map.set(String(g.program.id), g.program);
+            });
+            list = Array.from(map.values());
+        }
+
+        if (userProgramId) {
+            const scoped = list.filter((p) => Number(p.id) === userProgramId);
+            if (scoped.length > 0) return scoped;
+            return userProgram ? [userProgram] : [];
+        }
+
+        return list;
+    }, [programs, institutions, allGroups, userProgramId, userProgram]);
 
     // Daftar Jenjang Pendidikan Dinamis (dari master institutions, terfilter oleh Program)
     const filteredInstitutions = useMemo(() => {
@@ -246,6 +296,7 @@ export default function ScheduleKbmPage() {
     const [editingPeriod, setEditingPeriod] = useState(null);
     const [periodFormName, setPeriodFormName] = useState('');
     const [periodFormQuarterId, setPeriodFormQuarterId] = useState('');
+    const [periodFormProgramId, setPeriodFormProgramId] = useState('');
     const [periodFormStartDate, setPeriodFormStartDate] = useState('');
     const [periodFormEndDate, setPeriodFormEndDate] = useState('');
     const [periodFormDesc, setPeriodFormDesc] = useState('');
@@ -638,6 +689,7 @@ export default function ScheduleKbmPage() {
         setEditingPeriod(null);
         setPeriodFormName('');
         setPeriodFormQuarterId(selectedQuarterId || '');
+        setPeriodFormProgramId(userProgramId ? String(userProgramId) : (selectedProgram !== 'all' ? String(selectedProgram) : ''));
         setPeriodFormStartDate(currentQuarter?.start_date ? String(currentQuarter.start_date).substring(0, 10) : '');
         setPeriodFormEndDate(currentQuarter?.end_date ? String(currentQuarter.end_date).substring(0, 10) : '');
         setPeriodFormDesc('');
@@ -649,6 +701,7 @@ export default function ScheduleKbmPage() {
         setEditingPeriod(period);
         setPeriodFormName(period.name || '');
         setPeriodFormQuarterId(period.academic_quarter_id ? String(period.academic_quarter_id) : '');
+        setPeriodFormProgramId(userProgramId ? String(userProgramId) : (period.program_id ? String(period.program_id) : ''));
         setPeriodFormStartDate(period.effective_start_date ? String(period.effective_start_date).substring(0, 10) : '');
         setPeriodFormEndDate(period.effective_end_date ? String(period.effective_end_date).substring(0, 10) : '');
         setPeriodFormDesc(period.description || '');
@@ -665,6 +718,7 @@ export default function ScheduleKbmPage() {
             name: periodFormName.trim(),
             academic_year_id: Number(selectedYearId || activeYearObj?.id || 1),
             academic_quarter_id: periodFormQuarterId ? Number(periodFormQuarterId) : null,
+            program_id: userProgramId ? Number(userProgramId) : (periodFormProgramId ? Number(periodFormProgramId) : null),
             effective_start_date: periodFormStartDate || null,
             effective_end_date: periodFormEndDate || null,
             description: periodFormDesc.trim() || null,
@@ -707,6 +761,7 @@ export default function ScheduleKbmPage() {
     };
 
     const handleCellClick = (dayId, hourOrder, targetGroupId) => {
+        if (!canCreateSchedule) return;
         if (!selectedSchedulePeriodId) {
             toast.info('Silakan buat atau pilih nama jadwal terlebih dahulu (misal: Jadwal Periode 1447).');
             openCreatePeriodModal();
@@ -723,7 +778,7 @@ export default function ScheduleKbmPage() {
     };
 
     const handleEditScheduleClick = (sched) => {
-        if (!sched) return;
+        if (!sched || !canUpdateSchedule) return;
         setEditingSchedule(sched);
         setSchedDay(Number(sched.day) || 6);
         setSchedHourId(sched.lesson_hour_id || sched.lesson_hour?.id || '');
@@ -872,258 +927,290 @@ export default function ScheduleKbmPage() {
                         )}
                     </select>
 
-                    <ActionDropdown
-                        label="Aksi Jadwal"
-                        icon={Layers}
-                        variant="primary"
-                        items={[
-                            {
-                                id: 'add_schedule',
-                                label: 'Tambah Jadwal Baru',
-                                description: 'Input KBM mata pelajaran, ustadz, jam, dan rombel',
-                                icon: Plus,
-                                iconColor: 'text-emerald-700',
-                                onClick: () => {
-                                    if (!selectedSchedulePeriodId) {
-                                        toast.info('Silakan buat nama jadwal terlebih dahulu (misal: Jadwal Periode 1447).');
-                                        openCreatePeriodModal();
-                                        return;
-                                    }
-                                    setEditingSchedule(null);
-                                    setSchedDay(selectedDayFilter || 6);
-                                    setSchedHourId(lessonHours[0]?.id || '');
-                                    setSchedTargetGroupId(paginatedGroups[0]?.id || '');
-                                    setSchedStudyId(studies[0]?.id || '');
-                                    setSchedTeacherId(teachers[0]?.id || '');
-                                    setSchedClassroomId('');
-                                    setScheduleModalOpen(true);
-                                }
-                            },
-                            {
-                                id: 'create_schedule_period',
-                                label: 'Buat Nama Jadwal Baru',
-                                description: 'Buat rancangan jadwal baru beserta masa berlakunya',
-                                icon: CalendarClock,
-                                iconColor: 'text-amber-600',
-                                onClick: openCreatePeriodModal
-                            },
-                            {
-                                id: 'copy_schedule',
-                                label: 'Salin Jadwal KBM',
-                                description: 'Salin jadwal antar triwulan atau tahun ajaran baru',
-                                icon: Copy,
-                                iconColor: 'text-blue-600',
-                                onClick: () => setCopyModalOpen(true)
-                            },
-                            {
-                                id: 'print_schedule',
-                                label: 'Cetak Jadwal Pelajaran (PDF)',
-                                description: 'Download format resmi jadwal per rombel & periode',
-                                icon: Printer,
-                                iconColor: 'text-slate-700',
-                                dividerBefore: true,
-                                onClick: () => setPrintModalOpen(true)
-                            }
-                        ]}
-                    />
+                    {(canCreateSchedule || (canPrintSchedule && selectedSchedulePeriodId)) && (
+                        <ActionDropdown
+                            label="Aksi Jadwal"
+                            icon={Layers}
+                            variant="primary"
+                            items={[
+                                ...(canCreateSchedule
+                                    ? [
+                                          {
+                                              id: 'add_schedule',
+                                              label: 'Tambah Jadwal Baru',
+                                              description: 'Input KBM mata pelajaran, ustadz, jam, dan rombel',
+                                              icon: Plus,
+                                              iconColor: 'text-emerald-700',
+                                              onClick: () => {
+                                                  if (!selectedSchedulePeriodId) {
+                                                      toast.info('Silakan buat nama jadwal terlebih dahulu (misal: Jadwal Periode 1447).');
+                                                      openCreatePeriodModal();
+                                                      return;
+                                                  }
+                                                  setEditingSchedule(null);
+                                                  setSchedDay(selectedDayFilter || 6);
+                                                  setSchedHourId(lessonHours[0]?.id || '');
+                                                  setSchedTargetGroupId(paginatedGroups[0]?.id || '');
+                                                  setSchedStudyId(studies[0]?.id || '');
+                                                  setSchedTeacherId(teachers[0]?.id || '');
+                                                  setSchedClassroomId('');
+                                                  setScheduleModalOpen(true);
+                                              },
+                                          },
+                                          {
+                                              id: 'create_schedule_period',
+                                              label: 'Buat Nama Jadwal Baru',
+                                              description: 'Buat rancangan jadwal baru beserta masa berlakunya',
+                                              icon: CalendarClock,
+                                              iconColor: 'text-amber-600',
+                                              onClick: openCreatePeriodModal,
+                                          },
+                                          {
+                                              id: 'copy_schedule',
+                                              label: 'Salin Jadwal KBM',
+                                              description: 'Salin jadwal antar triwulan atau tahun ajaran baru',
+                                              icon: Copy,
+                                              iconColor: 'text-blue-600',
+                                              onClick: () => setCopyModalOpen(true),
+                                          },
+                                      ]
+                                    : []),
+                                ...(canPrintSchedule && selectedSchedulePeriodId
+                                    ? [
+                                          {
+                                              id: 'print_schedule',
+                                              label: 'Cetak Jadwal Pelajaran (PDF)',
+                                              description: 'Download format resmi jadwal per rombel & periode',
+                                              icon: Printer,
+                                              iconColor: 'text-slate-700',
+                                              dividerBefore: canCreateSchedule,
+                                              onClick: () => setPrintModalOpen(true),
+                                          },
+                                      ]
+                                    : []),
+                            ]}
+                        />
+                    )}
                 </div>
             </div>
 
             {/* ═══════════════════════════════════════════════════════════
                 BAR RINGKAS NAMA JADWAL, MASA BERLAKU & KONTROL STATUS
                 ═══════════════════════════════════════════════════════════ */}
-            <div className="bg-white border border-slate-200 rounded-md px-3.5 py-2 shadow-xs">
-                {schedulePeriods.length === 0 ? (
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
-                        <div className="flex items-center gap-2">
-                            <CalendarClock className="w-4 h-4 text-slate-400 shrink-0" />
-                            <span>
-                                Belum ada nama jadwal pada periode ini (contoh: <b>Jadwal Periode 1447</b>).
-                            </span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={openCreatePeriodModal}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded transition shrink-0"
-                        >
-                            <Plus className="w-3.5 h-3.5" /> Buat Nama Jadwal
-                        </button>
-                    </div>
-                ) : (
-                    <div className="flex flex-wrap items-center justify-between gap-2.5">
-                        <div className="flex flex-wrap items-center gap-2 min-w-0">
-                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
-                                Jadwal:
-                            </span>
-                            <select
-                                value={selectedSchedulePeriodId}
-                                onChange={(e) => setSelectedSchedulePeriodId(e.target.value)}
-                                className="px-2.5 py-1 text-xs font-bold border border-slate-300 rounded bg-white text-slate-900 max-w-[280px] sm:max-w-[340px]"
-                            >
-                                {schedulePeriods.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name} ({p.schedules_count ?? 0} sesi)
-                                    </option>
-                                ))}
-                            </select>
-
-                            {currentSchedulePeriod && (
-                                <>
-                                    <span
-                                        title={
-                                            !currentSchedulePeriod.is_active
-                                                ? 'Mode Draft: belum berlaku di Presensi, Jurnal & Dashboard sebelum diberlakukan'
-                                                : currentSchedulePeriod.description || currentSchedulePeriod.validity_label
-                                        }
-                                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold border shrink-0 ${
-                                            currentSchedulePeriod.validity_status === 'active'
-                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                                : currentSchedulePeriod.validity_status === 'scheduled'
-                                                ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                                : currentSchedulePeriod.validity_status === 'expired'
-                                                ? 'bg-rose-50 text-rose-800 border-rose-200'
-                                                : 'bg-amber-50 text-amber-800 border-amber-200'
-                                        }`}
-                                    >
-                                        <span
-                                            className={`w-1.5 h-1.5 rounded-full ${
-                                                currentSchedulePeriod.validity_status === 'active'
-                                                    ? 'bg-emerald-500 animate-pulse'
-                                                    : currentSchedulePeriod.validity_status === 'scheduled'
-                                                    ? 'bg-blue-500'
-                                                    : currentSchedulePeriod.validity_status === 'expired'
-                                                    ? 'bg-rose-500'
-                                                    : 'bg-amber-500'
-                                            }`}
-                                        />
-                                        {currentSchedulePeriod.validity_label}
-                                    </span>
-
-                                    {(currentSchedulePeriod.effective_start_date || currentSchedulePeriod.effective_end_date) && (
-                                        <span
-                                            className="inline-flex items-center gap-1 text-[11px] text-slate-500 whitespace-nowrap"
-                                            title={currentSchedulePeriod.description || 'Masa berlaku jadwal'}
-                                        >
-                                            <CalendarClock className="w-3.5 h-3.5 text-slate-400" />
-                                            {formatShortDate(currentSchedulePeriod.effective_start_date) || '...'} s/d{' '}
-                                            {formatShortDate(currentSchedulePeriod.effective_end_date) || '...'}
-                                        </span>
-                                    )}
-                                </>
+            {activeTab === 'schedules' && (
+                <div className="bg-white border border-slate-200 rounded-md px-3.5 py-2 shadow-xs">
+                    {schedulePeriods.length === 0 ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+                            <div className="flex items-center gap-2">
+                                <CalendarClock className="w-4 h-4 text-slate-400 shrink-0" />
+                                <span>
+                                    Belum ada nama jadwal pada periode ini (contoh: <b>Jadwal Periode 1447</b>).
+                                </span>
+                            </div>
+                            {canCreateSchedule && (
+                                <button
+                                    type="button"
+                                    onClick={openCreatePeriodModal}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded transition shrink-0"
+                                >
+                                    <Plus className="w-3.5 h-3.5" /> Buat Nama Jadwal
+                                </button>
                             )}
                         </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                            {currentSchedulePeriod && !currentSchedulePeriod.is_active ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setPeriodConfirmAction({ type: 'activate', period: currentSchedulePeriod })}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded shadow-xs transition"
-                                    title="Aktifkan agar jadwal ini mulai berlaku untuk KBM & Presensi"
+                    ) : (
+                        <div className="flex flex-wrap items-center justify-between gap-2.5">
+                            <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
+                                    Jadwal:
+                                </span>
+                                <select
+                                    value={selectedSchedulePeriodId}
+                                    onChange={(e) => setSelectedSchedulePeriodId(e.target.value)}
+                                    className="px-2.5 py-1 text-xs font-bold border border-slate-300 rounded bg-white text-slate-900 max-w-[280px] sm:max-w-[340px]"
                                 >
-                                    <CalendarCheck className="w-3.5 h-3.5" /> Berlakukan
-                                </button>
-                            ) : currentSchedulePeriod ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setPeriodConfirmAction({ type: 'deactivate', period: currentSchedulePeriod })}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded transition"
-                                    title="Nonaktifkan jadwal agar tidak lagi berlaku"
-                                >
-                                    <Power className="w-3.5 h-3.5" /> Nonaktifkan
-                                </button>
-                            ) : null}
+                                    {schedulePeriods.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.name} ({p.schedules_count ?? 0} sesi)
+                                        </option>
+                                    ))}
+                                </select>
 
-                            <ActionDropdown
-                                label="Kelola"
-                                size="sm"
-                                variant="outline"
-                                items={[
-                                    {
-                                        id: 'create_period',
-                                        label: 'Buat Nama Jadwal Baru',
-                                        description: 'Buat draft jadwal baru beserta masa berlakunya',
-                                        icon: Plus,
-                                        iconColor: 'text-[#0b57d0]',
-                                        onClick: openCreatePeriodModal,
-                                    },
-                                    ...(currentSchedulePeriod
-                                        ? [
-                                              {
-                                                  id: 'edit_period',
-                                                  label: 'Atur Nama & Masa Berlaku',
-                                                  description: 'Ubah nama jadwal, tanggal berlaku, atau catatan',
-                                                  icon: FileEdit,
-                                                  iconColor: 'text-slate-700',
-                                                  onClick: () => openEditPeriodModal(currentSchedulePeriod),
-                                              },
-                                              {
-                                                  id: 'reset_period',
-                                                  label: 'Reset Jadwal',
-                                                  description: currentSchedulePeriod.is_active
-                                                      ? 'Terkunci karena jadwal sudah diberlakukan'
-                                                      : 'Kosongkan slot jadwal sebelum diberlakukan',
-                                                  icon: RotateCcw,
-                                                  iconColor: 'text-rose-600',
-                                                  badge: currentSchedulePeriod.is_active ? 'Aktif' : undefined,
-                                                  disabled: currentSchedulePeriod.is_active || allSchedules.length === 0,
-                                                  dividerBefore: true,
-                                                  onClick: () => {
-                                                      setResetScope('all');
-                                                      setResetTargetGroupId(
-                                                          paginatedGroups[0]?.id ? String(paginatedGroups[0].id) : ''
-                                                      );
-                                                      setResetModalOpen(true);
-                                                  },
-                                              },
-                                              ...(!currentSchedulePeriod.is_active
-                                                  ? [
-                                                        {
-                                                            id: 'delete_period',
-                                                            label: 'Hapus Draft Jadwal',
-                                                            description: 'Hapus nama jadwal yang belum aktif ini',
-                                                            icon: Trash2,
-                                                            danger: true,
-                                                            onClick: () =>
-                                                                setPeriodConfirmAction({
-                                                                    type: 'delete',
-                                                                    period: currentSchedulePeriod,
-                                                                }),
-                                                        },
-                                                    ]
-                                                  : []),
-                                          ]
-                                        : []),
-                                ]}
-                            />
+                                {currentSchedulePeriod && (
+                                    <>
+                                        <span
+                                            title={
+                                                !currentSchedulePeriod.is_active
+                                                    ? 'Mode Draft: belum berlaku di Presensi, Jurnal & Dashboard sebelum diberlakukan'
+                                                    : currentSchedulePeriod.description || currentSchedulePeriod.validity_label
+                                            }
+                                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold border shrink-0 ${
+                                                currentSchedulePeriod.validity_status === 'active'
+                                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                    : currentSchedulePeriod.validity_status === 'scheduled'
+                                                    ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                                    : currentSchedulePeriod.validity_status === 'expired'
+                                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`w-1.5 h-1.5 rounded-full ${
+                                                    currentSchedulePeriod.validity_status === 'active'
+                                                        ? 'bg-emerald-500 animate-pulse'
+                                                        : currentSchedulePeriod.validity_status === 'scheduled'
+                                                        ? 'bg-blue-500'
+                                                        : currentSchedulePeriod.validity_status === 'expired'
+                                                        ? 'bg-rose-500'
+                                                        : 'bg-amber-500'
+                                                }`}
+                                            />
+                                            {currentSchedulePeriod.validity_label}
+                                        </span>
+
+                                        {(currentSchedulePeriod.effective_start_date || currentSchedulePeriod.effective_end_date) && (
+                                            <span
+                                                className="inline-flex items-center gap-1 text-[11px] text-slate-500 whitespace-nowrap"
+                                                title={currentSchedulePeriod.description || 'Masa berlaku jadwal'}
+                                            >
+                                                <CalendarClock className="w-3.5 h-3.5 text-slate-400" />
+                                                {formatShortDate(currentSchedulePeriod.effective_start_date) || '...'} s/d{' '}
+                                                {formatShortDate(currentSchedulePeriod.effective_end_date) || '...'}
+                                            </span>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
+                            {(canCreateSchedule || canUpdateSchedule || canDeleteSchedule) && (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    {canUpdateSchedule && currentSchedulePeriod && !currentSchedulePeriod.is_active ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => setPeriodConfirmAction({ type: 'activate', period: currentSchedulePeriod })}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded shadow-xs transition"
+                                            title="Aktifkan agar jadwal ini mulai berlaku untuk KBM & Presensi"
+                                        >
+                                            <CalendarCheck className="w-3.5 h-3.5" /> Berlakukan
+                                        </button>
+                                    ) : canUpdateSchedule && currentSchedulePeriod ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => setPeriodConfirmAction({ type: 'deactivate', period: currentSchedulePeriod })}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded transition"
+                                            title="Nonaktifkan jadwal agar tidak lagi berlaku"
+                                        >
+                                            <Power className="w-3.5 h-3.5" /> Nonaktifkan
+                                        </button>
+                                    ) : null}
+
+                                    {(canCreateSchedule || (currentSchedulePeriod && (canUpdateSchedule || (canDeleteSchedule && !currentSchedulePeriod.is_active)))) && (
+                                        <ActionDropdown
+                                            label="Kelola"
+                                            size="sm"
+                                            variant="outline"
+                                            items={[
+                                                ...(canCreateSchedule
+                                                    ? [
+                                                          {
+                                                              id: 'create_period',
+                                                              label: 'Buat Nama Jadwal Baru',
+                                                              description: 'Buat draft jadwal baru beserta masa berlakunya',
+                                                              icon: Plus,
+                                                              iconColor: 'text-[#0b57d0]',
+                                                              onClick: openCreatePeriodModal,
+                                                          },
+                                                      ]
+                                                    : []),
+                                                ...(currentSchedulePeriod && canUpdateSchedule
+                                                    ? [
+                                                          {
+                                                              id: 'edit_period',
+                                                              label: 'Atur Nama & Masa Berlaku',
+                                                              description: 'Ubah nama jadwal, tanggal berlaku, atau catatan',
+                                                              icon: FileEdit,
+                                                              iconColor: 'text-slate-700',
+                                                              onClick: () => openEditPeriodModal(currentSchedulePeriod),
+                                                          },
+                                                          {
+                                                              id: 'reset_period',
+                                                              label: 'Reset Jadwal',
+                                                              description: currentSchedulePeriod.is_active
+                                                                  ? 'Terkunci karena jadwal sudah diberlakukan'
+                                                                  : 'Kosongkan slot jadwal sebelum diberlakukan',
+                                                              icon: RotateCcw,
+                                                              iconColor: 'text-rose-600',
+                                                              badge: currentSchedulePeriod.is_active ? 'Aktif' : undefined,
+                                                              disabled: currentSchedulePeriod.is_active || allSchedules.length === 0,
+                                                              dividerBefore: canCreateSchedule,
+                                                              onClick: () => {
+                                                                  setResetScope('all');
+                                                                  setResetTargetGroupId(
+                                                                      paginatedGroups[0]?.id ? String(paginatedGroups[0].id) : ''
+                                                                  );
+                                                                  setResetModalOpen(true);
+                                                              },
+                                                          },
+                                                      ]
+                                                    : []),
+                                                ...(currentSchedulePeriod && canDeleteSchedule && !currentSchedulePeriod.is_active
+                                                    ? [
+                                                          {
+                                                              id: 'delete_period',
+                                                              label: 'Hapus Draft Jadwal',
+                                                              description: 'Hapus nama jadwal yang belum aktif ini',
+                                                              icon: Trash2,
+                                                              danger: true,
+                                                              onClick: () =>
+                                                                  setPeriodConfirmAction({
+                                                                      type: 'delete',
+                                                                      period: currentSchedulePeriod,
+                                                                  }),
+                                                          },
+                                                      ]
+                                                    : []),
+                                            ]}
+                                        />
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            )}
 
             {/* ═══════════════════════════════════════════════════════════
                 FILTER DATA MASTER RELASIONAL: PROGRAM -> JENJANG -> KELAS
+                (Hanya ditampilkan bila ada jadwal yang dibuat pada tab jadwal)
                 ═══════════════════════════════════════════════════════════ */}
+            {activeTab === 'schedules' && selectedSchedulePeriodId && (
             <div className="bg-white border border-slate-200 rounded-md p-4 shadow-xs space-y-4">
-                {/* 1. Filter Program Utama (Dinamis dari Master Program) */}
+                {/* 1. Filter Program Utama (Dinamis sesuai role pengguna) */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                     <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-md">
-                        <button
-                            onClick={() => { setSelectedProgram('all'); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
-                            className={`px-3 py-1.5 text-xs font-bold rounded transition ${
-                                selectedProgram === 'all'
-                                    ? 'bg-[#0b57d0] text-white shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                        >
-                            Semua Program
-                        </button>
+                        {!userProgramId && (
+                            <button
+                                onClick={() => { setSelectedProgram('all'); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
+                                className={`px-3 py-1.5 text-xs font-bold rounded transition ${
+                                    selectedProgram === 'all'
+                                        ? 'bg-[#0b57d0] text-white shadow-xs'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                Semua Program
+                            </button>
+                        )}
                         {availablePrograms.map((prog) => (
                             <button
                                 key={prog.id}
-                                onClick={() => { setSelectedProgram(String(prog.id)); setSelectedEducation('all'); setSelectedEducationClass('all'); setCurrentPage(1); }}
+                                onClick={() => {
+                                    if (userProgramId) return;
+                                    setSelectedProgram(String(prog.id));
+                                    setSelectedEducation('all');
+                                    setSelectedEducationClass('all');
+                                    setCurrentPage(1);
+                                }}
                                 className={`px-3 py-1.5 text-xs font-bold rounded transition flex items-center gap-1.5 ${
-                                    String(selectedProgram) === String(prog.id)
+                                    String(selectedProgram) === String(prog.id) || Number(userProgramId) === Number(prog.id)
                                         ? 'bg-[#0b57d0] text-white shadow-xs'
                                         : 'text-slate-600 hover:text-slate-900'
                                 }`}
@@ -1228,6 +1315,7 @@ export default function ScheduleKbmPage() {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* ═══════════════════════════════════════════════════════════
                 TAB NAVIGASI & VIEW SWITCHER
@@ -1235,16 +1323,12 @@ export default function ScheduleKbmPage() {
             <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-2">
                     <FlatTabs
-                        tabs={[
-                            { id: 'schedules', name: 'Matriks Jadwal Pelajaran', icon: Calendar },
-                            { id: 'journals', name: 'Jurnal Mengajar & Presensi', icon: BookOpen },
-                            { id: 'recap', name: 'Rekapitulasi Kehadiran', icon: BarChart3 },
-                        ]}
+                        tabs={scheduleTabs}
                         activeTab={activeTab}
                         onChange={setActiveTab}
                     />
 
-                    {activeTab === 'schedules' && (
+                    {activeTab === 'schedules' && selectedSchedulePeriodId && (
                         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-md self-start sm:self-auto">
                             <button
                                 onClick={() => setViewMode('inverted_matrix')}
@@ -1289,6 +1373,32 @@ export default function ScheduleKbmPage() {
                     TAB 1: JADWAL PELAJARAN (MATRIKS TERBALIK DENGAN PAGINATION)
                     ═══════════════════════════════════════════════════════════ */}
                 {activeTab === 'schedules' && (
+                    !selectedSchedulePeriodId ? (
+                        <div className="bg-white border border-dashed border-slate-300 rounded-md p-10 text-center space-y-3 shadow-xs">
+                            <div className="w-11 h-11 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                <CalendarClock className="w-5 h-5" />
+                            </div>
+                            <div className="space-y-1 max-w-md mx-auto">
+                                <h3 className="text-sm font-bold text-slate-800">
+                                    Belum Ada Jadwal Pelajaran yang Dibuat
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    Buat nama jadwal terlebih dahulu (contoh: <b>Jadwal Periode 1447</b>) sebelum menyusun dan menampilkan tabel matriks jadwal pelajaran.
+                                </p>
+                            </div>
+                            {canCreateSchedule && (
+                                <div className="pt-1">
+                                    <button
+                                        type="button"
+                                        onClick={openCreatePeriodModal}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition"
+                                    >
+                                        <Plus className="w-4 h-4" /> Buat Nama Jadwal Baru
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
                     <div className="space-y-4">
 
                         {/* ───────────────────────────────────────────────────────────
@@ -1446,29 +1556,35 @@ export default function ScheduleKbmPage() {
                                                                                 </div>
                                                                             )}
 
+                                                                            {(canUpdateSchedule || canDeleteSchedule) && (
                                                                             <div
                                                                                 className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition bg-white/90 backdrop-blur-xs rounded border border-slate-200/80 shadow-2xs px-0.5 py-0.5"
                                                                                 onClick={(e) => e.stopPropagation()}
                                                                             >
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => handleEditScheduleClick(sched)}
-                                                                                    className="text-slate-500 hover:text-[#0b57d0] transition p-1 rounded hover:bg-blue-50"
-                                                                                    title="Edit Jadwal"
-                                                                                >
-                                                                                    <Pencil className="w-3 h-3" />
-                                                                                </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => setDeleteScheduleTarget(sched)}
-                                                                                    className="text-slate-400 hover:text-rose-600 transition p-1 rounded hover:bg-rose-50"
-                                                                                    title="Hapus Jadwal"
-                                                                                >
-                                                                                    <Trash2 className="w-3 h-3" />
-                                                                                </button>
+                                                                                {canUpdateSchedule && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleEditScheduleClick(sched)}
+                                                                                        className="text-slate-500 hover:text-[#0b57d0] transition p-1 rounded hover:bg-blue-50"
+                                                                                        title="Edit Jadwal"
+                                                                                    >
+                                                                                        <Pencil className="w-3 h-3" />
+                                                                                    </button>
+                                                                                )}
+                                                                                {canDeleteSchedule && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => setDeleteScheduleTarget(sched)}
+                                                                                        className="text-slate-400 hover:text-rose-600 transition p-1 rounded hover:bg-rose-50"
+                                                                                        title="Hapus Jadwal"
+                                                                                    >
+                                                                                        <Trash2 className="w-3 h-3" />
+                                                                                    </button>
+                                                                                )}
                                                                             </div>
+                                                                            )}
                                                                         </div>
-                                                                    ) : (
+                                                                    ) : canCreateSchedule ? (
                                                                         <button
                                                                             onClick={() => handleCellClick(selectedDayFilter, h.order, g.id)}
                                                                             className="w-full h-full min-h-[55px] border-2 border-dashed border-slate-100 hover:border-[#093c30]/20 hover:bg-[#093c30]/[0.02] transition rounded-md flex items-center justify-center group"
@@ -1477,6 +1593,8 @@ export default function ScheduleKbmPage() {
                                                                                 <Plus className="w-3 h-3" /> Jadwalkan
                                                                             </span>
                                                                         </button>
+                                                                    ) : (
+                                                                        <div className="w-full h-full min-h-[55px] rounded-md border border-slate-100/80 bg-slate-50/30" />
                                                                     )}
                                                                 </td>
                                                             );
@@ -1622,29 +1740,35 @@ export default function ScheduleKbmPage() {
                                                                                     {sched.classroom?.name}
                                                                                 </div>
                                                                             )}
+                                                                            {(canUpdateSchedule || canDeleteSchedule) && (
                                                                             <div
                                                                                 className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition bg-white/90 backdrop-blur-xs rounded border border-slate-200/80 shadow-2xs px-0.5 py-0.5"
                                                                                 onClick={(e) => e.stopPropagation()}
                                                                             >
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => handleEditScheduleClick(sched)}
-                                                                                    className="text-slate-500 hover:text-[#0b57d0] transition p-1 rounded hover:bg-blue-50"
-                                                                                    title="Edit Jadwal"
-                                                                                >
-                                                                                    <Pencil className="w-3.5 h-3.5" />
-                                                                                </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => setDeleteScheduleTarget(sched)}
-                                                                                    className="text-slate-400 hover:text-rose-600 transition p-1 rounded hover:bg-rose-50"
-                                                                                    title="Hapus Jadwal"
-                                                                                >
-                                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                                </button>
+                                                                                {canUpdateSchedule && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleEditScheduleClick(sched)}
+                                                                                        className="text-slate-500 hover:text-[#0b57d0] transition p-1 rounded hover:bg-blue-50"
+                                                                                        title="Edit Jadwal"
+                                                                                    >
+                                                                                        <Pencil className="w-3.5 h-3.5" />
+                                                                                    </button>
+                                                                                )}
+                                                                                {canDeleteSchedule && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => setDeleteScheduleTarget(sched)}
+                                                                                        className="text-slate-400 hover:text-rose-600 transition p-1 rounded hover:bg-rose-50"
+                                                                                        title="Hapus Jadwal"
+                                                                                    >
+                                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                                    </button>
+                                                                                )}
                                                                             </div>
+                                                                            )}
                                                                         </div>
-                                                                    ) : (
+                                                                    ) : canCreateSchedule ? (
                                                                         <button
                                                                             onClick={() => handleCellClick(d.id, h.order, currentWeeklyGroup?.id)}
                                                                             className="w-full h-full min-h-[55px] border-2 border-dashed border-slate-100 hover:border-[#093c30]/20 hover:bg-[#093c30]/[0.02] transition rounded-md flex items-center justify-center group"
@@ -1653,6 +1777,8 @@ export default function ScheduleKbmPage() {
                                                                                 <Plus className="w-3 h-3" /> Isi Slot
                                                                             </span>
                                                                         </button>
+                                                                    ) : (
+                                                                        <div className="w-full h-full min-h-[55px] rounded-md border border-slate-100/80 bg-slate-50/30" />
                                                                     )}
                                                                 </td>
                                                             );
@@ -1732,24 +1858,30 @@ export default function ScheduleKbmPage() {
                                                             {s.classroom?.name || '-'}
                                                         </td>
                                                         <td className="px-3.5 py-2 text-right">
+                                                            {(canUpdateSchedule || canDeleteSchedule) && (
                                                             <div className="inline-flex items-center justify-end gap-1">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleEditScheduleClick(s)}
-                                                                    className="text-slate-400 hover:text-[#0b57d0] p-1 transition rounded hover:bg-blue-50"
-                                                                    title="Edit Jadwal"
-                                                                >
-                                                                    <Pencil className="w-3.5 h-3.5" />
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setDeleteScheduleTarget(s)}
-                                                                    className="text-slate-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50"
-                                                                    title="Hapus Jadwal"
-                                                                >
-                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                </button>
+                                                                {canUpdateSchedule && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleEditScheduleClick(s)}
+                                                                        className="text-slate-400 hover:text-[#0b57d0] p-1 transition rounded hover:bg-blue-50"
+                                                                        title="Edit Jadwal"
+                                                                    >
+                                                                        <Pencil className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                )}
+                                                                {canDeleteSchedule && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setDeleteScheduleTarget(s)}
+                                                                        className="text-slate-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50"
+                                                                        title="Hapus Jadwal"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                )}
                                                             </div>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 );
@@ -1760,6 +1892,7 @@ export default function ScheduleKbmPage() {
                             </div>
                         )}
                     </div>
+                    )
                 )}
 
                 {/* ═══════════════════════════════════════════════════════════
@@ -1805,6 +1938,7 @@ export default function ScheduleKbmPage() {
                                     </div>
                                 </div>
 
+                                {canCreateJournal && (
                                 <div className="flex items-center gap-2 self-end md:self-auto">
                                     <button
                                         type="button"
@@ -1821,6 +1955,7 @@ export default function ScheduleKbmPage() {
                                         <Plus className="w-4 h-4 text-blue-200" /> Buka Jurnal Pertemuan Baru
                                     </button>
                                 </div>
+                                )}
                             </div>
 
                             {/* Status Bar Ringkasan & Switcher View Mode */}
@@ -2269,6 +2404,8 @@ export default function ScheduleKbmPage() {
                                             className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-800 w-48 sm:w-56 focus:outline-none focus:ring-1 focus:ring-emerald-600"
                                         />
                                     </div>
+                                    {canPrintPresence && (
+                                    <>
                                     <button
                                         type="button"
                                         disabled={!currentWeeklyGroup?.id || !recap?.students?.length || isExportingRecap}
@@ -2296,6 +2433,8 @@ export default function ScheduleKbmPage() {
                                         <Printer className="w-3.5 h-3.5" />
                                         Preview &amp; Cetak PDF
                                     </button>
+                                    </>
+                                    )}
                                 </div>
                             </div>
 
@@ -2894,6 +3033,30 @@ export default function ScheduleKbmPage() {
                             onChange={(e) => setPeriodFormName(e.target.value)}
                             className="block w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                            Cakupan Program
+                        </label>
+                        {userProgramId ? (
+                            <div className="px-3 py-2 border border-slate-200 rounded-md text-sm bg-slate-50 text-slate-700 font-semibold">
+                                Program {userProgram?.name || availablePrograms[0]?.name || `#${userProgramId}`}
+                            </div>
+                        ) : (
+                            <select
+                                value={periodFormProgramId}
+                                onChange={(e) => setPeriodFormProgramId(e.target.value)}
+                                className="block w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
+                            >
+                                <option value="">Semua Program (Umum)</option>
+                                {programs.map((prog) => (
+                                    <option key={prog.id} value={prog.id}>
+                                        Program {prog.name}{prog.code ? ` (${prog.code})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </div>
 
                     <div>

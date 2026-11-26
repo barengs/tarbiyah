@@ -127,6 +127,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
             $validated['academic_year_id'] = $period->academic_year_id;
             $validated['academic_quarter_id'] = $period->academic_quarter_id ?? ($validated['academic_quarter_id'] ?? null);
         } else {
+            $userProgramId = auth('api')->user()?->getActiveProgramId();
             if (empty($validated['academic_quarter_id'])) {
                 $activeQuarter = AcademicQuarter::where('academic_year_id', $validated['academic_year_id'])
                     ->where('active', true)
@@ -136,6 +137,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
 
             $period = SchedulePeriod::where('academic_year_id', $validated['academic_year_id'])
                 ->when($validated['academic_quarter_id'], fn ($q, $qid) => $q->where('academic_quarter_id', $qid))
+                ->when($userProgramId, fn ($q, $pid) => $q->where('program_id', $pid))
                 ->orderByDesc('is_active')
                 ->orderByDesc('id')
                 ->first();
@@ -145,6 +147,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                 $period = SchedulePeriod::create([
                     'academic_year_id' => $validated['academic_year_id'],
                     'academic_quarter_id' => $validated['academic_quarter_id'],
+                    'program_id' => $userProgramId,
                     'name' => 'Jadwal Periode '.($yearObj?->year ?? $validated['academic_year_id']),
                     'is_active' => false,
                     'created_by' => auth('api')->id(),
@@ -152,6 +155,25 @@ class LessonScheduleController extends Controller implements HasMiddleware
             }
 
             $validated['schedule_period_id'] = $period->id;
+        }
+
+        // Validasi cakupan program role pengguna
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId) {
+            $targetGroup = ClassGroup::with('educationalInstitution')->find($validated['class_group_id']);
+            $groupProgramId = $targetGroup?->program_id ?? $targetGroup?->educationalInstitution?->program_id;
+            if ($groupProgramId && (int) $groupProgramId !== $userProgramId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Anda tidak memiliki akses untuk menjadwalkan rombel di program lain.',
+                ], 403);
+            }
+            if ($period->program_id && (int) $period->program_id !== $userProgramId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Anda tidak memiliki akses ke periode jadwal program lain.',
+                ], 403);
+            }
         }
 
         // Cek 0: Mata Pelajaran Muatan Lokal (Non-Kelas) tidak boleh masuk ke jadwal pelajaran KBM
@@ -273,6 +295,18 @@ class LessonScheduleController extends Controller implements HasMiddleware
             ? $validated['academic_quarter_id']
             : $schedule->academic_quarter_id;
         $targetGroupId = $validated['class_group_id'] ?? $schedule->class_group_id;
+
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId) {
+            $targetGroup = ClassGroup::with('educationalInstitution')->find($targetGroupId);
+            $groupProgramId = $targetGroup?->program_id ?? $targetGroup?->educationalInstitution?->program_id;
+            if ($groupProgramId && (int) $groupProgramId !== $userProgramId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Anda tidak memiliki akses untuk mengubah jadwal rombel di program lain.',
+                ], 403);
+            }
+        }
         $targetStudyId = $validated['study_id'] ?? $schedule->study_id;
         $targetTeacherId = $validated['teacher_id'] ?? $schedule->teacher_id;
         $targetHourId = $validated['lesson_hour_id'] ?? $schedule->lesson_hour_id;
@@ -364,13 +398,24 @@ class LessonScheduleController extends Controller implements HasMiddleware
 
     public function destroy(string $id)
     {
-        $schedule = LessonSchedule::find($id);
+        $schedule = LessonSchedule::with('classGroup.educationalInstitution')->find($id);
 
         if (! $schedule) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Jadwal tidak ditemukan',
             ], 404);
+        }
+
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId) {
+            $groupProgramId = $schedule->classGroup?->program_id ?? $schedule->classGroup?->educationalInstitution?->program_id;
+            if ($groupProgramId && (int) $groupProgramId !== $userProgramId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Anda tidak memiliki akses untuk menghapus jadwal rombel di program lain.',
+                ], 403);
+            }
         }
 
         try {
@@ -446,8 +491,12 @@ class LessonScheduleController extends Controller implements HasMiddleware
             ], 422);
         }
 
-        // Ambil rombel pada tahun dan jenjang asal
+        // Ambil rombel pada tahun dan jenjang asal (dibatasi oleh cakupan program role pengguna)
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
         $sourceGroupQuery = ClassGroup::where('academic_year_id', $sourceYearId);
+        if ($userProgramId) {
+            $sourceGroupQuery->where('program_id', $userProgramId);
+        }
         if ($educationId && $educationId !== 'all') {
             $sourceGroupQuery->where(function ($q) use ($educationId) {
                 $q->where('educational_institution_id', $educationId)
@@ -496,6 +545,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                 $targetSchedulePeriod = SchedulePeriod::create([
                     'academic_year_id' => $targetYearId,
                     'academic_quarter_id' => $toQuarterId,
+                    'program_id' => $userProgramId,
                     'name' => trim($validated['new_schedule_name']),
                     'description' => "Salinan jadwal dari {$fromQuarter->name}",
                     'effective_start_date' => $validated['effective_start_date'] ?? null,
@@ -515,6 +565,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                     $targetSchedulePeriod = SchedulePeriod::create([
                         'academic_year_id' => $targetYearId,
                         'academic_quarter_id' => $toQuarterId,
+                        'program_id' => $userProgramId,
                         'name' => 'Jadwal '.($targetYearObj?->year ?? $targetYearId).' - '.$toQuarter->name,
                         'description' => "Salinan jadwal dari {$fromQuarter->name}",
                         'effective_start_date' => $validated['effective_start_date'] ?? null,
@@ -715,8 +766,12 @@ class LessonScheduleController extends Controller implements HasMiddleware
             }
         }
 
-        // Ambil rombel pada tahun asal
+        // Ambil rombel pada tahun asal (dibatasi cakupan program role pengguna)
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
         $sourceGroupQuery = ClassGroup::where('academic_year_id', $fromYearId);
+        if ($userProgramId) {
+            $sourceGroupQuery->where('program_id', $userProgramId);
+        }
         if ($educationId && $educationId !== 'all') {
             $sourceGroupQuery->where(function ($q) use ($educationId) {
                 $q->where('educational_institution_id', $educationId)
@@ -816,6 +871,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
 
                     $tp = SchedulePeriod::where('academic_year_id', $toYearId)
                         ->when($targetQuarterId, fn ($q, $qid) => $q->where('academic_quarter_id', $qid))
+                        ->when($userProgramId, fn ($q, $pid) => $q->where('program_id', $pid))
                         ->when(! empty($validated['new_schedule_name']), fn ($q) => $q->where('name', mb_substr($defaultName, 0, 150)))
                         ->orderByDesc('id')
                         ->first();
@@ -824,6 +880,7 @@ class LessonScheduleController extends Controller implements HasMiddleware
                         $tp = SchedulePeriod::create([
                             'academic_year_id' => $toYearId,
                             'academic_quarter_id' => $targetQuarterId,
+                            'program_id' => $userProgramId,
                             'name' => mb_substr($defaultName, 0, 150),
                             'description' => "Salinan jadwal dari tahun akademik {$fromYear->year}",
                             'effective_start_date' => $validated['effective_start_date'] ?? null,

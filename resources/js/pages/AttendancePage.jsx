@@ -21,6 +21,7 @@ import {
     CheckCheck, UserX, AlertCircle, RefreshCw, CalendarRange, Layers, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { hasPermission, hasAnyPermission } from '../utils/access';
 
 /**
  * Format tanggal lokal YYYY-MM-DD
@@ -81,8 +82,11 @@ export default function AttendancePage() {
     // ═══════════════════════════════════════════════════════════
     // ACTIVE TAB UTAMA: FORMULIR vs LEMBAR MATRIKS P1-P16
     // ═══════════════════════════════════════════════════════════
+    const user = useSelector((state) => state.auth?.user);
+    const canEditPresensi = hasAnyPermission(user, ['presensi.create', 'presensi.update']);
+    const canPrintPresensi = hasPermission(user, 'presensi.print');
     const { selectedYearId, selectedQuarterId } = useSelector((state) => state.academicContext || {});
-    const [activeTab, setActiveTab] = useState('attendance_form'); // 'attendance_form' | 'matrix_sheet'
+    const [activeTab, setActiveTab] = useState(() => (canEditPresensi ? 'attendance_form' : 'matrix_sheet')); // 'attendance_form' | 'matrix_sheet'
     const [printModalOpen, setPrintModalOpen] = useState(false);
 
     // Master Rombel sesuai tahun akademik terpilih
@@ -540,6 +544,7 @@ export default function AttendancePage() {
                     {/* Mode Navigation Tabs & Print Action */}
                     <div className="flex flex-wrap items-center gap-2">
                         <div className="flex items-center p-1 bg-slate-100 rounded-md border border-slate-200 shrink-0">
+                            {canEditPresensi && (
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('attendance_form')}
@@ -552,6 +557,7 @@ export default function AttendancePage() {
                                 <Clock className={`w-3.5 h-3.5 ${activeTab === 'attendance_form' ? 'text-blue-200' : 'text-slate-500'}`} />
                                 Formulir Absen (Per Jam)
                             </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('matrix_sheet')}
@@ -566,20 +572,21 @@ export default function AttendancePage() {
                             </button>
                         </div>
 
+                        {(canPrintPresensi || canEditPresensi) && (
                         <ActionDropdown
                             label="Aksi Presensi"
                             icon={Layers}
                             variant="primary"
                             items={[
-                                {
+                                canPrintPresensi ? {
                                     id: 'print_attendance',
                                     label: 'Cetak Lembar Presensi (PDF)',
                                     description: 'Unduh dokumen presensi resmi (harian / sepekan penuh)',
                                     icon: Printer,
                                     iconColor: 'text-emerald-700',
                                     onClick: () => setPrintModalOpen(true),
-                                },
-                                {
+                                } : null,
+                                canEditPresensi ? {
                                     id: 'save_attendance',
                                     label: entryMode === 'weekly' 
                                         ? 'Simpan Presensi Sepekan' 
@@ -591,17 +598,17 @@ export default function AttendancePage() {
                                     iconColor: 'text-emerald-700',
                                     onClick: handleSaveAllDays,
                                     disabled: isSavingMultiDay,
-                                },
-                                {
+                                } : null,
+                                canEditPresensi ? {
                                     id: 'set_all_hadir',
                                     label: 'Setel Semua Hadir (100%)',
                                     description: 'Tandai seluruh santri di hari aktif dengan status Hadir',
                                     icon: CheckCheck,
                                     iconColor: 'text-teal-600',
-                                    dividerBefore: true,
+                                    dividerBefore: canPrintPresensi,
                                     onClick: handleSetAllStudentsHadir,
-                                },
-                                entryMode !== 'daily' ? {
+                                } : null,
+                                canEditPresensi && entryMode !== 'daily' ? {
                                     id: 'rule_leave',
                                     label: 'Terapkan Izin Berhari-hari',
                                     description: 'Catat santri izin atau sakit beberapa hari sekaligus',
@@ -611,6 +618,7 @@ export default function AttendancePage() {
                                 } : null,
                             ].filter(Boolean)}
                         />
+                        )}
                     </div>
                 </div>
 

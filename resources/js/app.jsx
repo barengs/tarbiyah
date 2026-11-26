@@ -107,59 +107,59 @@ const App = () => {
                             
                             {/* Modul Kurikulum & Sub-menu */}
                             <Route path="kurikulum" element={<Navigate to="/kurikulum/jenjang" replace />} />
-                            <Route path="kurikulum/tahun-akademik" element={<AcademicYearPage />} />
-                            <Route path="kurikulum/triwulan" element={<AcademicYearPage />} />
-                            <Route path="master/tahun-akademik" element={<AcademicYearPage />} />
-                            <Route path="tahun-akademik" element={<AcademicYearPage />} />
-                            <Route path="kurikulum/jenjang" element={<InstitutionPage />} />
-                            <Route path="kurikulum/kelas" element={<EducationClassPage />} />
-                            <Route path="kurikulum/ruang-kelas" element={<ClassroomPage />} />
-                            <Route path="kurikulum/rombel" element={<ClassGroupPage />} />
-                            <Route path="kurikulum/rombel/:id" element={<ClassGroupDetailPage />} />
-                            <Route path="kurikulum/kenaikan-kelas" element={<ClassPromotionPage />} />
-                            <Route path="kurikulum/mapel" element={<StudyPage />} />
-                            <Route path="kurikulum/jam-pelajaran" element={<LessonHourPage />} />
+                            <Route path="kurikulum/tahun-akademik" element={<RequireAccess permissionPrefix="tahun-akademik"><AcademicYearPage /></RequireAccess>} />
+                            <Route path="kurikulum/triwulan" element={<RequireAccess permissionPrefix="tahun-akademik"><AcademicYearPage /></RequireAccess>} />
+                            <Route path="master/tahun-akademik" element={<RequireAccess permissionPrefix="tahun-akademik"><AcademicYearPage /></RequireAccess>} />
+                            <Route path="tahun-akademik" element={<RequireAccess permissionPrefix="tahun-akademik"><AcademicYearPage /></RequireAccess>} />
+                            <Route path="kurikulum/jenjang" element={<RequireAccess permissionPrefix="jenjang"><InstitutionPage /></RequireAccess>} />
+                            <Route path="kurikulum/kelas" element={<RequireAccess permissionPrefix="kelas"><EducationClassPage /></RequireAccess>} />
+                            <Route path="kurikulum/ruang-kelas" element={<RequireAccess permissionPrefix="kelas"><ClassroomPage /></RequireAccess>} />
+                            <Route path="kurikulum/rombel" element={<RequireAccess permissionPrefix="rombel"><ClassGroupPage /></RequireAccess>} />
+                            <Route path="kurikulum/rombel/:id" element={<RequireAccess permissionPrefix="rombel"><ClassGroupDetailPage /></RequireAccess>} />
+                            <Route path="kurikulum/kenaikan-kelas" element={<RequireAccess permissionPrefix="kenaikan-kelas"><ClassPromotionPage /></RequireAccess>} />
+                            <Route path="kurikulum/mapel" element={<RequireAccess permissionPrefix="mapel"><StudyPage /></RequireAccess>} />
+                            <Route path="kurikulum/jam-pelajaran" element={<RequireAccess permissionPrefix="jam-pelajaran"><LessonHourPage /></RequireAccess>} />
                             
                             {/* Alias Kompatibilitas Kurikulum & Master */}
-                            <Route path="master/institusi" element={<InstitutionPage />} />
-                            <Route path="institusi" element={<InstitutionPage />} />
-                            <Route path="kelas" element={<EducationClassPage />} />
-                            <Route path="master/kelas" element={<EducationClassPage />} />
-                            <Route path="ruang-kelas" element={<ClassroomPage />} />
-                            <Route path="master/ruang-kelas" element={<ClassroomPage />} />
-                            <Route path="master/classrooms" element={<ClassroomPage />} />
-                            <Route path="rombel" element={<ClassGroupPage />} />
-                            <Route path="rombel/:id" element={<ClassGroupDetailPage />} />
-                            <Route path="master/rombel" element={<ClassGroupPage />} />
-                            <Route path="master/rombel/:id" element={<ClassGroupDetailPage />} />
-                            <Route path="kenaikan-kelas" element={<ClassPromotionPage />} />
-                            <Route path="master/kenaikan-kelas" element={<ClassPromotionPage />} />
-                            <Route path="master/mapel" element={<StudyPage />} />
-                            <Route path="mapel" element={<StudyPage />} />
-                            <Route path="master/jam-pelajaran" element={<LessonHourPage />} />
-                            <Route path="jam-pelajaran" element={<LessonHourPage />} />
+                            <Route path="master/institusi" element={<RequireAccess permissionPrefix="jenjang"><InstitutionPage /></RequireAccess>} />
+                            <Route path="institusi" element={<RequireAccess permissionPrefix="jenjang"><InstitutionPage /></RequireAccess>} />
+                            <Route path="kelas" element={<RequireAccess permissionPrefix="kelas"><EducationClassPage /></RequireAccess>} />
+                            <Route path="master/kelas" element={<RequireAccess permissionPrefix="kelas"><EducationClassPage /></RequireAccess>} />
+                            <Route path="ruang-kelas" element={<RequireAccess permissionPrefix="kelas"><ClassroomPage /></RequireAccess>} />
+                            <Route path="master/ruang-kelas" element={<RequireAccess permissionPrefix="kelas"><ClassroomPage /></RequireAccess>} />
+                            <Route path="master/classrooms" element={<RequireAccess permissionPrefix="kelas"><ClassroomPage /></RequireAccess>} />
+                            <Route path="rombel" element={<RequireAccess permissionPrefix="rombel"><ClassGroupPage /></RequireAccess>} />
+                            <Route path="rombel/:id" element={<RequireAccess permissionPrefix="rombel"><ClassGroupDetailPage /></RequireAccess>} />
+                            <Route path="master/rombel" element={<RequireAccess permissionPrefix="rombel"><ClassGroupPage /></RequireAccess>} />
+                            <Route path="master/rombel/:id" element={<RequireAccess permissionPrefix="rombel"><ClassGroupDetailPage /></RequireAccess>} />
+                            <Route path="kenaikan-kelas" element={<RequireAccess permissionPrefix="kenaikan-kelas"><ClassPromotionPage /></RequireAccess>} />
+                            <Route path="master/kenaikan-kelas" element={<RequireAccess permissionPrefix="kenaikan-kelas"><ClassPromotionPage /></RequireAccess>} />
+                            <Route path="master/mapel" element={<RequireAccess permissionPrefix="mapel"><StudyPage /></RequireAccess>} />
+                            <Route path="mapel" element={<RequireAccess permissionPrefix="mapel"><StudyPage /></RequireAccess>} />
+                            <Route path="master/jam-pelajaran" element={<RequireAccess permissionPrefix="jam-pelajaran"><LessonHourPage /></RequireAccess>} />
+                            <Route path="jam-pelajaran" element={<RequireAccess permissionPrefix="jam-pelajaran"><LessonHourPage /></RequireAccess>} />
 
                             {/* Modul Data Siswa / Santri */}
-                            <Route path="siswa" element={<StudentPage />} />
-                            <Route path="siswa/:id" element={<StudentDetailPage />} />
-                            <Route path="santri" element={<StudentPage />} />
-                            <Route path="santri/:id" element={<StudentDetailPage />} />
+                            <Route path="siswa" element={<RequireAccess permissionPrefix="siswa"><StudentPage /></RequireAccess>} />
+                            <Route path="siswa/:id" element={<RequireAccess permissionPrefix="siswa"><StudentDetailPage /></RequireAccess>} />
+                            <Route path="santri" element={<RequireAccess permissionPrefix="siswa"><StudentPage /></RequireAccess>} />
+                            <Route path="santri/:id" element={<RequireAccess permissionPrefix="siswa"><StudentDetailPage /></RequireAccess>} />
 
                             {/* Modul Guru & Pendidik / Staff */}
-                            <Route path="master/guru" element={<TeacherPage />} />
-                            <Route path="master/guru/:id" element={<TeacherDetailPage />} />
-                            <Route path="guru" element={<TeacherPage />} />
-                            <Route path="guru/:id" element={<TeacherDetailPage />} />
-                            <Route path="staff" element={<TeacherPage />} />
-                            <Route path="staff/:id" element={<TeacherDetailPage />} />
+                            <Route path="master/guru" element={<RequireAccess permissionPrefix="guru"><TeacherPage /></RequireAccess>} />
+                            <Route path="master/guru/:id" element={<RequireAccess permissionPrefix="guru"><TeacherDetailPage /></RequireAccess>} />
+                            <Route path="guru" element={<RequireAccess permissionPrefix="guru"><TeacherPage /></RequireAccess>} />
+                            <Route path="guru/:id" element={<RequireAccess permissionPrefix="guru"><TeacherDetailPage /></RequireAccess>} />
+                            <Route path="staff" element={<RequireAccess permissionPrefix="guru"><TeacherPage /></RequireAccess>} />
+                            <Route path="staff/:id" element={<RequireAccess permissionPrefix="guru"><TeacherDetailPage /></RequireAccess>} />
 
                             {/* Modul Tahfidz, KBM, Presensi, Nilai, Rapor */}
                             <Route path="tahfidz" element={<TahfidzHalaqahPage />} />
-                            <Route path="kbm" element={<ScheduleKbmPage />} />
-                            <Route path="jadwal" element={<ScheduleKbmPage />} />
-                            <Route path="presensi" element={<AttendancePage />} />
-                            <Route path="nilai" element={<AssessmentPage />} />
-                            <Route path="rapor" element={<ReportCardPage />} />
+                            <Route path="kbm" element={<RequireAccess permissionPrefix="kbm"><ScheduleKbmPage /></RequireAccess>} />
+                            <Route path="jadwal" element={<RequireAccess permissionPrefix="kbm"><ScheduleKbmPage /></RequireAccess>} />
+                            <Route path="presensi" element={<RequireAccess permissionPrefix="presensi"><AttendancePage /></RequireAccess>} />
+                            <Route path="nilai" element={<RequireAccess permissionPrefix="rapor"><AssessmentPage /></RequireAccess>} />
+                            <Route path="rapor" element={<RequireAccess permissionPrefix="rapor"><ReportCardPage /></RequireAccess>} />
 
                             {/* Modul Keamanan & Manajemen Akses (Admin / Superadmin) */}
                             <Route path="pengaturan/masa-nilai" element={<RequireAccess permissionPrefix="pengaturan" adminOnly><GradingPeriodPage /></RequireAccess>} />

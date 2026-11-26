@@ -16,6 +16,7 @@ use App\Models\TeachingJournal;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -327,5 +328,78 @@ class SchedulePeriodValidityTest extends TestCase
 
         $this->assertSoftDeleted('schedule_periods', ['id' => $draft->id]);
         $this->assertEquals(0, LessonSchedule::withTrashed()->where('schedule_period_id', $draft->id)->count());
+    }
+
+    public function test_program_scoped_role_only_sees_and_manages_its_own_program_data_and_schedules(): void
+    {
+        $tibyan = Program::firstOrCreate(
+            ['name' => 'Tibyan'],
+            ['code' => 'TBY', 'is_active' => true]
+        );
+        $kubar = Program::firstOrCreate(
+            ['name' => 'Kubar'],
+            ['code' => 'KBR', 'is_active' => true]
+        );
+
+        $adminKubarRole = Role::updateOrCreate(
+            ['name' => 'admin-kubar', 'guard_name' => 'api'],
+            ['program_id' => $kubar->id]
+        );
+        foreach (['kbm.view', 'kbm.create', 'kbm.update', 'kbm.delete'] as $permName) {
+            Permission::firstOrCreate(['name' => $permName, 'guard_name' => 'api']);
+        }
+        $adminKubarRole->syncPermissions(['kbm.view', 'kbm.create', 'kbm.update', 'kbm.delete']);
+
+        $adminKubar = User::factory()->create(['role' => 'admin-kubar']);
+        $adminKubar->assignRole($adminKubarRole);
+
+        // ProgramController hanya mengembalikan Kubar untuk admin-kubar
+        $this->actingAs($adminKubar, 'api')
+            ->getJson('/api/master/programs')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $kubar->id);
+
+        // Buat jadwal Tibyan aktif sebagai superadmin
+        $tibyanPeriod = SchedulePeriod::create([
+            'name' => 'Jadwal Tibyan 1447',
+            'academic_year_id' => $this->year->id,
+            'academic_quarter_id' => $this->quarter->id,
+            'program_id' => $tibyan->id,
+            'is_active' => true,
+            'activated_at' => now(),
+        ]);
+
+        // admin-kubar membuat periode jadwal -> otomatis tersimpan dengan program_id = Kubar
+        $createKubarPeriod = $this->actingAs($adminKubar, 'api')
+            ->postJson('/api/main/schedule-periods', [
+                'name' => 'Jadwal Kubar 1447',
+                'academic_year_id' => $this->year->id,
+                'academic_quarter_id' => $this->quarter->id,
+            ]);
+        $createKubarPeriod->assertStatus(201)
+            ->assertJsonPath('data.program_id', $kubar->id);
+
+        $kubarPeriodId = $createKubarPeriod->json('data.id');
+
+        // admin-kubar hanya melihat jadwal Kubar (tidak melihat jadwal Tibyan)
+        $this->actingAs($adminKubar, 'api')
+            ->getJson("/api/main/schedule-periods?academic_year_id={$this->year->id}")
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $kubarPeriodId);
+
+        // admin-kubar mengaktifkan jadwal Kubar -> jadwal Tibyan tetap aktif!
+        $this->actingAs($adminKubar, 'api')
+            ->postJson("/api/main/schedule-periods/{$kubarPeriodId}/activate")
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_active', true);
+
+        $this->assertTrue($tibyanPeriod->fresh()->is_active);
+
+        // admin-kubar ditolak jika mencoba mengakses/mengubah jadwal Tibyan
+        $this->actingAs($adminKubar, 'api')
+            ->postJson("/api/main/schedule-periods/{$tibyanPeriod->id}/deactivate")
+            ->assertStatus(403);
     }
 }

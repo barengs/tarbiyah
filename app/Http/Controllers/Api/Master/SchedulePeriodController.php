@@ -7,6 +7,7 @@ use App\Models\AcademicQuarter;
 use App\Models\LessonSchedule;
 use App\Models\SchedulePeriod;
 use App\Models\TeachingJournal;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -27,8 +28,29 @@ class SchedulePeriodController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         try {
-            $query = SchedulePeriod::with(['academicYear', 'academicQuarter', 'creator'])
-                ->withCount('schedules');
+            $user = auth('api')->user();
+            $userProgramId = $user?->getActiveProgramId();
+
+            $query = SchedulePeriod::with(['academicYear', 'academicQuarter', 'program', 'creator'])
+                ->withCount(['schedules' => function ($q) use ($userProgramId) {
+                    if ($userProgramId) {
+                        $q->whereHas('classGroup', fn ($cg) => $cg->where('program_id', $userProgramId));
+                    }
+                }]);
+
+            if ($userProgramId) {
+                $query->where(function ($q) use ($userProgramId) {
+                    $q->where('program_id', $userProgramId)
+                        ->orWhereNull('program_id');
+                });
+            } elseif ($request->filled('program_id') && $request->query('program_id') !== 'all') {
+                $progId = $request->query('program_id');
+                if ($progId === 'general' || $progId === 'null') {
+                    $query->whereNull('program_id');
+                } else {
+                    $query->where('program_id', $progId);
+                }
+            }
 
             $targetYearId = $request->query('academic_year_id') ?: $request->header('X-Academic-Year-Id');
             if ($targetYearId) {
@@ -72,6 +94,7 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             'name' => 'required|string|max:150',
             'academic_year_id' => 'required|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
+            'program_id' => 'nullable|exists:programs,id',
             'description' => 'nullable|string|max:500',
             'effective_start_date' => 'nullable|date',
             'effective_end_date' => 'nullable|date|after_or_equal:effective_start_date',
@@ -91,6 +114,9 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             }
         }
 
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        $programId = $userProgramId ?: ($validated['program_id'] ?? null);
+
         $activateNow = (bool) ($validated['is_active'] ?? false);
 
         if ($activateNow && ! empty($validated['effective_end_date']) && $validated['effective_end_date'] < now()->toDateString()) {
@@ -105,7 +131,8 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             if ($activateNow) {
                 $this->deactivateSiblingPeriods(
                     (int) $validated['academic_year_id'],
-                    isset($validated['academic_quarter_id']) ? (int) $validated['academic_quarter_id'] : null
+                    isset($validated['academic_quarter_id']) ? (int) $validated['academic_quarter_id'] : null,
+                    $programId ? (int) $programId : null
                 );
             }
 
@@ -113,6 +140,7 @@ class SchedulePeriodController extends Controller implements HasMiddleware
                 'name' => trim($validated['name']),
                 'academic_year_id' => $validated['academic_year_id'],
                 'academic_quarter_id' => $validated['academic_quarter_id'] ?? null,
+                'program_id' => $programId,
                 'description' => $validated['description'] ?? null,
                 'effective_start_date' => $validated['effective_start_date'] ?? null,
                 'effective_end_date' => $validated['effective_end_date'] ?? null,
@@ -128,7 +156,7 @@ class SchedulePeriodController extends Controller implements HasMiddleware
                 'message' => $activateNow
                     ? 'Jadwal baru berhasil dibuat dan langsung diberlakukan'
                     : 'Jadwal baru berhasil dibuat sebagai draft (belum berlaku)',
-                'data' => $period->load(['academicYear', 'academicQuarter', 'creator'])->loadCount('schedules'),
+                'data' => $period->load(['academicYear', 'academicQuarter', 'program', 'creator'])->loadCount('schedules'),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -143,7 +171,7 @@ class SchedulePeriodController extends Controller implements HasMiddleware
 
     public function show(string $id)
     {
-        $period = SchedulePeriod::with(['academicYear', 'academicQuarter', 'creator'])
+        $period = SchedulePeriod::with(['academicYear', 'academicQuarter', 'program', 'creator'])
             ->withCount('schedules')
             ->find($id);
 
@@ -152,6 +180,10 @@ class SchedulePeriodController extends Controller implements HasMiddleware
                 'status' => 'error',
                 'message' => 'Periode jadwal tidak ditemukan',
             ], 404);
+        }
+
+        if ($denied = $this->denyIfOutOfProgramScope($period, true)) {
+            return $denied;
         }
 
         return response()->json([
@@ -172,14 +204,24 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             ], 404);
         }
 
+        if ($denied = $this->denyIfOutOfProgramScope($period)) {
+            return $denied;
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:150',
             'academic_year_id' => 'sometimes|required|exists:academic_years,id',
             'academic_quarter_id' => 'nullable|exists:academic_quarters,id',
+            'program_id' => 'nullable|exists:programs,id',
             'description' => 'nullable|string|max:500',
             'effective_start_date' => 'nullable|date',
             'effective_end_date' => 'nullable|date',
         ]);
+
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if ($userProgramId) {
+            $validated['program_id'] = $userProgramId;
+        }
 
         $targetYearId = (int) ($validated['academic_year_id'] ?? $period->academic_year_id);
         $targetQuarterId = array_key_exists('academic_quarter_id', $validated)
@@ -234,7 +276,7 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             return response()->json([
                 'status' => 'success',
                 'message' => 'Informasi dan masa berlaku jadwal berhasil diperbarui',
-                'data' => $period->fresh(['academicYear', 'academicQuarter', 'creator'])->loadCount('schedules'),
+                'data' => $period->fresh(['academicYear', 'academicQuarter', 'program', 'creator'])->loadCount('schedules'),
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -249,7 +291,7 @@ class SchedulePeriodController extends Controller implements HasMiddleware
 
     /**
      * Aktifkan / berlakukan periode jadwal ini.
-     * Otomatis menonaktifkan periode jadwal lain pada tahun & caturwulan yang sama.
+     * Otomatis menonaktifkan periode jadwal lain pada tahun, caturwulan, dan program yang sama.
      */
     public function activate(string $id)
     {
@@ -260,6 +302,10 @@ class SchedulePeriodController extends Controller implements HasMiddleware
                 'status' => 'error',
                 'message' => 'Periode jadwal tidak ditemukan',
             ], 404);
+        }
+
+        if ($denied = $this->denyIfOutOfProgramScope($period)) {
+            return $denied;
         }
 
         if ($period->effective_end_date && $period->effective_end_date->toDateString() < now()->toDateString()) {
@@ -274,6 +320,7 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             $this->deactivateSiblingPeriods(
                 (int) $period->academic_year_id,
                 $period->academic_quarter_id ? (int) $period->academic_quarter_id : null,
+                $period->program_id ? (int) $period->program_id : null,
                 (int) $period->id
             );
 
@@ -287,7 +334,7 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             return response()->json([
                 'status' => 'success',
                 'message' => "Jadwal \"{$period->name}\" berhasil diaktifkan dan mulai berlaku.",
-                'data' => $period->fresh(['academicYear', 'academicQuarter', 'creator'])->loadCount('schedules'),
+                'data' => $period->fresh(['academicYear', 'academicQuarter', 'program', 'creator'])->loadCount('schedules'),
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -314,13 +361,17 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             ], 404);
         }
 
+        if ($denied = $this->denyIfOutOfProgramScope($period)) {
+            return $denied;
+        }
+
         try {
             $period->update(['is_active' => false]);
 
             return response()->json([
                 'status' => 'success',
                 'message' => "Jadwal \"{$period->name}\" berhasil dinonaktifkan.",
-                'data' => $period->fresh(['academicYear', 'academicQuarter', 'creator'])->loadCount('schedules'),
+                'data' => $period->fresh(['academicYear', 'academicQuarter', 'program', 'creator'])->loadCount('schedules'),
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error deactivating schedule period: '.$e->getMessage());
@@ -344,6 +395,10 @@ class SchedulePeriodController extends Controller implements HasMiddleware
                 'status' => 'error',
                 'message' => 'Periode jadwal tidak ditemukan',
             ], 404);
+        }
+
+        if ($denied = $this->denyIfOutOfProgramScope($period)) {
+            return $denied;
         }
 
         if ($period->is_active) {
@@ -406,7 +461,7 @@ class SchedulePeriodController extends Controller implements HasMiddleware
                     : "Jadwal \"{$period->name}\" sudah kosong (0 sesi dihapus).",
                 'data' => [
                     'deleted_count' => $activeCount,
-                    'schedule_period' => $period->fresh(['academicYear', 'academicQuarter', 'creator'])->loadCount('schedules'),
+                    'schedule_period' => $period->fresh(['academicYear', 'academicQuarter', 'program', 'creator'])->loadCount('schedules'),
                 ],
             ], 200);
         } catch (\Exception $e) {
@@ -429,6 +484,10 @@ class SchedulePeriodController extends Controller implements HasMiddleware
                 'status' => 'error',
                 'message' => 'Periode jadwal tidak ditemukan',
             ], 404);
+        }
+
+        if ($denied = $this->denyIfOutOfProgramScope($period)) {
+            return $denied;
         }
 
         if ($period->is_active) {
@@ -474,10 +533,31 @@ class SchedulePeriodController extends Controller implements HasMiddleware
         }
     }
 
+    private function denyIfOutOfProgramScope(SchedulePeriod $period, bool $allowGlobalRead = false): ?JsonResponse
+    {
+        $userProgramId = auth('api')->user()?->getActiveProgramId();
+        if (! $userProgramId) {
+            return null;
+        }
+
+        if ($allowGlobalRead && is_null($period->program_id)) {
+            return null;
+        }
+
+        if ((int) $period->program_id !== $userProgramId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak memiliki akses untuk mengelola periode jadwal di luar program Anda.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     /**
-     * Nonaktifkan periode jadwal lain dalam tahun & caturwulan yang sama.
+     * Nonaktifkan periode jadwal lain dalam tahun, caturwulan, dan program yang sama.
      */
-    private function deactivateSiblingPeriods(int $academicYearId, ?int $academicQuarterId, ?int $exceptId = null): void
+    private function deactivateSiblingPeriods(int $academicYearId, ?int $academicQuarterId, ?int $programId = null, ?int $exceptId = null): void
     {
         $query = SchedulePeriod::where('academic_year_id', $academicYearId)
             ->where('is_active', true);
@@ -486,6 +566,12 @@ class SchedulePeriodController extends Controller implements HasMiddleware
             $query->where('academic_quarter_id', $academicQuarterId);
         } else {
             $query->whereNull('academic_quarter_id');
+        }
+
+        if ($programId) {
+            $query->where('program_id', $programId);
+        } else {
+            $query->whereNull('program_id');
         }
 
         if ($exceptId) {

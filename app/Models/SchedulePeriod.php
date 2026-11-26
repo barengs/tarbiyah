@@ -36,6 +36,11 @@ class SchedulePeriod extends Model
         return $this->belongsTo(AcademicQuarter::class);
     }
 
+    public function program()
+    {
+        return $this->belongsTo(Program::class);
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

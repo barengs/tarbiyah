@@ -18,9 +18,15 @@ import { Plus, Edit2, Trash2, Users, Home, School, Search, Info, RefreshCw, Cale
 import { useGetClassGroupsQuery } from '../store/slices/classGroupApi';
 import { useGetEducationsQuery } from '../store/slices/institutionApi';
 import { toast } from 'react-toastify';
+import { getUserProgramId, hasPermission } from '../utils/access';
 
 export default function StudentPage() {
     const navigate = useNavigate();
+    const user = useSelector((state) => state.auth?.user);
+    const userProgramId = getUserProgramId(user);
+    const canCreateStudent = hasPermission(user, 'siswa.create');
+    const canUpdateStudent = hasPermission(user, 'siswa.update');
+    const canDeleteStudent = hasPermission(user, 'siswa.delete');
     const [actionDropdownOpen, setActionDropdownOpen] = useState(false);
     const actionDropdownRef = useRef(null);
 
@@ -41,7 +47,12 @@ export default function StudentPage() {
     const [search, setSearch] = useState('');
     // Filter lanjutan dinamis
     const [periodFilter, setPeriodFilter] = useState('');
-    const [programFilter, setProgramFilter] = useState('');
+    const [programFilter, setProgramFilter] = useState(() => (userProgramId ? String(userProgramId) : ''));
+    useEffect(() => {
+        if (userProgramId) {
+            setProgramFilter(String(userProgramId));
+        }
+    }, [userProgramId]);
     const [educationFilter, setEducationFilter] = useState('');
     const [classGroupFilter, setClassGroupFilter] = useState('');
 
@@ -331,28 +342,36 @@ export default function StudentPage() {
                 );
             },
         },
-        {
-            key: 'actions',
-            label: 'Aksi',
-            render: (row) => (
-                <div className="flex items-center gap-1.5">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
-                        title="Edit Siswa"
-                    >
-                        <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                        title="Hapus Siswa"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
-                </div>
-            ),
-        },
+        ...(canUpdateStudent || canDeleteStudent
+            ? [
+                  {
+                      key: 'actions',
+                      label: 'Aksi',
+                      render: (row) => (
+                          <div className="flex items-center gap-1.5">
+                              {canUpdateStudent && (
+                                  <button
+                                      onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
+                                      className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                                      title="Edit Siswa"
+                                  >
+                                      <Edit2 className="w-4 h-4" />
+                                  </button>
+                              )}
+                              {canDeleteStudent && (
+                                  <button
+                                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
+                                      className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                                      title="Hapus Siswa"
+                                  >
+                                      <Trash2 className="w-4 h-4" />
+                                  </button>
+                              )}
+                          </div>
+                      ),
+                  },
+              ]
+            : []),
     ];
 
     return (
@@ -365,6 +384,7 @@ export default function StudentPage() {
                         Daftar seluruh siswa madrasah, memisahkan perlakuan santri mukim pesantren dan murid reguler luar (kalong).
                     </p>
                 </div>
+                {canCreateStudent && (
                 <div ref={actionDropdownRef} className="relative">
                     <button
                         type="button"
@@ -433,6 +453,7 @@ export default function StudentPage() {
                         </div>
                     )}
                 </div>
+                )}
             </div>
 
             
@@ -450,11 +471,17 @@ export default function StudentPage() {
                         {periods.map((p) => (<option key={p} value={p}>Angkatan {p}</option>))}
                     </select>
 
-                    <select value={programFilter} onChange={(e) => handleProgramChange(e.target.value)} className={filterSelect}>
-                        <option value="">Semua Program</option>
-                        <option value="0">Belum diatur</option>
-                        {programs.map((pg) => (<option key={pg.id} value={pg.id}>{pg.name}</option>))}
-                    </select>
+                    {!userProgramId ? (
+                        <select value={programFilter} onChange={(e) => handleProgramChange(e.target.value)} className={filterSelect}>
+                            <option value="">Semua Program</option>
+                            <option value="0">Belum diatur</option>
+                            {programs.map((pg) => (<option key={pg.id} value={pg.id}>{pg.name}</option>))}
+                        </select>
+                    ) : (
+                        <span className="px-2.5 py-1.5 text-xs font-bold border border-emerald-200 bg-emerald-50 text-emerald-800 rounded-md">
+                            Program {programs.find((p) => Number(p.id) === userProgramId)?.name || `#${userProgramId}`}
+                        </span>
+                    )}
 
                     <select value={educationFilter} onChange={(e) => handleEducationChange(e.target.value)} className={filterSelect}>
                         <option value="">Semua Jenjang Pendidikan</option>
@@ -470,9 +497,14 @@ export default function StudentPage() {
                         ))}
                     </select>
 
-                    {(periodFilter || programFilter !== '' || educationFilter || classGroupFilter) && (
+                    {(periodFilter || (!userProgramId && programFilter !== '') || educationFilter || classGroupFilter) && (
                         <button
-                            onClick={() => { setPeriodFilter(''); setProgramFilter(''); setEducationFilter(''); setClassGroupFilter(''); }}
+                            onClick={() => {
+                                setPeriodFilter('');
+                                if (!userProgramId) setProgramFilter('');
+                                setEducationFilter('');
+                                setClassGroupFilter('');
+                            }}
                             className="text-xs font-medium text-slate-500 underline hover:text-emerald-600 transition"
                         >
                             Hapus semua filter lanjutan

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { 
     useGetLessonHoursQuery, 
     useCreateLessonHourMutation, 
@@ -11,9 +12,21 @@ import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { Plus, Edit2, Trash2, Clock, Coffee, School, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { getUserProgramId, hasPermission } from '../../utils/access';
 
 export default function LessonHourPage() {
-    const [programFilter, setProgramFilter] = useState('');
+    const user = useSelector((state) => state.auth?.user);
+    const userProgramId = getUserProgramId(user);
+    const canCreateHour = hasPermission(user, 'jam-pelajaran.create');
+    const canUpdateHour = hasPermission(user, 'jam-pelajaran.update');
+    const canDeleteHour = hasPermission(user, 'jam-pelajaran.delete');
+
+    const [programFilter, setProgramFilter] = useState(() => (userProgramId ? String(userProgramId) : ''));
+    useEffect(() => {
+        if (userProgramId) {
+            setProgramFilter(String(userProgramId));
+        }
+    }, [userProgramId]);
     const { data: programsData } = useGetProgramsQuery();
     const programs = programsData?.data || [];
 
@@ -63,7 +76,7 @@ export default function LessonHourPage() {
         setEndTime('08:15');
         setOrder(lessonHours.length + 1);
         setIsBreak(false);
-        setProgramId(programFilter && programFilter !== 'general' ? String(programFilter) : '');
+        setProgramId(userProgramId ? String(userProgramId) : (programFilter && programFilter !== 'general' ? String(programFilter) : ''));
         setModalOpen(true);
     };
 
@@ -204,28 +217,36 @@ export default function LessonHourPage() {
                 );
             },
         },
-        {
-            key: 'actions',
-            label: 'Aksi',
-            render: (row) => (
-                <div className="flex items-center gap-1.5">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
-                        title="Edit Jam Pelajaran"
-                    >
-                        <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                        title="Hapus Jam Pelajaran"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
-                </div>
-            ),
-        },
+        ...(canUpdateHour || canDeleteHour
+            ? [
+                  {
+                      key: 'actions',
+                      label: 'Aksi',
+                      render: (row) => (
+                          <div className="flex items-center gap-1.5">
+                              {canUpdateHour && (
+                                  <button
+                                      onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
+                                      className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                                      title="Edit Jam Pelajaran"
+                                  >
+                                      <Edit2 className="w-4 h-4" />
+                                  </button>
+                              )}
+                              {canDeleteHour && (
+                                  <button
+                                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
+                                      className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                                      title="Hapus Jam Pelajaran"
+                                  >
+                                      <Trash2 className="w-4 h-4" />
+                                  </button>
+                              )}
+                          </div>
+                      ),
+                  },
+              ]
+            : []),
     ];
 
     return (
@@ -243,6 +264,7 @@ export default function LessonHourPage() {
                         Atur konfigurasi slot jam belajar harian santri, jam istirahat, dan waktu efektif madrasah.
                     </p>
                 </div>
+                {canCreateHour && (
                 <div>
                     <button
                         onClick={openCreateModal}
@@ -252,6 +274,7 @@ export default function LessonHourPage() {
                         Tambah Jam Pelajaran
                     </button>
                 </div>
+                )}
             </div>
 
             {/* Table */}
@@ -261,6 +284,7 @@ export default function LessonHourPage() {
                 isLoading={isLoading}
                 emptyMessage="Belum ada slot jam pelajaran diset"
                 filters={
+                    !userProgramId ? (
                     <div className="flex items-center gap-1.5">
                         <select
                             value={programFilter}
@@ -276,6 +300,11 @@ export default function LessonHourPage() {
                             <option value="general">Umum (Semua Program)</option>
                         </select>
                     </div>
+                    ) : (
+                        <span className="px-2.5 py-1 text-xs font-bold border border-emerald-200 bg-emerald-50 text-emerald-800 rounded-md">
+                            Program {programs.find((p) => Number(p.id) === userProgramId)?.name || `#${userProgramId}`}
+                        </span>
+                    )
                 }
             />
 
@@ -344,18 +373,24 @@ export default function LessonHourPage() {
                             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
                                 Program Pesantren
                             </label>
-                            <select
-                                value={programId}
-                                onChange={(e) => setProgramId(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
-                            >
-                                <option value="">Umum (Berlaku Semua Program)</option>
-                                {programs.map((prog) => (
-                                    <option key={prog.id} value={prog.id}>
-                                        Program {prog.name}{prog.code ? ` (${prog.code})` : ''}
-                                    </option>
-                                ))}
-                            </select>
+                            {userProgramId ? (
+                                <div className="mt-1 px-3 py-2 border border-slate-200 rounded-md text-sm bg-slate-50 text-slate-700 font-semibold">
+                                    Program {programs.find((p) => Number(p.id) === userProgramId)?.name || `#${userProgramId}`}
+                                </div>
+                            ) : (
+                                <select
+                                    value={programId}
+                                    onChange={(e) => setProgramId(e.target.value)}
+                                    className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                                >
+                                    <option value="">Umum (Berlaku Semua Program)</option>
+                                    {programs.map((prog) => (
+                                        <option key={prog.id} value={prog.id}>
+                                            Program {prog.name}{prog.code ? ` (${prog.code})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
                     </div>
 

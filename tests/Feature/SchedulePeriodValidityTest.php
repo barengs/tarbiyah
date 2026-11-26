@@ -10,6 +10,8 @@ use App\Models\LessonHour;
 use App\Models\LessonSchedule;
 use App\Models\Program;
 use App\Models\SchedulePeriod;
+use App\Models\Student;
+use App\Models\StudentClass;
 use App\Models\Study;
 use App\Models\Teacher;
 use App\Models\TeachingJournal;
@@ -401,5 +403,166 @@ class SchedulePeriodValidityTest extends TestCase
         $this->actingAs($adminKubar, 'api')
             ->postJson("/api/main/schedule-periods/{$tibyanPeriod->id}/deactivate")
             ->assertStatus(403);
+    }
+
+    public function test_attendance_grid_and_saves_require_active_published_schedule(): void
+    {
+        // Daftarkan 1 santri aktif di rombel
+        $student = Student::create([
+            'nis' => '14470001',
+            'name' => 'Ahmad Santri',
+            'gender' => 'L',
+            'status' => 'Aktif',
+        ]);
+
+        StudentClass::create([
+            'academic_year_id' => $this->year->id,
+            'educational_institution_id' => $this->classGroup->educational_institution_id,
+            'student_id' => $student->id,
+            'class_group_id' => $this->classGroup->id,
+            'status' => 'aktif',
+        ]);
+
+        // Kamis 2026-11-26 (dayOfWeekIso = 4)
+        $targetDate = '2026-11-26';
+
+        // 1. Belum ada jadwal diterbitkan (hanya draft is_active = false)
+        $draftPeriod = SchedulePeriod::create([
+            'name' => 'Jadwal Draft 1447',
+            'academic_year_id' => $this->year->id,
+            'academic_quarter_id' => $this->quarter->id,
+            'is_active' => false,
+        ]);
+
+        $draftSchedule = LessonSchedule::create([
+            'schedule_period_id' => $draftPeriod->id,
+            'academic_year_id' => $this->year->id,
+            'academic_quarter_id' => $this->quarter->id,
+            'class_group_id' => $this->classGroup->id,
+            'study_id' => $this->study->id,
+            'teacher_id' => $this->teacher->id,
+            'lesson_hour_id' => $this->lessonHour->id,
+            'day' => 4,
+            'is_active' => true,
+        ]);
+
+        // range-grid, day-grid, dan sheet tidak boleh membentuk daftar santri saat jadwal belum aktif
+        $this->actingAs($this->admin, 'api')
+            ->getJson("/api/main/journals/range-grid?class_group_id={$this->classGroup->id}&start_date={$targetDate}&end_date={$targetDate}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.days.0.has_schedule', false)
+            ->assertJsonCount(0, 'data.days.0.hours')
+            ->assertJsonCount(0, 'data.days.0.students');
+
+        $this->actingAs($this->admin, 'api')
+            ->getJson("/api/main/journals/day-grid?class_group_id={$this->classGroup->id}&date={$targetDate}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.has_schedule', false)
+            ->assertJsonCount(0, 'data.hours')
+            ->assertJsonCount(0, 'data.students');
+
+        $this->actingAs($this->admin, 'api')
+            ->getJson("/api/main/journals/sheet?class_group_id={$this->classGroup->id}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.has_schedule', false)
+            ->assertJsonCount(0, 'data.students');
+
+        // Endpoint simpan presensi menolak permintaan bila belum ada jadwal aktif/diterbitkan
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/main/journals/save-day-grid', [
+                'class_group_id' => $this->classGroup->id,
+                'date' => $targetDate,
+                'grid' => [
+                    [
+                        'student_id' => $student->id,
+                        'attendances' => [
+                            '1' => [
+                                'schedule_id' => $draftSchedule->id,
+                                'status' => 'hadir',
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(422);
+
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/main/journals/save-multiday-grid', [
+                'class_group_id' => $this->classGroup->id,
+                'days' => [
+                    [
+                        'date' => $targetDate,
+                        'grid' => [
+                            [
+                                'student_id' => $student->id,
+                                'attendances' => [
+                                    '1' => [
+                                        'schedule_id' => $draftSchedule->id,
+                                        'status' => 'hadir',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(422);
+
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/main/journals/batch-presence', [
+                'class_group_id' => $this->classGroup->id,
+                'mode' => 'daily',
+                'date' => $targetDate,
+            ])
+            ->assertStatus(422);
+
+        // 2. Terbitkan / berlakukan jadwal -> presensi otomatis terbentuk dan dapat disimpan
+        $this->actingAs($this->admin, 'api')
+            ->postJson("/api/main/schedule-periods/{$draftPeriod->id}/activate")
+            ->assertStatus(200);
+
+        $this->actingAs($this->admin, 'api')
+            ->getJson("/api/main/journals/range-grid?class_group_id={$this->classGroup->id}&start_date={$targetDate}&end_date={$targetDate}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.days.0.has_schedule', true)
+            ->assertJsonCount(1, 'data.days.0.hours')
+            ->assertJsonCount(1, 'data.days.0.students');
+
+        $this->actingAs($this->admin, 'api')
+            ->getJson("/api/main/journals/day-grid?class_group_id={$this->classGroup->id}&date={$targetDate}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.has_schedule', true)
+            ->assertJsonCount(1, 'data.hours')
+            ->assertJsonCount(1, 'data.students');
+
+        $this->actingAs($this->admin, 'api')
+            ->getJson("/api/main/journals/sheet?class_group_id={$this->classGroup->id}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.has_schedule', true)
+            ->assertJsonCount(1, 'data.students');
+
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/main/journals/save-multiday-grid', [
+                'class_group_id' => $this->classGroup->id,
+                'days' => [
+                    [
+                        'date' => $targetDate,
+                        'grid' => [
+                            [
+                                'student_id' => $student->id,
+                                'attendances' => [
+                                    '1' => [
+                                        'schedule_id' => $draftSchedule->id,
+                                        'status' => 'hadir',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.journals_count', 1)
+            ->assertJsonPath('data.presences_count', 1);
     }
 }

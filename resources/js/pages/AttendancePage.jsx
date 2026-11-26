@@ -222,6 +222,8 @@ export default function AttendancePage() {
     const currentDayDate = currentDayObj?.date || effectiveStartDate;
     const currentDayRows = multiDayState[currentDayDate] || [];
     const currentDayNotes = multiDayNotes[currentDayDate] || {};
+    const hasAnyScheduledHours = daysList.some((d) => (d.hours?.length || 0) > 0);
+    const hasCurrentDayHours = (currentDayObj?.hours?.length || 0) > 0;
 
     // Ubah status kehadiran santri di jam tertentu pada hari aktif
     const handleSetStatus = (studentId, hourOrder, newStatus) => {
@@ -308,7 +310,7 @@ export default function AttendancePage() {
             });
         });
         if (map.size === 0) {
-            return [1, 2, 3, 4, 5, 6].map((n) => ({ order: n, name: `Jam ${n}` }));
+            return [];
         }
         return Array.from(map.entries())
             .sort((a, b) => a[0] - b[0])
@@ -396,6 +398,10 @@ export default function AttendancePage() {
     const [saveMultiDayGrid, { isLoading: isSavingMultiDay }] = useSaveMultiDayGridMutation();
 
     const handleSaveAllDays = async () => {
+        if (!hasAnyScheduledHours) {
+            toast.error('Tidak ada jadwal pelajaran aktif/diterbitkan pada tanggal yang dipilih.');
+            return;
+        }
         try {
             const payloadDays = daysList.map(day => {
                 const dateKey = day.date;
@@ -718,58 +724,60 @@ export default function AttendancePage() {
                                 </button>
                             </div>
 
-                            {/* Tombol Aksi Cepat & Simpan */}
-                            <div className="flex items-center gap-2 shrink-0">
-                                <ActionDropdown
-                                    label="Aksi Cepat"
-                                    icon={Sparkles}
-                                    variant="secondary"
-                                    items={[
-                                        {
-                                            id: 'quick_all_hadir',
-                                            label: 'Hadir Semua Hari Ini',
-                                            description: 'Setel status seluruh santri hari ini menjadi Hadir',
-                                            icon: CheckCheck,
-                                            iconColor: 'text-emerald-600',
-                                            onClick: handleSetAllStudentsHadir,
-                                        },
-                                        entryMode !== 'daily' ? {
-                                            id: 'quick_rule_leave',
-                                            label: 'Terapkan Izin Berhari-hari',
-                                            description: 'Catat santri izin/sakit beberapa hari sekaligus',
-                                            icon: Plus,
-                                            iconColor: 'text-amber-600',
-                                            onClick: handleOpenRuleModal,
-                                        } : null,
-                                        {
-                                            id: 'quick_print_pdf',
-                                            label: 'Cetak Lembar Presensi (PDF)',
-                                            description: 'Download formulir harian atau rekap pekan',
-                                            icon: Printer,
-                                            iconColor: 'text-slate-700',
-                                            dividerBefore: true,
-                                            onClick: () => setPrintModalOpen(true),
-                                        },
-                                    ].filter(Boolean)}
-                                />
+                            {/* Tombol Aksi Cepat & Simpan (hanya aktif jika sudah ada jadwal terbit) */}
+                            {hasAnyScheduledHours && (
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <ActionDropdown
+                                        label="Aksi Cepat"
+                                        icon={Sparkles}
+                                        variant="secondary"
+                                        items={[
+                                            hasCurrentDayHours ? {
+                                                id: 'quick_all_hadir',
+                                                label: 'Hadir Semua Hari Ini',
+                                                description: 'Setel status seluruh santri hari ini menjadi Hadir',
+                                                icon: CheckCheck,
+                                                iconColor: 'text-emerald-600',
+                                                onClick: handleSetAllStudentsHadir,
+                                            } : null,
+                                            entryMode !== 'daily' ? {
+                                                id: 'quick_rule_leave',
+                                                label: 'Terapkan Izin Berhari-hari',
+                                                description: 'Catat santri izin/sakit beberapa hari sekaligus',
+                                                icon: Plus,
+                                                iconColor: 'text-amber-600',
+                                                onClick: handleOpenRuleModal,
+                                            } : null,
+                                            {
+                                                id: 'quick_print_pdf',
+                                                label: 'Cetak Lembar Presensi (PDF)',
+                                                description: 'Download formulir harian atau rekap pekan',
+                                                icon: Printer,
+                                                iconColor: 'text-slate-700',
+                                                dividerBefore: true,
+                                                onClick: () => setPrintModalOpen(true),
+                                            },
+                                        ].filter(Boolean)}
+                                    />
 
-                                <button
-                                    type="button"
-                                    onClick={handleSaveAllDays}
-                                    disabled={isSavingMultiDay}
-                                    className="px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition flex items-center gap-1.5"
-                                >
-                                    <Save className="w-4 h-4 text-blue-200" />
-                                    {isSavingMultiDay 
-                                        ? 'Menyimpan...' 
-                                        : entryMode === 'weekly' 
-                                            ? 'Simpan Presensi Sepekan (Kamis)'
-                                            : entryMode === 'range'
-                                                ? `Simpan ${daysList.length} Hari Sekaligus`
-                                                : 'Simpan Presensi Hari Ini'
-                                    }
-                                </button>
-                            </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveAllDays}
+                                        disabled={isSavingMultiDay}
+                                        className="px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition flex items-center gap-1.5"
+                                    >
+                                        <Save className="w-4 h-4 text-blue-200" />
+                                        {isSavingMultiDay 
+                                            ? 'Menyimpan...' 
+                                            : entryMode === 'weekly' 
+                                                ? 'Simpan Presensi Sepekan (Kamis)'
+                                                : entryMode === 'range'
+                                                    ? `Simpan ${daysList.length} Hari Sekaligus`
+                                                    : 'Simpan Presensi Hari Ini'
+                                        }
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Input Pemilihan Tanggal / Rentang */}
@@ -879,7 +887,9 @@ export default function AttendancePage() {
                                                 Hari Ini
                                             </span>
                                         )}
-                                        {hasAbsent ? (
+                                        {(d.hours?.length || 0) === 0 ? (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-300" title="Belum ada jadwal aktif" />
+                                        ) : hasAbsent ? (
                                             <span className="w-2 h-2 rounded-full bg-amber-400" title="Ada catatan ketidakhadiran di hari ini" />
                                         ) : (
                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" title="Semua santri hadir" />
@@ -890,13 +900,71 @@ export default function AttendancePage() {
                         </div>
                     )}
 
-                    {/* Ringkasan Susunan Jam Pelajaran Hari Aktif */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-md p-3">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5 text-[#093c30]" />
-                                Susunan Jam Pelajaran Hari {currentDayObj?.day_name} &bull; {currentDayObj?.date} ({currentDayObj?.hours?.length || 6} Jam KBM)
-                            </span>
+                    {isLoadingRange ? (
+                        <div className="bg-white border border-slate-200 rounded-md p-8 text-center text-xs text-slate-500">
+                            Memuat susunan jadwal &amp; daftar presensi santri...
+                        </div>
+                    ) : !hasCurrentDayHours ? (
+                        <div className="bg-white border border-slate-200 rounded-md shadow-xs overflow-hidden">
+                            <div className="p-8 text-center space-y-2.5">
+                                <div className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-amber-50 border border-amber-200 text-amber-600 mx-auto">
+                                    <AlertTriangle className="w-5 h-5" />
+                                </div>
+                                <h3 className="text-sm font-bold text-slate-800">
+                                    Belum Ada Jadwal Aktif / Diterbitkan ({currentDayObj?.day_name || getDayNameFromDate(currentDayDate)} &bull; {currentDayDate})
+                                </h3>
+                                <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
+                                    Tabel presensi hanya terbentuk apabila jadwal pelajaran untuk kelas <b>{currentGroup?.name || '-'}</b> pada tanggal tersebut sudah dibuat dan berstatus <b>Aktif / Berlaku</b> di menu <b>Jadwal Pelajaran (KBM)</b>.
+                                </p>
+                            </div>
+
+                            {daysList.length > 1 && (
+                                <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            disabled={activeDayIndex === 0}
+                                            onClick={() => setActiveDayIndex(prev => Math.max(0, prev - 1))}
+                                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded hover:bg-slate-50 disabled:opacity-40 flex items-center gap-1"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" /> Hari Sebelumnya
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={activeDayIndex === daysList.length - 1}
+                                            onClick={() => setActiveDayIndex(prev => Math.min(daysList.length - 1, prev + 1))}
+                                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded hover:bg-slate-50 disabled:opacity-40 flex items-center gap-1"
+                                        >
+                                            Hari Berikutnya <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    {hasAnyScheduledHours && (
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveAllDays}
+                                            disabled={isSavingMultiDay}
+                                            className="px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold rounded shadow-xs transition flex items-center gap-2"
+                                        >
+                                            <Save className="w-4 h-4 text-blue-200" />
+                                            {isSavingMultiDay
+                                                ? 'Menyimpan...'
+                                                : entryMode === 'weekly'
+                                                    ? 'Simpan Presensi Sepekan (Sabtu s.d. Kamis)'
+                                                    : `Simpan ${daysList.length} Hari Sekaligus`}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            {/* Ringkasan Susunan Jam Pelajaran Hari Aktif */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-md p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-[#093c30]" />
+                                        Susunan Jam Pelajaran Hari {currentDayObj?.day_name} &bull; {currentDayObj?.date} ({currentDayObj?.hours?.length ?? 0} Jam KBM)
+                                    </span>
                             <span className="text-[11px] text-slate-500 font-medium">
                                 Posisi mapel disesuaikan dengan jadwal resmi pada hari ini
                             </span>
@@ -1175,6 +1243,8 @@ export default function AttendancePage() {
                             </button>
                         </div>
                     </div>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -1262,11 +1332,15 @@ export default function AttendancePage() {
                             </div>
                             <div>
                                 <span className="text-slate-400 block text-[11px]">Jam Pelajaran</span>
-                                <span className="font-mono text-slate-800 font-semibold">{sheet?.meta?.lesson_hour || '06:30 - 08:00'}</span>
+                                <span className="font-mono text-slate-800 font-semibold">{sheet?.meta?.lesson_hour || '-'}</span>
                             </div>
                             <div>
                                 <span className="text-slate-400 block text-[11px]">Status Presensi</span>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">Aktif</span>
+                                {sheet?.has_schedule === false ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Belum Ada Jadwal</span>
+                                ) : (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">Aktif</span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1336,8 +1410,10 @@ export default function AttendancePage() {
                                         </tr>
                                     ) : !sheet?.students || sheet.students.length === 0 ? (
                                         <tr>
-                                            <td colSpan={18} className="p-8 text-center text-slate-400 italic">
-                                                Belum ada santri terdaftar di rombel ini.
+                                            <td colSpan={18} className="p-8 text-center text-slate-500 italic">
+                                                {sheet?.has_schedule === false
+                                                    ? 'Presensi belum terbentuk karena jadwal pelajaran belum dibuat dan diterbitkan (aktif).'
+                                                    : 'Belum ada santri terdaftar di rombel ini.'}
                                             </td>
                                         </tr>
                                     ) : (

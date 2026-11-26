@@ -1194,44 +1194,50 @@ class TeachingJournalController extends Controller implements HasMiddleware
                 ];
             }
 
-            // Matriks presensi siswa x pertemuan
+            $hasActiveSchedule = ! is_null($schedule);
+            $hasRecordedJournals = $journals->isNotEmpty();
+
+            // Matriks presensi siswa x pertemuan (hanya terbentuk jika jadwal sudah aktif/berlaku atau sudah ada jurnal tercatat)
             $sheetRows = [];
-            foreach ($students as $sc) {
-                $s = $sc->student;
-                $rowAttendances = [];
+            if ($hasActiveSchedule || $hasRecordedJournals) {
+                foreach ($students as $sc) {
+                    $s = $sc->student;
+                    $rowAttendances = [];
 
-                for ($i = 1; $i <= 16; $i++) {
-                    $j = $journals->get($i);
-                    $status = '-';
-                    $notes = null;
+                    for ($i = 1; $i <= 16; $i++) {
+                        $j = $journals->get($i);
+                        $status = '-';
+                        $notes = null;
 
-                    if ($j) {
-                        $presence = $j->presences->firstWhere('student_id', $s->id);
-                        if ($presence) {
-                            $status = $presence->status; // hadir, sakit, izin, alpa
-                            $notes = $presence->notes;
+                        if ($j) {
+                            $presence = $j->presences->firstWhere('student_id', $s->id);
+                            if ($presence) {
+                                $status = $presence->status; // hadir, sakit, izin, alpa
+                                $notes = $presence->notes;
+                            }
                         }
+
+                        $rowAttendances[$i] = [
+                            'status' => $status,
+                            'notes' => $notes,
+                        ];
                     }
 
-                    $rowAttendances[$i] = [
-                        'status' => $status,
-                        'notes' => $notes,
+                    $sheetRows[] = [
+                        'student_id' => $s->id,
+                        'nis' => $s->nis,
+                        'name' => $s->name,
+                        'gender' => $s->gender,
+                        'attendances' => $rowAttendances,
                     ];
                 }
-
-                $sheetRows[] = [
-                    'student_id' => $s->id,
-                    'nis' => $s->nis,
-                    'name' => $s->name,
-                    'gender' => $s->gender,
-                    'attendances' => $rowAttendances,
-                ];
             }
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Lembar presensi berhasil dimuat',
                 'data' => [
+                    'has_schedule' => $hasActiveSchedule,
                     'meta' => [
                         'academic_year' => $classGroup->academicYear?->name ?? '1446/1447 H',
                         'program' => $classGroup->program?->name ?? 'Kubar',
@@ -1240,7 +1246,7 @@ class TeachingJournalController extends Controller implements HasMiddleware
                         'class_group' => $classGroup->name,
                         'study' => $study?->name ?? 'Semua Mata Pelajaran',
                         'teacher' => $schedule?->teacher?->name ?? $classGroup->homeroomTeacher?->name ?? '-',
-                        'lesson_hour' => $schedule?->lessonHour ? ($schedule->lessonHour->start_time.' - '.$schedule->lessonHour->end_time) : '07:00 - 08:30',
+                        'lesson_hour' => $schedule?->lessonHour ? ($schedule->lessonHour->start_time.' - '.$schedule->lessonHour->end_time) : '-',
                     ],
                     'meetings' => $meetings,
                     'students' => $sheetRows,
@@ -1401,6 +1407,15 @@ class TeachingJournalController extends Controller implements HasMiddleware
                 }
             }
 
+            if ($journalsCreated === 0) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tidak ada jadwal pelajaran aktif/diterbitkan untuk tanggal yang dipilih.',
+                ], 422);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -1505,42 +1520,44 @@ class TeachingJournalController extends Controller implements HasMiddleware
                 ->sortBy(fn ($sc) => $sc->student->name ?? '')
                 ->values();
 
-            // Susun baris santri x jam pelajaran
+            // Susun baris santri x jam pelajaran (hanya jika ada jadwal pelajaran aktif/diterbitkan)
             $studentRows = [];
-            foreach ($students as $sc) {
-                $st = $sc->student;
-                $attendances = [];
+            if (count($hours) > 0) {
+                foreach ($students as $sc) {
+                    $st = $sc->student;
+                    $attendances = [];
 
-                foreach ($hours as $h) {
-                    $order = $h['order'];
-                    $schedId = $h['schedule_id'];
-                    $status = 'hadir'; // DEFAULT: SELALU HADIR
-                    $notes = null;
+                    foreach ($hours as $h) {
+                        $order = $h['order'];
+                        $schedId = $h['schedule_id'];
+                        $status = 'hadir'; // DEFAULT: SELALU HADIR
+                        $notes = null;
 
-                    if ($existingJournals->has($schedId)) {
-                        $j = $existingJournals->get($schedId);
-                        $presence = $j->presences->firstWhere('student_id', $st->id);
-                        if ($presence) {
-                            $status = $presence->status;
-                            $notes = $presence->notes;
+                        if ($existingJournals->has($schedId)) {
+                            $j = $existingJournals->get($schedId);
+                            $presence = $j->presences->firstWhere('student_id', $st->id);
+                            if ($presence) {
+                                $status = $presence->status;
+                                $notes = $presence->notes;
+                            }
                         }
+
+                        $attendances[$order] = [
+                            'schedule_id' => $schedId,
+                            'study_id' => $h['study_id'],
+                            'status' => $status,
+                            'notes' => $notes,
+                        ];
                     }
 
-                    $attendances[$order] = [
-                        'schedule_id' => $schedId,
-                        'study_id' => $h['study_id'],
-                        'status' => $status,
-                        'notes' => $notes,
+                    $studentRows[] = [
+                        'student_id' => $st->id,
+                        'nis' => $st->nis,
+                        'name' => $st->name,
+                        'gender' => $st->gender,
+                        'attendances' => $attendances,
                     ];
                 }
-
-                $studentRows[] = [
-                    'student_id' => $st->id,
-                    'nis' => $st->nis,
-                    'name' => $st->name,
-                    'gender' => $st->gender,
-                    'attendances' => $attendances,
-                ];
             }
 
             return response()->json([
@@ -1550,6 +1567,7 @@ class TeachingJournalController extends Controller implements HasMiddleware
                     'date' => $refDate->format('Y-m-d'),
                     'day_number' => $dayNumber,
                     'day_name' => $dayName,
+                    'has_schedule' => count($hours) > 0,
                     'class_group' => [
                         'id' => $classGroup->id,
                         'name' => $classGroup->name,
@@ -1620,9 +1638,14 @@ class TeachingJournalController extends Controller implements HasMiddleware
                         continue;
                     }
 
-                    // Ambil atau buat jurnal untuk sesi jadwal ini
+                    // Ambil atau buat jurnal untuk sesi jadwal aktif & berlaku ini
                     if (! isset($journalCache[$schedId])) {
-                        $sched = LessonSchedule::with('lessonHour')->find($schedId);
+                        $sched = LessonSchedule::with('lessonHour')
+                            ->where('class_group_id', $classGroup->id)
+                            ->where('day', $isoDay)
+                            ->where('is_active', true)
+                            ->fromActivePeriod($refDate->format('Y-m-d'))
+                            ->find($schedId);
                         if (! $sched) {
                             continue;
                         }
@@ -1659,6 +1682,15 @@ class TeachingJournalController extends Controller implements HasMiddleware
                         ]
                     );
                 }
+            }
+
+            if (count($journalCache) === 0) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tidak ada jadwal pelajaran aktif/diterbitkan untuk tanggal yang dipilih.',
+                ], 422);
             }
 
             DB::commit();
@@ -1785,48 +1817,51 @@ class TeachingJournalController extends Controller implements HasMiddleware
                     ->get()
                     ->keyBy('lesson_schedule_id');
 
-                // Susun baris santri untuk hari ini
+                // Susun baris santri untuk hari ini (hanya jika ada jadwal pelajaran aktif/diterbitkan)
                 $studentRows = [];
-                foreach ($students as $sc) {
-                    $st = $sc->student;
-                    $attendances = [];
+                if (count($hours) > 0) {
+                    foreach ($students as $sc) {
+                        $st = $sc->student;
+                        $attendances = [];
 
-                    foreach ($hours as $h) {
-                        $order = $h['order'];
-                        $schedId = $h['schedule_id'];
-                        $status = 'hadir'; // DEFAULT SELALU HADIR
-                        $notes = null;
+                        foreach ($hours as $h) {
+                            $order = $h['order'];
+                            $schedId = $h['schedule_id'];
+                            $status = 'hadir'; // DEFAULT SELALU HADIR
+                            $notes = null;
 
-                        if ($existingJournals->has($schedId)) {
-                            $j = $existingJournals->get($schedId);
-                            $presence = $j->presences->firstWhere('student_id', $st->id);
-                            if ($presence) {
-                                $status = $presence->status;
-                                $notes = $presence->notes;
+                            if ($existingJournals->has($schedId)) {
+                                $j = $existingJournals->get($schedId);
+                                $presence = $j->presences->firstWhere('student_id', $st->id);
+                                if ($presence) {
+                                    $status = $presence->status;
+                                    $notes = $presence->notes;
+                                }
                             }
+
+                            $attendances[$order] = [
+                                'schedule_id' => $schedId,
+                                'study_id' => $h['study_id'],
+                                'status' => $status,
+                                'notes' => $notes,
+                            ];
                         }
 
-                        $attendances[$order] = [
-                            'schedule_id' => $schedId,
-                            'study_id' => $h['study_id'],
-                            'status' => $status,
-                            'notes' => $notes,
+                        $studentRows[] = [
+                            'student_id' => $st->id,
+                            'nis' => $st->nis,
+                            'name' => $st->name,
+                            'gender' => $st->gender,
+                            'attendances' => $attendances,
                         ];
                     }
-
-                    $studentRows[] = [
-                        'student_id' => $st->id,
-                        'nis' => $st->nis,
-                        'name' => $st->name,
-                        'gender' => $st->gender,
-                        'attendances' => $attendances,
-                    ];
                 }
 
                 $daysResult[] = [
                     'date' => $curDateStr,
                     'day_number' => $isoDay,
                     'day_name' => $dayName,
+                    'has_schedule' => count($hours) > 0,
                     'hours_count' => count($hours),
                     'hours' => $hours,
                     'students' => $studentRows,
@@ -1908,7 +1943,12 @@ class TeachingJournalController extends Controller implements HasMiddleware
                         }
 
                         if (! isset($journalCache[$schedId])) {
-                            $sched = LessonSchedule::with('lessonHour')->find($schedId);
+                            $sched = LessonSchedule::with('lessonHour')
+                                ->where('class_group_id', $classGroup->id)
+                                ->where('day', $isoDay)
+                                ->where('is_active', true)
+                                ->fromActivePeriod($dateStr)
+                                ->find($schedId);
                             if (! $sched) {
                                 continue;
                             }
@@ -1948,6 +1988,15 @@ class TeachingJournalController extends Controller implements HasMiddleware
                         $totalPresencesSaved++;
                     }
                 }
+            }
+
+            if ($totalJournalsSaved === 0) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tidak ada jadwal pelajaran aktif/diterbitkan pada rentang tanggal yang dipilih.',
+                ], 422);
             }
 
             DB::commit();
